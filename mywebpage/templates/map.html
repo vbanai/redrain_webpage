@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP Address Density Map - Hungary</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <!-- Leaflet MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+    <!-- Custom CSS -->
+    <style>
+        #map {
+            height: 90vh; /* 80% of the viewport height */
+            width: 110%;
+        }
+        .circle-label {
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 50%;
+            color: white;
+            text-align: center;
+            font-size: 12px;
+            line-height: 20px;
+            height: 20px;
+            width: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <!-- Leaflet.heat JavaScript -->
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <!-- Leaflet MarkerCluster JavaScript -->
+    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+    <!-- Your JavaScript code for generating the map -->
+    <script>
+        // Initialize the map
+        var map = L.map('map').setView([47.1625, 19.5033], 7); // Centered on Hungary
+
+        // Add a tile layer (OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            
+        }).addTo(map);
+
+        // Example data: IP addresses and their locations (simulated)
+        var ipData = {{ ip_data|tojson }};
+
+        // Function to group IP addresses by close locations using a tolerance value
+        function groupByLocation(ipData, tolerance) {
+            var groupedData = {};
+            ipData.forEach(function(ip) {
+                var key = null;
+                for (var k in groupedData) {
+                    if (groupedData.hasOwnProperty(k)) {
+                        var location = groupedData[k].location;
+                        var distance = Math.sqrt(
+                            Math.pow(location.lat - ip.location.lat, 2) + 
+                            Math.pow(location.lng - ip.location.lng, 2)
+                        );
+                        if (distance < tolerance) {
+                            key = k;
+                            break;
+                        }
+                    }
+                }
+                if (!key) {
+                    key = ip.location.lat.toFixed(4) + ',' + ip.location.lng.toFixed(4);
+                    groupedData[key] = { count: 0, location: ip.location };
+                }
+                groupedData[key].count++;
+            });
+            return groupedData;
+        }
+
+        // Group the IP addresses by location with a tolerance of 0.001 degrees
+        var groupedData = groupByLocation(ipData, 0.001);
+
+        // Function to get color based on count
+        function getColor(d) {
+            return d > 10 ? '#800026' :
+                   d > 5  ? '#BD0026' :
+                   d > 2  ? '#E31A1C' :
+                   d > 1  ? '#FC4E2A' :
+                            '#FD8D3C';
+        }
+
+        // Function to add circle markers with counts for IP addresses
+        function addCircleMarkers(groupedData) {
+            var markers = [];
+            for (var key in groupedData) {
+                if (groupedData.hasOwnProperty(key)) {
+                    var data = groupedData[key];
+                    var circle = L.circleMarker([data.location.lat, data.location.lng], {
+                        radius: 20,
+                        color: getColor(data.count),
+                        fillColor: getColor(data.count),
+                        fillOpacity: 0.5
+                    }).addTo(map);
+                    markers.push(circle);
+                    var label = L.divIcon({
+                        className: 'circle-label',
+                        html: data.count,
+                        iconSize: [20, 20]
+                    });
+                    L.marker([data.location.lat, data.location.lng], { icon: label }).addTo(map);
+                }
+            }
+            return markers;
+        }
+
+        // Add circle markers to the map
+        var markers = addCircleMarkers(groupedData);
+
+        // Function to set the map view to the first marker
+        function centerMapOnFirstMarker(markers) {
+            if (markers.length > 0) {
+                map.setView(markers[0].getLatLng(), 8); // Zoomed in to ensure circles are visible
+            }
+        }
+
+        // Center the map on the first marker
+        centerMapOnFirstMarker(markers);
+
+        // Prepare heatmap data
+        var heatData = ipData.map(function(ip) {
+            return [ip.location.lat, ip.location.lng, 1]; // Last value is intensity
+        });
+
+        // Add heatmap layer
+        var heat = L.heatLayer(heatData, {radius: 25}).addTo(map);
+
+       
+
+        // Function to handle map resizing
+        function handleResize() {
+            var mapContainer = document.getElementById('map');
+            map.invalidateSize(); // Update the map size
+        }
+
+        // Event listener for window resize
+        window.addEventListener('resize', handleResize);
+    </script>
+</body>
+</html>

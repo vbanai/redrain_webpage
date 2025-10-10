@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Red Rain - Chats </title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.0.0/css/line.css" />
+
+ 
+    <link rel="stylesheet" href="{{ url_for('static', filename='chattable.css') }}">
+  
+    
+  </head>
+    
+
+<body>
+  <div class="header">
+ 
+    <div style="flex:1">
+      <img src="static/RedRainLogo8.png" alt="" class="hamburger">
+    </div>
+   
+    <div style="flex:1">
+      <h1 data-lang="header1" style="color:white; font-size:clamp(15px, 1.7vw, 20px);">Chat Messages </h1>
+      <p data-lang="header2" style=" color:white; text-align: center; font-size:clamp(9px, 1vw, 16px);">/ {{start_date}} to {{end_date}} /</p>
+    </div>
+  </div> 
+    
+    <div class="table-container">
+      <div class="table-wrapper"></div>
+        <table id="myTable">
+          <thead>
+              <tr>
+                {% for column in columns %}
+                  {% if loop.index in [1, 2, 4, 5, 6] %}
+                    <th style="width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" data-lang="{{ column }}">{{ column }}</th>
+                  {% elif loop.index == 3 %}
+                    <th style="width: auto;" data-lang="{{ column }}">{{ column }}</th>
+                  {% else %}
+                    <th data-lang="{{ column }}">{{ column }}</th>
+                  {% endif %}
+                {% endfor %}
+              </tr>
+          </thead>
+          <tbody>
+              {% for row in rows %}
+                  <tr>
+                      {% for cell in row %}
+                          <td>{{ cell | safe }}</td>
+                      {% endfor %}
+                  </tr>
+              {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <script>
+      // Get the table element
+      const table = document.getElementById('myTable');
+      const rows = Array.from(table.getElementsByTagName('tr')).slice(1); // Get all rows except the header
+    
+      // Function to group rows by date
+      function groupByDate(rows) {
+          const groups = {};
+          rows.forEach(row => {
+              const createdAt = row.getElementsByTagName('td')[0].textContent.trim();
+              const dateOnly = createdAt.split(' ')[0]; // Extract only the date
+              if (!groups[dateOnly]) {
+                  groups[dateOnly] = [];
+              }
+              groups[dateOnly].push(row);
+          });
+          return groups;
+      }
+    
+      // Function to sort rows within each date group
+      function sortWithinGroup(group) {
+          return group.sort((a, b) => {
+              const createdAtA = a.getElementsByTagName('td')[0].textContent.trim();
+              const createdAtB = b.getElementsByTagName('td')[0].textContent.trim();
+              const userIdA = a.getElementsByTagName('td')[1].textContent.trim();
+              const userIdB = b.getElementsByTagName('td')[1].textContent.trim();
+              
+              // Sort by created_at, then by user_id
+              if (createdAtA < createdAtB) return -1;
+              if (createdAtA > createdAtB) return 1;
+              if (userIdA < userIdB) return -1;
+              if (userIdA > userIdB) return 1;
+              return 0;
+          });
+      }
+    
+      // Function to reorder rows by user_id within each date group
+      function reorderByUserId(sortedRows) {
+          const userGroups = {};
+          sortedRows.forEach(row => {
+              const userId = row.getElementsByTagName('td')[1].textContent.trim();
+              if (!userGroups[userId]) {
+                  userGroups[userId] = [];
+              }
+              userGroups[userId].push(row);
+          });
+    
+          const reorderedRows = [];
+          Object.keys(userGroups).sort((a, b) => {
+              // Compare by the earliest created_at within each user group
+              const firstRowA = userGroups[a][0];
+              const firstRowB = userGroups[b][0];
+              const createdAtA = firstRowA.getElementsByTagName('td')[0].textContent.trim();
+              const createdAtB = firstRowB.getElementsByTagName('td')[0].textContent.trim();
+              return createdAtA.localeCompare(createdAtB);
+          }).forEach(userId => {
+              reorderedRows.push(...userGroups[userId]);
+          });
+    
+          return reorderedRows;
+      }
+    
+      // Main processing
+      const groupedRows = groupByDate(rows);
+      let finalRows = [];
+    
+      Object.keys(groupedRows).sort().forEach(date => {
+          const sortedRows = sortWithinGroup(groupedRows[date]);
+          const reorderedRows = reorderByUserId(sortedRows);
+          finalRows.push(...reorderedRows);
+      });
+    
+      // Clear the current table body
+      const tbody = table.getElementsByTagName('tbody')[0];
+      tbody.innerHTML = '';
+    
+      // Append the final sorted and reordered rows
+      finalRows.forEach(row => {
+          tbody.appendChild(row);
+      });
+    
+      // Now, apply background colors
+      let previousUserId = null;
+      let previousDate = null;
+      let isEven = false;
+    
+      finalRows.forEach(row => {
+          const cells = row.getElementsByTagName('td');
+          const createdAt = cells[0].textContent.trim();
+          const userId = cells[1].textContent.trim();
+          const dateOnly = createdAt.split(' ')[0];
+    
+          if (userId !== previousUserId || dateOnly !== previousDate) {
+              isEven = !isEven;
+              previousUserId = userId;
+              previousDate = dateOnly;
+          }
+    
+          if (isEven) {
+              row.classList.add('bg-color-even');
+          } else {
+              row.classList.add('bg-color-odd');
+          }
+      });
+
+      const translations = {
+            en: {
+                created_at: "Arrival date",
+                user_id: "User ID",
+                message: "Message",
+                latitude: "Latitude",
+                longitude: "Longitude",
+                location: "Location",
+                header1:"Chat Messages",
+                header2:"/ {{start_date}} to {{end_date}} /",
+                user_label: "USER",
+                assistant_label: "ASSISTANT"
+            },
+            hu: {
+                created_at: "Beérkezés",
+                user_id: "Azonosító",
+                message: "Üzenet",
+                latitude: "Szélesség",
+                longitude: "Hosszúság",
+                location: "Hely",
+                header1:"Üzenetek",
+                header2:"/ {{start_date}} - {{end_date}} /",
+                user_label: "ÜGYFÉL",
+                assistant_label: "ASSZISZTENS"
+            }
+            };
+
+              // Set language on page load
+      
+
+      // Set language on page load
+      window.onload = function() {
+          if (typeof translations !== 'undefined') {
+              // Use backend-provided language if available, otherwise use localStorage, otherwise default to 'hu'
+              const backendLang = "{{ language }}"; // Jinja variable
+              const storedLang = localStorage.getItem('language');
+              const language = backendLang && backendLang !== "" ? backendLang : (storedLang || 'hu');
+
+              setLanguage(language);
+          }
+      };
+
+      function setLanguage(language) {
+        console.log("Setting language:", language);
+        document.querySelectorAll('[data-lang]').forEach(element => {
+          const langKey = element.getAttribute('data-lang');
+          const translation = translations[language][langKey];
+
+          if (translation) {
+            if (element.hasAttribute('placeholder')) {
+              // For inputs like <input placeholder="...">
+              element.setAttribute('placeholder', translation);
+            }else if(element.tagName === "INPUT" && element.type === "submit") {
+            // For submit buttons
+            element.value = translation;
+              
+            } else {
+              // For regular elements like <div>, <span>, etc.
+              element.innerHTML = translation;
+            }
+          }
+        });
+        // Update dynamic labels inside messages
+        document.querySelectorAll('[data-role="user"]').forEach(el => {
+            el.textContent = translations[language].user_label;
+        });
+
+        document.querySelectorAll('[data-role="assistant"]').forEach(el => {
+            el.textContent = translations[language].assistant_label;
+        });
+      }
+
+
+
+    </script>
+    
+    
+</body>
+</html>
+  
+  
+  
+  
+  
+  
+  
+  
+  

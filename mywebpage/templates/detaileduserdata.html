@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Full Page Scroll</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.0.0/css/line.css" />
+  <style>
+
+    
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    .container {
+      height: 100%;
+      overflow-y: scroll; /* Enable vertical scrolling */
+      scroll-snap-type: y mandatory; /* Snap scrolling in the vertical direction */
+    }
+    .page {
+      height: 100vh; /* 100% of viewport height */
+      width: 100vw;  /* 100% of viewport width */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative; /* Needed for absolute positioning of the arrow */
+      font-size: 2em;
+      scroll-snap-align: start; /* Snap to the start of each page */
+    }
+    .page:nth-child(even) { background: linear-gradient(to right, rgb(245, 241, 248), #fcfcfc); }
+    .page:nth-child(odd) { background: linear-gradient(to right, rgb(252, 242, 242), #fcfcfc); }
+    .chevron {
+      position: absolute; /* Position independently of other elements */
+      bottom: 20px; /* 20px from the bottom */
+      left: 50%; /* Center horizontally */
+      transform: translateX(-50%); /* Adjust horizontal position to exactly center */
+      font-size: 2vw; /* Relative font size for responsiveness */
+      color: #5b5b5b; /* Arrow color */
+      cursor: pointer; /* Change cursor to pointer on hover */
+    }
+    .card-heading {
+      padding-left: 20px; /* Adjust as needed */
+      margin-top: 20px; /* Adjust as needed */
+    }
+    .custom-hr {
+      width: 99%; /* Adjust the width as needed */
+      margin: 0 auto; /* Center the line */
+    }
+    .card {
+      padding: 0 40px; /* Adjust the left and right padding as needed */
+      width: 100%; /* Ensure the card takes full width */
+    }
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .header {
+      position: fixed;
+      top:0;
+      background-image: url("../static/RedRain.jpg");
+      height: 65px;
+      width: 100%;
+      z-index: 100;
+      padding: 0 20px;
+      background-color: rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      display: flex;
+      flex-direction: row;
+      align-items: center; /* Vertically center items */
+     
+    /* Distribute items evenly */
+    }
+    .hamburger{
+  height: 50px;
+  
+    }
+
+    .tile-card {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      will-change: transform;
+    }
+
+    .tile-card:hover, .tile-card:active {
+      transform: scale(1.2);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+      z-index: 2;
+    }
+
+
+    @media (max-width: 500px) {
+    .basicwrapper {
+      top: 150px !important; /* Increase top space for smaller screens */
+  }
+ 
+    .main-container {
+      flex-direction: column;
+      gap: 20px !important;
+      flex-wrap: wrap;
+      
+    }
+
+    .left-column, .right-column {
+      max-width: 100% !important;
+      width: 100% !important;
+      margin: 0; /* Remove any unwanted margins */
+      padding: 0; /* Remove any unwanted padding */
+      min-height:245px;
+    }
+    .tile-card {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      will-change: transform;
+    }
+
+    .tile-card:hover, .tile-card:active {
+      transform: scale(1.5);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+      z-index: 2;
+    }
+
+    .charts-container {
+      flex-direction: column;
+      width: 100%;
+      gap: 10px;
+    }
+    .image-container_ {
+      width: 100% !important;
+      height: auto !important; /* Make height flexible */
+      min-height: 191px; /* Ensure there's a minimum height */
+      flex-grow: 0; /* Prevent growing */
+      flex-shrink: 0; /* Prevent shrinking */
+      
+    }
+    .chart-box {
+      width: 100% !important;
+      height: auto !important; /* Make height flexible */
+      min-height: 100px; /* Ensure there's a minimum height */
+      flex-grow: 0; /* Prevent growing */
+      flex-shrink: 0; /* Prevent shrinking */
+      
+    }
+    .image-container_ {
+      margin-bottom: 20px;
+    }
+
+    .image-container_ iframe {
+      height: 100% !important;
+    }
+ 
+    
+    .page {
+      height: 140vh;
+      scroll-snap-align: unset;
+    
+    }
+
+
+
+    .user-text, 
+    .query,
+    .user-chats,
+    .top3-locations{
+      font-size: 1.3vw !important; /* Change font size to 1.2vw */
+    }
+     .location-list-stack {
+      display: none !important;
+    }
+  
+    .location-list-inline {
+      display: block !important;
+    }
+  
+  
+  }
+
+  @media (min-width: 500px) and (max-width: 880px) {
+    .basicwrapper {
+      top: 150px !important; /* Increase top space for smaller screens */
+  }
+    .main-container {
+      flex-direction: column;
+      gap: 20px !important;
+      flex-wrap: wrap;
+      
+    }
+
+    .tile-card {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      will-change: transform;
+    }
+
+    .tile-card:hover, .tile-card:active {
+      transform: scale(1.3);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+      z-index: 2;
+    }
+
+    .left-column, .right-column {
+      max-width: 100% !important;
+      width: 100% !important;
+      margin: 0; /* Remove any unwanted margins */
+      padding: 0; /* Remove any unwanted padding */
+      min-height:285px;
+    }
+
+    .charts-container {
+      flex-direction: column;
+      width: 100%;
+      gap: 10px;
+    }
+    .image-container_ {
+      width: 100% !important;
+      height: auto !important; /* Make height flexible */
+      min-height: 191px; /* Ensure there's a minimum height */
+      flex-grow: 0; /* Prevent growing */
+      flex-shrink: 0; /* Prevent shrinking */
+      
+    }
+    .chart-box {
+      width: 100% !important;
+      height: auto !important; /* Make height flexible */
+      min-height: 100px; /* Ensure there's a minimum height */
+      flex-grow: 0; /* Prevent growing */
+      flex-shrink: 0; /* Prevent shrinking */
+      
+    }
+    .image-container_ {
+      margin-bottom: 20px;
+    }
+
+    .image-container_ iframe {
+      height: 100% !important;
+    }
+    .page {
+      min-height: 200vh;
+      height: auto;
+      scroll-snap-align: unset;
+      
+    }
+    .location-list-stack {
+      display: none !important;
+    }
+  
+    .location-list-inline {
+      display: block !important;
+    }
+
+    p {
+        margin: 0;
+      }
+  
+  }
+  </style>
+</head>
+<body>
+  <div class="header">
+ 
+    <div style="flex:1">
+      <img src="static/RedRainLogo8.png" alt="" class="hamburger">
+    </div>
+   
+    <div style="display: flex; flex-direction: column; flex:1; justify-content: center; align-items: center;max-width: 90vw; padding: 1rem;">
+       <h1 class="header-text" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color:white; font-size: clamp(1.0rem, 3vw, 1.5rem); font-family: 'Playfair Display', serif; margin-bottom: 0px"></h1> <!-- Detailed User Data / {{frequency}}   -->
+      <p style=" color:white; text-align: center; margin-top: 1px;  font-size: clamp(0.75rem, 2vw, 1.2rem);"> {{start_end_date_byfrequency[1][0]}} - {{start_end_date_byfrequency[-1][1]}} </p>
+    </div>
+  </div> 
+  <div class="container" id="container">
+    <!-- Pages will be dynamically generated here -->
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const frequency = "{{ frequency }}";
+    const listStartEndDate={{ start_end_date_byfrequency | tojson}}
+    const mainChartData00 = {{ mainChartData0 | tojson }};
+    const manufacturerData00 = {{ manufacturer_final|tojson }};
+    const usernumberList={{usernumber | tojson}};
+    const changesinusernumberList={{ changesinusernumber | tojson }};
+    const querry_on_averageList={{ querry_on_average | tojson }};
+    const locationsList={{ locations | tojson}};
+
+    
+    const translations = {
+        en: {
+
+            // 1. slide
+
+            home: "Home",
+            customdatemetrics: "Advanced analytics",
+            weektodatequickoverview:"Week-to-Date Quick Overview",
+            
+            startdateyear: "Year (2024)",
+            startdatemonth: "Month (01)",
+            startdateday: "Day (01)",
+            startdatehour: "Hour (00)",
+            startdateminute: "Minute (00)",
+            startdatesecond: "Second (00)",
+            pleasespecifytheenddate: "Please specify the end date:",
+            enddateyear: "Year (2024)",
+            enddatemonth: "Month (02)",
+            enddateday: "Day (01)",
+            enddatehour: "Hour (00)",
+            enddateminute: "Minute (00)",
+            enddatesecond: "Second (00)",
+            trackedperiod: "Please specify the periods you want to track:",
+            pleasespecifythestartdate: "Please specify the start date:",
+            yearly: "Yearly",
+            monthly: "Monthly",
+            weekly: "Weekly",
+            daily: "Daily",
+            submit_: "Submit",
+            dashboard: "Dashboard",
+            product_category_chart_label: "Product category frequency",
+            manufacturer_chart_label: "Manufacturer frequency",
+
+
+            users: "users",
+            vs_previous_week: "vs previous week",
+            query: "query",
+            on_average: "on average",
+            per_user: "per user",
+            chats: "chats",
+            click: "click",
+            to_read: "to read",
+            this_week_chats: "this week's chats",
+            top_3_locations: "top 3 locations",
+            by_user_density: "by user density",
+            user_density_map: "user density map",
+           
+            myservice: "My Services",
+            chatcontrol:"Chat Control",
+            metrics:"ChatBot Metrics & Insights",
+            prediction:"Advanced AI Predictive Solutions",
+           
+            breakdown: "breakdown",
+            detaileduserdata_header: "Detailed User Data",
+
+            
+            
+            logout:"Logout",
+          },
+        hu: {
+            // 1. slide
+            home:"Kezdőlap",
+            customdatemetrics: "Részletes elemzés",
+            weektodatequickoverview:"Heti gyorselemzés",
+            frequency: {
+              yearly: "Éves",
+              monthly: "Havi",
+              weekly: "Heti",
+              daily: "Napi"
+            },
+
+      
+            startdateyear: "Év (2024)",
+            startdatemonth: "Hónap (01)",
+            startdateday: "Nap (01)",
+            startdatehour: "Óra (00)",
+            startdateminute: "Perc (00)",
+            startdatesecond: "Másodperc (00)",
+            pleasespecifythestartdate: "Kérlek add meg a kezdő dátumot:",
+            pleasespecifytheenddate: "Kérlek add meg a záró dátumot:",
+            enddateyear: "Év (2024)",
+            enddatemonth: "Hónap (02)",
+            enddateday: "Nap (01)",
+            enddatehour: "Óra (00)",
+            enddateminute: "Perc (00)",
+            enddatesecond: "Másodperc (00)",
+            trackedperiod: "Add meg, hogy milyen időbontást szeretnél:",
+            yearly: "Éves",
+            monthly: "Havi",
+            weekly: "Heti",
+            daily: "Napi",
+            submit_: "Beküldés",
+
+            users: "felhasználók",
+            vs_previous_week: "előző héthez képest",
+            query: "lekérdezés",
+            on_average: "átlagosan",
+            per_user: "felhasználónként",
+            chats: "csevegések",
+            click: "kattints",
+            to_read: "a részletekért",
+            this_week_chats: "e heti csevegések",
+            top_3_locations: "top 3 helyszín",
+            by_user_density: "felhasználók száma szerint",
+            user_density_map: "felhasználók eloszlása",
+            product_category_chart_label: "Kérdésszám termékkategóriánként",
+            manufacturer_chart_label: "Kérdésszám gyártónként",
+
+            breakdown: "bontás",
+            detaileduserdata_header: "Felhasználói aktivitás",
+
+            
+
+
+
+            dashboard: "Kezelőfelület",
+            chatcontrol:"Chatfelügyelet",
+            metrics:"Chatbot mutatók és elemzések", 
+            prediction:"Prediktív AI-megoldások",
+            
+            
+            
+              
+            logout:"Kijelentkezés",       
+        }
+      };
+
+      function getFrequencyBreakdownText(language, frequencyKey) {
+        const frequencyText = translations[language].frequency[frequencyKey.toLowerCase()] || frequencyKey;
+        const breakdownText = translations[language].breakdown;
+        return `${frequencyText} ${breakdownText}`;
+      }
+   
+      function setLanguage(language) {
+        console.log("Setting language:", language);
+        document.querySelectorAll('[data-lang]').forEach(element => {
+          const langKey = element.getAttribute('data-lang');
+          const translation = translations[language][langKey];
+
+          if (translation) {
+            if (element.hasAttribute('placeholder')) {
+              // For inputs like <input placeholder="...">
+              element.setAttribute('placeholder', translation);
+            }else if(element.tagName === "INPUT" && element.type === "submit") {
+            // For submit buttons
+            element.value = translation;
+              
+            } else {
+              // For regular elements like <div>, <span>, etc.
+              element.innerHTML = translation;
+            }
+          }
+        });
+      }
+
+      document.getElementById('lang-en').addEventListener('click', function() {
+      const newLang = 'en';
+      localStorage.setItem('language', newLang);
+      setLanguage(newLang);
+      
+      fetch('/update_language', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ user_id: currentUserId, language: newLang}),
+        credentials: 'include'
+      });
+    });
+
+    document.getElementById('lang-hu').addEventListener('click', function() {
+      const newLang = 'hu';
+      localStorage.setItem('language', newLang);
+      setLanguage(newLang);
+      
+      fetch('/update_language', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({language: newLang}),
+        credentials: 'include'
+      });
+    });
+
+    // Set language on page load
+    window.onload = function() {
+        if (typeof translations !== 'undefined') {
+            // Use backend-provided language if available, otherwise use localStorage, otherwise default to 'hu'
+            const backendLang = "{{ language }}"; // Jinja variable
+            const storedLang = localStorage.getItem('language');
+            const language = backendLang && backendLang !== "" ? backendLang : (storedLang || 'hu');
+
+            setLanguage(language);
+        }
+    };
+
+
+
+
+
+      document.addEventListener("DOMContentLoaded", function () {
+          const language = localStorage.getItem('language') || 'hu';
+          setLanguage(language);
+
+          const langEnBtn = document.getElementById('lang-en');
+          const langHuBtn = document.getElementById('lang-hu');
+
+          if (langEnBtn) {
+            langEnBtn.addEventListener('click', () => {
+              localStorage.setItem('language', 'en');
+              setLanguage('en');
+            });
+          }
+
+          if (langHuBtn) {
+            langHuBtn.addEventListener('click', () => {
+              localStorage.setItem('language', 'hu');
+              setLanguage('hu');
+            });
+          }
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const language = localStorage.getItem('language') || 'hu';
+           
+            const frequencyKey=frequency
+            const frequencyTextHeader = translations[language].frequency[frequencyKey.toLowerCase()] || frequencyKey;
+            const addText = translations[language].detaileduserdata_header;
+       
+
+            // Select the <h1> element using the class 'header-text'
+            const headerElement = document.querySelector('.header-text');
+
+            if (headerElement) {
+                // Replace the entire content with freqText
+                headerElement.textContent = addText + " / "+frequencyTextHeader;
+            }
+        });
+
+    
+    function scrollToNextPage() {
+      const container = document.querySelector('.container');
+      container.scrollBy({
+        top: window.innerHeight,
+        behavior: 'smooth'
+      });
+    }
+    
+
+    const moveChart = {
+      id: 'moveChart',
+      afterEvent(chart, args) {
+        const { canvas, chartArea: { left, right, top, height } } = chart;
+        canvas.addEventListener('mousemove', (event) => {
+          const rect = canvas.getBoundingClientRect();
+          const x = event.clientX - rect.left;
+          const y = event.clientY - rect.top;
+
+          if ((x >= left - 15 && x <= left + 15 && y >= height / 2 + top - 15 && y <= height / 2 + top + 15) ||
+            (x >= right - 15 && x <= right + 15 && y >= height / 2 + top - 15 && y <= height / 2 + top + 15)) {
+            canvas.style.cursor = 'pointer';
+          } else {
+            canvas.style.cursor = 'default';
+          }
+        });
+      },
+      afterDraw(chart, args, pluginOptions) {
+        const { ctx, chartArea: { left, right, top, height } } = chart;
+
+        class CircleChevron {
+          draw(ctx, x, pixel) {
+            const angle = Math.PI / 180;
+            ctx.beginPath();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(102, 102, 0.5)';
+            ctx.fillStyle = 'white';
+            ctx.arc(x, height / 2 + top, 12, angle * 0, angle * 360, false);
+            ctx.stroke();
+            ctx.fill();
+            ctx.closePath();
+
+            ctx.beginPath();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(255, 99, 132, 1)';
+            ctx.moveTo(x + pixel, height / 2 + top - 7.5);
+            ctx.lineTo(x - pixel, height / 2 + top);
+            ctx.lineTo(x + pixel, height / 2 + top + 7.5);
+            ctx.stroke();
+            ctx.closePath();
+          }
+        }
+
+        let drawCircleLeft = new CircleChevron();
+        drawCircleLeft.draw(ctx, left, 5);
+
+        let drawCircleRight = new CircleChevron();
+        drawCircleRight.draw(ctx, right, -5);
+
+        if (chart.legend) {
+          chart.legend.options.display = false;
+          chart.legend.draw();
+        
+        }
+      }
+    };
+
+    Chart.register(moveChart);
+
+    function transformData(data) {
+      const mappedData = data.map(item => ({
+        x: item.label.substring(0, 8),
+        y: item.mainChartData[0].y
+      }));
+
+      mappedData.sort((a, b) => b.y - a.y);
+
+      return mappedData;
+    }
+
+    function transformData2(data) {
+      const mappedData = data.map(item => ({
+        x: item.x.substring(0, 15),  // Truncate x to 15 characters
+        y: item.y
+      }));
+      mappedData.sort((a, b) => b.y - a.y);
+      return mappedData;
+    }
+
+
+
+    function getRandomColor() {
+      const r = Math.floor(Math.random() * 255);
+      const g = Math.floor(Math.random() * 255);
+      const b = Math.floor(Math.random() * 255);
+      return `rgba(${r}, ${g}, ${b}, 0.2)`;
+    }
+    const adjustPadding = (chart, mainChartData) => {
+      const maxDataValue = Math.max(...mainChartData.map(item => item.y));
+      const paddingFactor = 0.1; // Adjust this to control the amount of padding
+      chart.options.scales.y.max = maxDataValue * (1 + paddingFactor);
+      chart.update();
+    };
+
+    function updatePercentageElement(element, change) {
+            const changeValue = parseFloat(change);
+            const icon = element.querySelector('i');
+            element.innerHTML = ''; // Clear current content
+
+            if (changeValue >= 0) {
+                element.style.color = 'rgb(38, 152, 57)';
+                icon.className = 'fa-solid fa-arrow-up';
+            } else {
+                element.style.color = 'rgb(217, 30, 24)';
+                icon.className = 'fa-solid fa-arrow-down';
+            }
+
+            element.appendChild(icon);
+            element.append(` ${change}`);
+        }
+        function getFrequencyDisplayText(frequency) {
+    switch(frequency.toLowerCase()) {
+        case 'daily':
+            return 'day';
+        case 'weekly':
+            return 'week';
+        case 'monthly':
+            return 'month';
+        case 'yearly':
+            return 'year';
+        default:
+            return frequency; // Fallback to display the frequency itself if not matched
+    }
+}
+
+// Assuming frequency is already defined somewhere in your code
+let frequencyDisplayText = getFrequencyDisplayText(frequency);
+
+const language = localStorage.getItem('language') || 'hu';
+const freqText = getFrequencyBreakdownText(language, frequency);
+
+    mainChartData00.forEach((chartDataSet, pageIndex) => {
+      const mainChartData = transformData(chartDataSet);
+      const backgroundColors = mainChartData.map(() => getRandomColor());
+      const borderColors = backgroundColors.map(color => color.replace('0.2', '1'));
+      const maxDataValue = Math.max(...mainChartData.map(item => item.y));
+      const paddingFactor = 0.1; // Adjust this to control the amount of padding
+      const maxYValue = maxDataValue * (1 + paddingFactor);
+
+      const container = document.getElementById('container');
+      const pageDiv = document.createElement('div');
+      pageDiv.className = `page page${pageIndex + 1}`;
+      pageDiv.innerHTML = `
+    <section class="home">
+      <div class="basicwrapper" style="
+      position: absolute;
+      top: 50px;
+      left: 5%;
+      right: 5%;
+      width: 90%;
+      max-width: 100vw;
+      ">
+          <!-- Header -->
+          <div style="
+          display: flex;
+          flex-direction: row;  
+          justify-content: center; 
+          margin-top: 15px;
+          margin-bottom: 0px;">
+            <p data-lang="title" style="font-size:1.2rem; font-weight: 480;  font-family: 'Raleway', serif; color: #5b5b5b; border-radius: 15px;">
+              ${freqText} / ${listStartEndDate[pageIndex+1][0].substring(0, 10)} - ${listStartEndDate[pageIndex+1][1].substring(0, 10)} /
+            </p>
+          </div>
+          
+          <!-- Wrapper Container -->
+          <div style="display: flex; justify-content: space-between;" class="main-container">
+          
+              <!-- Left Column -->
+              <div class="left-column" style="flex: 1; max-width: 54%; width: calc(100vw - 46%);">  
+                  <div style="display: flex; flex-direction: column;">
+                    <div class="fourtile" style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; height: 12vw;">
+                      <div class="tile-card" style="background-color: rgba(255, 255, 255, 0.9);  width: 22%; border-radius: 6px; overflow: hidden">
+                        <p class="user-text" style="margin-top: 6px; font-size: 1.1vw"><i class="fa-solid fa-user" style="color: #5b5b5b; margin-right: 2px; margin-left: 15px;"></i> <span data-lang="users">users</span></p>
+                        <p id="usernumber" style="font-size: 1.8vw; margin-top: 6px; color:rgb(31, 7, 116); text-align: center;">${usernumberList[pageIndex]}</p>
+                        <p id="percentage" style="text-align: center; font-size: 1.3vw; color:rgb(38, 152, 57); margin: 0; line-height: 1.1;"><i class="fa-solid fa-arrow-up"></i> 25%</p>
+                        <p data-lang="vs_previous_week" style="text-align: center; font-size: 1vw; margin-bottom: 12px;">vs previous ${frequencyDisplayText}</p>
+                      </div>
+                      <div class="tile-card" style="background-color: rgba(255, 255, 255, 0.9); width: 22%; border-radius: 6px;">
+                        <p class="query" style="margin-top: 6px; font-size: 1.1vw"><i class="fa-solid fa-question" style="color: #5b5b5b; margin-right: 2px; margin-left: 15px;"></i> <span data-lang="query">query</span></p>
+                        <p style="font-size: 1.8vw; margin-top: 6px; color:rgb(31, 7, 116); text-align: center;">${querry_on_averageList[pageIndex]}</p>
+                        <p data-lang="on_average" style="text-align: center; font-size: 1.3vw; color:rgb(38, 152, 57); margin: 0; line-height: 1.1;"> on average</p>
+                        <p data-lang="per_user" style="text-align: center; font-size: 1vw; margin-bottom: 12px;">per user</p>
+                      </div>
+                      <div class="tile-card" onclick="window.open('/chats_in_requested_period?year_end=${listStartEndDate[pageIndex+1][1].substring(0, 4)}&month_end=${listStartEndDate[pageIndex+1][1].substring(5, 7)}&day_end=${listStartEndDate[pageIndex+1][1].substring(8, 10)}&hour_end=${listStartEndDate[pageIndex+1][1].substring(11, 13)}&minutes_end=${listStartEndDate[pageIndex+1][1].substring(14, 16)}&seconds_end=${listStartEndDate[pageIndex+1][1].substring(17, 19)}&year=${listStartEndDate[pageIndex+1][0].substring(0, 4)}&month=${listStartEndDate[pageIndex+1][0].substring(5, 7)}&day=${listStartEndDate[pageIndex+1][0].substring(8, 10)}&hour=${listStartEndDate[pageIndex+1][0].substring(11, 13)}&minutes=${listStartEndDate[pageIndex+1][0].substring(14, 16)}&seconds=${listStartEndDate[pageIndex+1][0].substring(17, 19)}', '_blank');" style="background-color: rgba(255, 255, 255, 0.9); width: 22%; border-radius: 6px; cursor: pointer;">
+                        <p class="user-chats" style="margin-top: 6px; font-size: 1.1vw"><i class="fa-solid fa-comments" style="color: #5b5b5b; margin-right: 2px; margin-left: 15px;"></i> <span data-lang="chats">chats</span></p>
+                        <p data-lang="click" style="font-size: 1.8vw; margin-top: 6px; color:rgb(31, 7, 116); text-align: center;">click</p>
+                        <p data-lang="to_read" style="text-align: center; font-size: 1.3vw; color:rgb(38, 152, 57); margin: 0; line-height: 1.1;"> to read</p>
+                        <p data-lang="this_week_chats" style="text-align: center; font-size: 1vw; margin-bottom: 12px;">this week's chats</p>
+                      </div>
+                      <div class="tile-card" style="background-color: rgba(255, 255, 255, 0.9);  border-radius: 6px; width: 30%;">
+                        <p  class="top3-locations" style="margin-top: 6px; font-size: 1.1vw"><i class="fa-solid fa-location-dot" style="color: #5b5b5b; margin-right: 2px; margin-left: 15px;"></i> <span data-lang="top_3_locations">top 3 locations</span></p>
+                        <p data-lang="by_user_density" style=" margin-left: 15px; font-size: 1vw; margin-bottom: 12px; color:rgb(38, 152, 57)">by user density</p>
+                        <div class="location-list-stack">
+                          <p style="font-size: 1.2vw; margin: 0px; padding:0px; color:rgb(31, 7, 116); text-align: center;">1. ${locationsList[pageIndex][0]}</p>
+                          <p style="font-size: 1.2vw; margin: 0px; padding:0px; color:rgb(31, 7, 116); text-align: center;">2. ${locationsList[pageIndex][1]}</p>
+                          <p style="font-size: 1.2vw; margin: 0px; padding:0px; color:rgb(31, 7, 116); text-align: center;">3. ${locationsList[pageIndex][2]}</p>
+                        </div>
+                         <!-- Inline version for small screens -->
+                        <p class="location-list-inline" style="font-size: 1.3vw; color:rgb(31, 7, 116); text-align: center; display: none;">
+                          1. ${locationsList[pageIndex][0]}, 2. ${locationsList[pageIndex][1]}, 3. ${locationsList[pageIndex][2]}
+                        </p>
+                      </div>
+                    </div>
+                    <div style="display: flex; flex-direction: row; justify-content: space-between; width: 100%; height: 20vw; margin-top: 10px;">  
+                      <div class="image-container_" style="background-color: rgba(255, 255, 255, 0.9); overflow: hidden; border-radius: 6px; display: flex; flex-direction: column; width: 100%;">
+                        <p style="margin-top: 6px; font-size: 13px; flex-shrink: 0;">
+                          <i class="fa-solid fa-globe" style="color: #5b5b5b; margin-right: 2px; margin-left: 15px;"></i> <span data-lang="user_density_map">user density map</span>
+                        </p>
+                        <iframe src="/mapdetailed?year_end=${listStartEndDate[pageIndex+1][1].substring(0, 4)}&month_end=${listStartEndDate[pageIndex+1][1].substring(5, 7)}&day_end=${listStartEndDate[pageIndex+1][1].substring(8, 10)}&hour_end=${listStartEndDate[pageIndex+1][1].substring(11, 13)}&minutes_end=${listStartEndDate[pageIndex+1][1].substring(14, 16)}&seconds_end=${listStartEndDate[pageIndex+1][1].substring(17, 19)}&year=${listStartEndDate[pageIndex+1][0].substring(0, 4)}&month=${listStartEndDate[pageIndex+1][0].substring(5, 7)}&day=${listStartEndDate[pageIndex+1][0].substring(8, 10)}&hour=${listStartEndDate[pageIndex+1][0].substring(11, 13)}&minutes=${listStartEndDate[pageIndex+1][0].substring(14, 16)}&seconds=${listStartEndDate[pageIndex+1][0].substring(17, 19)}" style="border: none; flex-grow: 1; margin-right: 8px"></iframe>
+                      </div>
+                    </div>
+                  </div>
+              </div>
+              
+              <!-- Right Column with Charts -->
+              <div class="right-column charts-container" style="flex: 1; max-width: 45%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 10px;">
+                  <div class="chart-box" style="background-color: rgba(255, 255, 255, 0.9); width: 100%; height: 16vw; border-radius: 6px; display: flex; flex-direction: column; align-items: center; overflow: hidden;">
+                    <p data-lang="product_category_chart_label" style="font-size: 14px; text-align: center; margin-bottom: 0px; margin-top: 5px; width: 100%; font-family: 'Ariel', serif; color: #5b5b5b; font-weight: bold">Product category frequency </p>
+                    <canvas id="myChart${pageIndex + 1}" style="width: 100%; height: 100%;"></canvas>
+                  </div>
+                  
+                  <div class="chart-box" style="background-color: rgba(255, 255, 255, 0.9); width: 100%; height: 16vw; border-radius: 6px; display: flex; flex-direction: column; align-items: center; overflow: hidden;">
+                    <p data-lang="manufacturer_chart_label" style="font-size: 14px; text-align: center; margin-bottom: 0px; margin-top: 5px; width: 100%; font-family: 'Ariel', serif; color: #5b5b5b; font-weight: bold">Manufacturer frequency </p>
+                    <canvas id="myChart__${pageIndex + 1}" style="width: 100%; height: 100%;"></canvas>
+                  </div>
+              </div>
+          </div>
+      </div>
+    </section>
+    ${pageIndex !== mainChartData00.length - 1 ? '<i class="fas fa-chevron-down chevron" onclick="scrollToNextPage()"></i>' : ''}
+  `;
+  const percentageElement = pageDiv.querySelector('#percentage');
+            updatePercentageElement(percentageElement, changesinusernumberList[pageIndex]);
+
+
+      container.appendChild(pageDiv);
+      
+   
+      // Create the chart
+      const ctx = document.getElementById(`myChart${pageIndex + 1}`).getContext('2d');
+      const myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: mainChartData.map(item => item.x),
+          datasets: [{
+            
+            data: mainChartData.map(item => item.y),
+            backgroundColor: backgroundColors,
+            borderColor: borderColors,
+            borderWidth: 1
+          }]
+        },
+        options: {
+          scales: {
+            x: {
+              min:0,
+              max:6,
+              offset: true, // Ensure the x-axis starts from 0
+              ticks: {
+                beginAtZero: true,
+                font: {
+            size: 0.9 * window.innerWidth / 100 // Example: 1.2% of viewport width
+          }
+              }
+            },
+            y: {
+          min: 0,
+          max: maxYValue,
+          ticks: {
+            beginAtZero: true,
+            callback: function(value, index, values) {
+              return value.toFixed(2);
+            },
+            maxTicksLimit: 5 // Ensure enough space for the max value to be displayed
+          },
+          grid: {
+            drawTicks: true,
+            drawBorder: true,
+            borderDash: [2, 2], // Dashed lines for the grid
+            color: function(context) {
+              // Use the same color for the top line as other grid lines
+              return '#e5e5e5'; // Default color for all grid lines
+            },
+            drawOnChartArea: true, // Ensures grid lines are drawn across the chart area
+            lineWidth: function(context) {
+              // Use the same line width for the top line as other grid lines
+              return 1; // Default line width
+            }
+          }
+        }
+      },
+         
+          layout: {
+            padding: {
+              left: 20,
+              right: 20,
+              top: 10,
+              bottom: 20
+            }
+          },
+          plugins: [moveChart]
+        }
+        
+      });
+      
+      function moveScroll(event) {
+        const { chartArea: { left, right, top, height }, options, data } = myChart;
+        const rect = myChart.canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        if (x >= left - 15 && x <= left + 15 && y >= height / 2 + top - 15 && y <= height / 2 + top + 15) {
+          options.scales.x.min = options.scales.x.min - 7;
+          options.scales.x.max = options.scales.x.max - 7;
+          if (options.scales.x.min <= 0) {
+            options.scales.x.min = 0;
+            options.scales.x.max = 6;
+          }
+        } else if (x >= right - 15 && x <= right + 15 && y >= height / 2 + top - 15 && y <= height / 2 + top + 15) {
+          options.scales.x.min = options.scales.x.min + 7;
+          options.scales.x.max = options.scales.x.max + 7;
+          const maxDataY = Math.max(...mainChartData.map(item => item.y));
+          options.scales.y.max = maxDataY;
+          if (options.scales.x.max >= data.datasets[0].data.length) {
+            options.scales.x.min = data.datasets[0].data.length - 7;
+            options.scales.x.max = data.datasets[0].data.length;
+          }
+        }
+        adjustPadding(myChart, mainChartData);
+      }
+
+      function handleResize() {
+        myChart.canvas.removeEventListener('click', moveScroll);
+        setTimeout(() => {
+          myChart.canvas.addEventListener('click', moveScroll);
+        }, 500);
+        adjustPadding(myChart, mainChartData);
+      }
+      window.addEventListener('load', () => {
+        if (myChart) {
+          myChart.resize(); // Ensure initial render is correct
+          myChart.update(); // Re-render after resizing
+        }
+      });
+      window.addEventListener('resize', handleResize);
+      window.addEventListener('scroll', handleResize);
+
+      myChart.canvas.addEventListener('click', moveScroll);
+
+    });
+    // Process secondaryChartData00 (assuming it has the same length as mainChartData00)
+    manufacturerData00.forEach((chartDataSet, pageIndex) => {
+      const manufacturerData = transformData2(chartDataSet);
+      const backgroundColorsManufacturer = manufacturerData.map(() => getRandomColor());
+      const borderColorsManufacturer = backgroundColorsManufacturer.map(color => color.replace('0.2', '1'));
+      const maxDataValue = Math.max(...manufacturerData.map(item => item.y));
+      const paddingFactor = 0.1; // Adjust this to control the amount of padding
+      const maxYValue = maxDataValue * (1 + paddingFactor);
+
+      // Create the secondary chart
+      var ctxManufacturer = document.getElementById(`myChart__${pageIndex + 1}`).getContext('2d');
+      var myChartManufacturer = new Chart(ctxManufacturer, {
+        type: 'bar', // Example type, adjust as needed
+        data: {
+          labels: manufacturerData.map(item => item.x),
+          datasets: [{
+           
+            data: manufacturerData.map(item => item.y),
+            backgroundColor: backgroundColorsManufacturer,
+            borderColor: borderColorsManufacturer,
+            borderWidth: 1
+          }]
+        },
+        options: {
+          scales: {
+            x: {
+              min:0,
+              max:6,
+              offset: true, // Ensure the x-axis starts from 0
+              ticks: {
+                beginAtZero: true,
+                font: {
+            size: 0.9 * window.innerWidth / 100 // Example: 1.2% of viewport width
+          }
+              }
+            },
+            y: {
+          min: 0,
+          max: maxYValue,
+          ticks: {
+            beginAtZero: true,
+            callback: function(value, index, values) {
+              return value.toFixed(2);
+            },
+            maxTicksLimit: 5 // Ensure enough space for the max value to be displayed
+          },
+          grid: {
+            drawTicks: true,
+            drawBorder: true,
+            borderDash: [2, 2], // Dashed lines for the grid
+            color: function(context) {
+              // Use the same color for the top line as other grid lines
+              return '#e5e5e5'; // Default color for all grid lines
+            },
+            drawOnChartArea: true, // Ensures grid lines are drawn across the chart area
+            lineWidth: function(context) {
+              // Use the same line width for the top line as other grid lines
+              return 1; // Default line width
+            }
+          }
+        }
+      },
+   
+         
+          layout: {
+            padding: {
+              left: 20,
+              right: 20,
+              top: 10,
+              bottom: 20
+            }
+          },
+          plugins: [moveChart]
+        }
+      });
+      
+      function moveScrollManufacturer(event) {
+        const { chartArea: { left, right, top, height }, options, data } = myChartManufacturer;
+        const rect = myChartManufacturer.canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        if (x >= left - 15 && x <= left + 15 && y >= height / 2 + top - 15 && y <= height / 2 + top + 15) {
+          options.scales.x.min = options.scales.x.min - 7;
+          options.scales.x.max = options.scales.x.max - 7;
+          if (options.scales.x.min <= 0) {
+            options.scales.x.min = 0;
+            options.scales.x.max = 6;
+          }
+        } else if (x >= right - 15 && x <= right + 15 && y >= height / 2 + top - 15 && y <= height / 2 + top + 15) {
+          options.scales.x.min = options.scales.x.min + 7;
+          options.scales.x.max = options.scales.x.max + 7;
+          const maxDataY = Math.max(...manufacturerData.map(item => item.y));
+          options.scales.y.max = maxDataY;
+          if (options.scales.x.max >= data.datasets[0].data.length) {
+            options.scales.x.min = data.datasets[0].data.length - 7;
+            options.scales.x.max = data.datasets[0].data.length;
+          }
+        }
+        adjustPadding(myChartManufacturer, mainChartData);
+      }
+
+      function handleResizeManufacturer() {
+        myChartManufacturer.canvas.removeEventListener('click', moveScrollManufacturer);
+        setTimeout(() => {
+          myChartManufacturer.canvas.addEventListener('click', moveScrollManufacturer);
+        }, 500);
+        adjustPadding(myChartManufacturer, mainChartData);
+      }
+      window.addEventListener('load', () => {
+        if (myChartManufacturer) {
+          myChartManufacturer.resize(); // Ensure initial render is correct
+          myChartManufacturer.update(); // Re-render after resizing
+        }
+      });
+      window.addEventListener('resize', handleResizeManufacturer);
+      window.addEventListener('scroll', handleResizeManufacturer);
+
+      myChartManufacturer.canvas.addEventListener('click', moveScrollManufacturer);
+
+    });
+
+
+        
+
+    
+
+
+   
+
+
+  </script>
+</body>
+</html>

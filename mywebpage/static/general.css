@@ -1,0 +1,38 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap");
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+
+}
+a{
+  text-decoration: none;
+}
+h2 {
+  
+  margin-bottom: 20px;
+  color: #5b5b5b;
+}
+p {
+  font-family: Roboto, Arial;
+  color: #5b5b5b;
+  font-size: 18px;
+  line-height: 1.6; /* Adjust line height for readability */
+  
+}
+
+body {
+  position: relative;
+  min-height: 100vh; /* Ensure the body takes up the full viewport height */
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+h1 {
+  color: #6e6e6e; /* Change this to the desired color */
+  font-size: calc(2vw + 1px); /* Adjust the font size as needed */
+  padding-top: 2.8em; /* Adjust the padding as needed */
+  
+  text-align: center; /* Center the text horizontally */
+}

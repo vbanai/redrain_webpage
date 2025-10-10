@@ -1,0 +1,1732 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Website with Login & Registration Form</title>
+    <!-- <link rel="stylesheet" href="static/styledashboard.css"> -->
+    <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.0.0/css/line.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style_chart.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style_monitorform.css') }}">
+    <!-- Bootstrap CSS (v5.3 CDN) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUU5w"
+          crossorigin="anonymous">
+    
+ 
+   
+  <style>
+    .form_container {
+  display: none; /* Hide the form by default */
+}
+
+.form_container.active {
+  display: block; /* Show the form when active */
+}
+
+      @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap");
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Poppins", sans-serif;
+    }
+    a{
+      text-decoration: none;
+    }
+     body {
+      background-color: white;
+      margin: 0;
+      padding: 0;
+    }
+    h1, p {
+  margin: 0;
+  padding: 0;
+}
+
+
+    .header00{
+      position:relative;
+      background-image: url("../static/RedRain.jpg");
+      height: 65px;
+      width: 100%;
+      z-index: 100;
+      display: flex; /* Add display: flex; */
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center; /* Center vertically */
+      border-bottom-width: 1px;
+      border-bottom-style:double;
+      
+    }
+
+    @media screen and (max-width: 880px) {
+  .header00 {
+   
+    flex-direction: column; /* Stack elements vertically */
+    align-items: center; /* Center align items */
+    height: auto; /* Adjust height dynamically */
+    
+  }
+  .left-section,
+  .middle-section,
+  .right-section2 {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .right-section2 {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    flex-wrap: nowrap;
+    gap: 12px;
+  }
+  circle-container {
+    position: relative; /* Make it a positioning context */
+  }
+
+  .circle-dropdown-content {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+  }
+  
+ 
+  
+}
+    .nav{
+      max-width: 1300px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .nav,
+    .nav_item{
+      display:flex;
+      height: 100;
+      align-items: center;
+      white-space: nowrap;
+      font-size: clamp(0.5rem, 1.8vw, 0.9rem);
+      margin-left:10px;
+      
+      
+    }
+    .nav_logo,
+    .nav_link,
+    .button{
+      color: #fff;
+    }
+    .nav_logo{
+      font-size: 25px;
+    }
+    .nav_item{
+      column-gap: 20px;
+    }
+
+    .nav_link:hover{
+      color: #d9d9d9;
+    }
+    .button{
+      padding: 6px 24px;
+      border: 2px solid #fff;
+      background: transparent;
+      border-radius : 6px;
+      cursor: pointer;
+    }
+    .button:active{
+      transform: scale(0.98);
+    }
+      .chart-container {
+      position: relative; /* Ensure chart containers are positioned relative to the home container */
+      z-index: 1;
+      display: flex;
+      flex-wrap: wrap;
+      margin-top: 20px;
+      margin-left: 5px;
+    }
+
+    .div_chart {
+      flex: 1 1 45%;
+      width: 45%;
+      
+      position: relative;
+      margin-right: 2%; /* Adjust the margin to reduce space between charts */
+      margin-bottom: 2%;
+    }
+
+    /* Remove margin from the last chart to prevent extra space */
+    .div_chart:last-child {
+      margin-right: 0;
+    }
+    canvas {
+      width: 100%; /* Ensure canvas takes up the full width of its container */
+      height: 100% /* Allow canvas height to adjust based on its content */
+    }
+    .tweet-button {
+    background-color: rgba(231, 52, 25, 0.729);
+    color: rgb(255, 255, 255);
+    border: none;
+    height: 20px;
+    width: 108px;
+    border-radius: 18px;
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3); /* Add shading */
+   
+  }
+  .button-container {
+    width: auto; /* Allow buttons to occupy necessary width */
+     margin-right: 10px;
+  }
+  .chart-buttons {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 5px; 
+  margin-left: 5px;
+  
+}
+
+@media screen and (max-width: 1000px) {
+  .chart-container {
+    flex-direction: column; /* Stack charts vertically */
+    align-items: center; /* Optional: center charts horizontally */
+  }
+
+  .div_chart {
+    width: 90%; /* Make them take up most of the width */
+    margin-right: 0; /* Remove right margin for stacked layout */
+    height: auto; /* Let the height adjust based on content */
+    min-height: 300px; /* Optional: set a min-height for responsiveness */
+  }
+
+  .div_chart:last-child {
+    margin-right: 0; /* Just to be safe */
+  }
+  canvas {
+    width: 100% !important; /* Force canvas width */
+    height: 100% !important; /* Force canvas height */
+  }
+}
+
+.container {
+  position: relative;
+  z-index: 2;
+}
+.hamburger{
+  height: 50px;
+  margin-bottom: 1%;
+}
+#legend-container {
+    display: flex;
+    height: 80px;
+    width: 98vw;
+    max-width:98%;
+    overflow-y: auto;
+    white-space: nowrap;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    padding: 10px;
+    flex-wrap: wrap;
+    background: linear-gradient(to right,rgba(249, 239, 239, 0.4), #f5f5f5);
+  
+  
+
+}
+.legend-item {
+            display: flex;
+            margin-right: 10px;
+            align-items: center;
+            cursor: pointer;
+            font-family: "Poppins", sans-serif;
+            color: #5b5b5b;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+        .legend-color-box {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            margin-right: 5px;
+            vertical-align: middle;
+            border-radius: 4px;
+            border: 1px solid transparent;
+        }
+        .legend-text {
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .legend-item.crossed-out {
+          opacity: 0.5;
+        }
+        .legend-item.visible .legend-text {
+            text-decoration: underline;
+        }
+        .buttonsubscription {
+      cursor: pointer;
+      color: #fff;
+      position: relative;
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+    .buttonsubscription::before {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: #fff;
+    transform: scaleX(0);
+    transform-origin: bottom right;
+    transition: transform 0.3s ease, background-color 0.3s ease, opacity 0.3s ease; /* Added opacity transition */
+    
+}
+    .buttonsubscription:hover::before,
+    .buttonsubscription.active::before {
+      transform: scaleX(1);
+      transform-origin: bottom left;
+      background-color: #4d8bcd;
+    }
+    .buttonsubscription:hover,
+    .buttonsubscription.active {
+      color: #d9d9d9;
+    }
+    .button:active {
+      transform: scale(0.98);
+    }
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
+      min-width: 250px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+      z-index: 1;
+      border-radius: 10px;
+      overflow: hidden;
+      top: calc(100% + 5px);
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .dropdown-content a {
+      color: rgb(9, 13, 44);
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      transition: background 0.3s;
+      width: 100%; /* Start with full width */
+    }
+    .dropdown-content a + a {
+      border-top: 1px solid rgba(255, 255, 255, 0.5);
+    }
+    .dropdown-content a:first-child {
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+    }
+    .dropdown-content a:last-child {
+      border-bottom-left-radius: 10px;
+      border-bottom-right-radius: 10px;
+    }
+    .dropdown-content::before,
+    .dropdown-content::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background-color: rgba(255, 255, 255, 0.5);
+      top: calc(100% - 1px);
+    }
+    .dropdown-content::before {
+      top: -1px;
+    }
+    .dropdown-content a:hover {
+      background-color: #ddd;
+     
+      
+    }
+    .buttonlogout {
+      padding: 4px 22px;
+      border: 1.2px solid #fff;
+      background: transparent;
+      border-radius: 50px;
+      cursor: pointer;
+      font-size: 15px;
+      color: #fff;
+    }
+   
+
+    .circle {
+    position: relative;
+    width: 40px; /* Adjust size of the circle */
+    height: 40px; /* Adjust size of the circle */
+    border: 1px solid white; /* White border */
+    border-radius: 50%; /* Make it a circle */
+    overflow: hidden;
+}
+
+.content {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgb(90, 93, 147), #110659);
+    color: white; /* Text color */
+    font-size: 20px; /* Adjust font size */
+    cursor: pointer; /* Change cursor to pointer */
+}
+
+
+    .circle-dropdown-content a + a,
+    .dropdown-content a + a {
+      border-top: 1px solid rgba(255, 255, 255, 0.5);
+    }
+    .circle-dropdown-content a:first-child,
+    .dropdown-content a:first-child {
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+    }
+    .circle--content a:last-child,
+    .dropdown-content a:last-child {
+      border-bottom-left-radius: 10px;
+      border-bottom-right-radius: 10px;
+    }
+    .circle-dropdown-content::before,
+    .circle-dropdown-content::after,
+    .dropdown-content::before,
+    .dropdown-content::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background-color: rgba(255, 255, 255, 0.5);
+      top: calc(100% - 1px);
+    }
+    .circle-dropdown-content::before,
+    .dropdown-content::before {
+      top: -1px;
+    }
+    .circle-dropdown-content a:hover,
+    .dropdown-content a:hover {
+      background-color: #ddd;
+    }
+    
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
+      min-width: 250px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+      z-index: 1;
+      border-radius: 10px;
+      overflow: hidden;
+      top: calc(100% + 5px);
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .circle-dropdown-content{
+      display: none;
+      position: absolute;
+      background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
+      min-width: 250px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+      z-index: 1;
+      border-radius: 10px;
+      overflow: hidden;
+      top: calc(100% + 5px);
+      left: calc(100% - 130px);   /*  these line position the dropdown*/
+      transform: translateX(-50%);
+    }
+    .circle-dropdown-content a,
+    .dropdown-content a {
+      color: rgb(9, 13, 44);
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      transition: background 0.3s;
+    }
+
+.right-section2 {
+      width: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: right;
+      margin-right: 20px;
+      margin-left: 20px;
+      flex-shrink: 0;
+    }
+
+    .language-switcher {
+        display: flex;
+        align-items: center;
+        margin-right: 7px;  /* Space between the flags and login button */
+        width: auto;
+        font-size: 0;  /* Remove space between inline elements */
+      }
+
+      .language-switcher a {
+        
+        margin-right: 7px;
+        text-decoration: none;
+      }
+
+      .language-switcher img {
+        width: 19px;  /* Smaller flag size */
+        height: 13px;  /* Smaller flag size */
+      }
+
+      /* Make Hungarian flag slightly larger */
+      .language-switcher a:nth-child(2) img {
+        width: 15px;  /* Hungarian flag size */
+        height: 10px;  /* Hungarian flag size */
+      }
+      body.loading #dashboardContent {
+        filter: blur(5px);
+        pointer-events: none;
+      }
+
+   
+
+
+  </style>
+</head>
+<body class="loading">
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background-color: white; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+    <div id="loadingText" style="margin-top: 1rem; font-size: 1.2rem; font-weight: bold;">Loading</div>
+  </div>
+  
+  <div class="container">
+    <div class="header00">
+      <div class="left-section">
+        <img src="static/RedRainLogo8.png" alt="" class="hamburger">
+      </div>
+      <div class="middle-section">
+        <ul>
+          <li class="nav_item"> 
+            <a href="#home" class="nav_link buttonsubscription" id="home" data-lang="home">Home</a>
+            <a class="nav_link buttonsubscription" onclick="window.open('/detaileduserdata?year={{ year }}&month={{ month }}&day={{ day }}&hour={{ hour }}&minutes={{ minutes }}&seconds={{ seconds }}&year_end={{ year_end }}&month_end={{ month_end }}&day_end={{ day_end }}&hour_end={{ hour_end }}&minutes_end={{ minutes_end }}&seconds_end={{ seconds_end }}&frequency={{frequency}}')" data-lang="detaileduserdata"></a>
+            <a class="nav_link buttonsubscription" onclick="window.open('/chats_in_requested_period?year={{ year }}&month={{ month }}&day={{ day }}&hour={{ hour }}&minutes={{ minutes }}&seconds={{ seconds }}&year_end={{ year_end }}&month_end={{ month_end }}&day_end={{ day_end }}&hour_end={{ hour_end }}&minutes_end={{ minutes_end }}&seconds_end={{ seconds_end }}&frequency={{frequency}}')" data-lang="chats"></a>
+            <a href="#contact" class="buttonsubscription btnCustomDate-popup" id="customDateLink" data-lang="datepicker" ></a>
+           
+
+          </li> 
+        </ul>
+      </div>
+      <div class="right-section2">
+        <div class="language-switcher">
+          
+          <a href="#" id="lang-en" class="language-link">
+            <img src="static/en-flag.png" alt="EN" />
+          </a><a href="#" id="lang-hu" class="language-link">
+            <img src="static/hu-flag.png" alt="HU" />
+          </a>
+        
+        </div>
+        <div class="circle-container">
+          <div class="circle" id="circleDropdown">
+            <div class="content">
+              {{First_character}} <!-- Your character or content here -->
+            </div>
+          </div>
+          <div class="circle-dropdown-content" id="circleDropdownContent">
+            <a href="{{url_for('serviceselector_vbanai')}}" id="circleDashboardLink" data-lang="dashboard">Dashboard</a>
+              {% if chat_control_access %}
+                <a href="{{url_for('chat_admin_page', first_character=First_character)}}" data-lang="chatcontrol">Chat Control</a>
+              {% endif %}
+              {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
+                <a href="{{ url_for('dashboard_vbanai') }}" data-lang="metrics">ChatBot Metrics & Insights</a>
+              {% endif %}
+              {% if advanced_ai_access and user_role in ['Manager', 'Team Leader'] %}
+                <a href="{{ url_for('predictive_dashboard') }}" data-lang="prediction">Advanced AI Predictive Solutions</a>
+              {% endif %}
+              <a href="#logout" id="logout" action="{{ url_for('logout') }}" method="post" data-lang="logout">Logout</a>
+          </div>
+        </div>
+        
+        <!-- <a href="#home" class="buttonlogout" id="form-open">Logout</a> -->
+        
+      </div>
+    </div> 
+
+    <div class="centered-container" style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 10px;">
+      <h1  style="color: rgb(80, 76, 76); margin-bottom: 3px; font-size: clamp(13px, 2vw, 20px);" data-lang="hierarchicalchart"></h1>
+      <p  style="color: rgb(80, 76, 76); font-size: clamp(10px, 1.3vw, 15px);" data-lang="breakdown"> {{year}}.{{month}}.{{day}} {{hour}}:{{minutes}}:{{seconds}} to {{year_end}}.{{month_end}}.{{day_end}} {{hour_end}}:{{minutes_end}}:{{seconds_end}} /{{frequency}} breakdown</p> 
+   
+
+      <!-- Your form or other content goes here -->
+    </div>
+
+    
+    <div class="wrapper">
+      <span class="icon-close">
+        <i class="uil uil-times form_close"></i>
+      </span>
+      <div class="form-box login">
+        <form id="submitForm" action="/topicMonitoring" method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          
+         
+          <h2 data-lang="customdatemetrics">Custom Date Metrics</h2>
+          
+          <div class="input_group">
+            <p class="input_group_label" data-lang="pleasespecifythestartdate">Please specify the start date:</p>
+            <div class="input_box">
+              <input type="text" name="year_start" data-lang="startdateyear" placeholder="Year (2024)" required />
+            </div>
+            <div class="input_box">
+              <input type="text" name="month_start" data-lang="startdatemonth" placeholder="Month (01)" required />
+            </div>
+            <div class="input_box">
+              <input type="text" name="day_start" data-lang="startdateday" placeholder="Day (01)" required />
+            </div>
+            <div class="input_box">
+              <input type="text" name="hour" data-lang="startdatehour" placeholder="Hour (00)"  />
+            </div>
+            <div class="input_box">
+              <input type="text" name="minutes" data-lang="startdateminute" placeholder="Minute (00)"  />
+            </div>
+            <div class="input_box">
+              <input type="text" name="seconds" data-lang="startdatesecond" placeholder="Second (00)" />
+            </div>
+          </div>
+
+          
+          <div class="input_group">
+            <p class="input_group_label" data-lang="pleasespecifytheenddate">Please specify the end date:</p>
+            <div class="input_box">
+              <input type="text" name="year_end" data-lang="enddateyear" placeholder="Year (2024)" required />
+            </div>
+            <div class="input_box">
+              <input type="text" name="month_end" data-lang="enddatemonth" placeholder="Month (02)" required />
+            </div>
+            <div class="input_box">
+              <input type="text" name="day_end" data-lang="enddateday" placeholder="Day (01)" required />
+            </div>
+            <div class="input_box">
+              <input type="text" name="hour_end" data-lang="enddatehour" placeholder="Hour (00)"  />
+            </div>
+            <div class="input_box">
+              <input type="text" name="minutes_end" data-lang="enddateminute" placeholder="Minute (00)"  />
+            </div>
+            <div class="input_box">
+              <input type="text" name="seconds_end" data-lang="enddatesecond" placeholder="Second (00)"  />
+            </div>
+          </div>
+          <div class="row">
+            <p class="input_group_label" data-lang="trackedperiod">Please specify the periods you want to track:</p>
+            <div class="dropdown-container">
+                <div class="dropdown">
+                    <select name="frequency" style="font-size:10px" id="frequency">
+                        <option value="yearly" data-lang="yearly">Yearly</option>
+                        <option value="monthly" data-lang="monthly">Monthly</option>
+                        <option value="weekly" data-lang="weekly">Weekly</option>
+                        <option value="daily" data-lang="daily">Daily</option>
+                    </select>
+                </div>
+            </div>
+          </div>
+
+          
+
+          <div>
+            
+            <input class="button_form" type="submit" data-lang="submit_" value="">
+          </div>
+        
+        </form>
+      </div>
+      
+    </div>
+
+ 
+    
+    <div class="chart-container">
+      <div id="legend-container"></div>
+      <div class="div_chart">
+        <canvas id="myChart"></canvas>
+        <hr style="margin-left: 3px; ">
+        <div class="chart-buttons" >
+          <div class="button-container">
+            <button class="tweet-button" id="bar" data-lang="barchart"></button>
+          </div>
+          <div>
+            <button class="tweet-button" id="line" data-lang="linechart"></button>
+          </div>
+        </div>
+        
+      </div>
+      <div class="div_chart">
+        <canvas id="myChart2" style="display:none;"></canvas>
+        <hr id="hr" style="display:none;">
+      </div>
+      <div class="div_chart">
+        <canvas id="myChart3" style="display:none;"></canvas>
+        <hr id="hr2" style="display:none;">
+      </div>
+      <div class="div_chart">
+        <canvas id="myChart4" style="display:none;"></canvas>
+        <hr id="hr3" style="display:none;">
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js" integrity="sha512-UXumZrZNiOwnTcZSHLOfcTs0aos2MzBWHXOHOuB0J/R44QB0dwY5JgfbvljXcklVf65Gc4El6RjZ+lnwd2az2g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js" integrity="sha512-wUYbRPLV5zs6IqvWd88HIqZU/b8TBx+I8LEioQ/UC0t5EMCLApqhIAnUg7EsAzdbhhdgW07TqYDdH3QEXRcPOQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="\static\inactivitytimeout.js"></script>
+  <script>
+  
+
+  const sourceData = {{ data|tojson }};
+  const line=document.getElementById('line');
+  const bar=document.getElementById('bar');
+  const dropdownContent = document.getElementById('dropdownContent');
+  const dashboardLink = document.getElementById('dashboardLink');
+  const dashboardLink2 = document.getElementById('dashboardLink2');
+  const circleDropdownContent = document.getElementById('circleDropdownContent');
+  const circleDropdown = document.getElementById('circleDropdown');
+  const circleDashboardLink= document.getElementById('circleDashboardLink');
+  const circleDashboardLink2= document.getElementById('circleDashboardLink2');
+  
+  line.addEventListener('click', changeline);
+  bar.addEventListener('click', changebar);
+
+  
+  //Getting the canvas element
+  const ctx2 = document.getElementById('myChart2').getContext('2d');
+  //initiate variable
+  let myChart2;
+  const ctx3 = document.getElementById('myChart3').getContext('2d');
+  let myChart3;
+  const ctx4 = document.getElementById('myChart4').getContext('2d');
+  let myChart4;
+
+  //JÓ verzió, de alatta van egy chatgpts lehet jobb
+
+  //Custom plugin for the Chart.js
+  // const moveChart={
+  //     id: 'moveChart',
+  //     //It runs after any event happens (like mousemove, click, etc.).
+  //     afterEvent(chart, args){
+  //       //ctx: This is the 2D rendering context of the chart's canvas, used for drawing on the canvas.
+  //       //canvas: The <canvas> element that the chart is drawn on.
+  //       //chartArea: An object that represents the area of the chart that contains the data. It includes properties like left, right, top, bottom, width, and height, which define the boundaries of the chart's drawing area.
+  //         const {ctx, canvas, chartArea: {left, right, top, bottom, width, height}}=chart;
+      
+  //       canvas.addEventListener('mousemove', (event)=>{
+  //         //The mouse move event is captured and x and y are the mouse coordinates relative to the canvas.
+  //         const x=args.event.x;
+  //         const y=args.event.y;
+
+  //         //Checks if the mouse is within a certain area on the left or right of the chart (around the left or right edge of the chart area). If the mouse is in that area, it changes the cursor to a "pointer" (hand cursor).
+          
+  //         if(x>=left-15 && x<=left+15 && y>=height /2 + top-15
+  //           && y<=height /2 + top +15){
+  //           canvas.style.cursor='pointer';
+  //         }else if (x>=right-15 && x<=right+15 && y>=height /2 + top-15
+  //           && y<=height /2 + top +15){
+  //             canvas.style.cursor='pointer';
+  //         }else{
+  //           canvas.style.cursor='default';
+  //         }
+
+  //       })
+  //     },
+  //     // runs after the chart has been drawn. 
+  //     //it adds circles and arrows at the left and right edges of the chart to visually indicate that those areas can be interacted with for scrolling.
+  //     afterDraw(chart, args, pluginOptions){
+  //       const {ctx, chartArea: {left, right, top, bottom, width, height}}=chart;
+        
+  //       class CircleChrevron{
+  //         draw(ctx, x1,pixel){
+  //           const angle=Math.PI / 180;
+  //           ctx.beginPath();
+  //           ctx.lineWidth=3;
+  //           ctx.sstrokeStyle='rgba(102, 102, 0.5)';
+  //           ctx.fillStyle='white';
+  //           ctx.arc(x1, height/2+top, 12, angle*0, angle *360, false)
+  //           ctx.stroke();
+  //           ctx.fill();
+  //           ctx.closePath();
+
+  //           ctx.beginPath();
+  //           ctx.lineWidth=3;
+  //           ctx.strokeStyle='rgba(255, 99, 132, 1)';
+  //           ctx.moveTo(x1 +pixel , height /2 +top -7.5);
+  //           ctx.lineTo(x1 -pixel, height /2 + top);
+  //           ctx.lineTo(x1 +pixel , height /2 +top +7.5);
+  //           ctx.stroke();
+  //           ctx.closePath();
+
+  //         }
+  //       }
+  //       let drawCircleLeft=new CircleChrevron();
+  //       drawCircleLeft.draw(ctx, left, 5);
+
+  //       let drawCircleRight=new CircleChrevron();
+  //       drawCircleLeft.draw(ctx, right, -5);
+        
+        
+  //     }
+  //   }
+ 
+  
+const moveChart = {
+  id: 'moveChart',
+  beforeInit(chart) {
+    const { canvas, chartArea } = chart;
+
+    if (!canvas._cursorListenerAttached) {
+      canvas.addEventListener('mousemove', (event) => {
+        const x = event.offsetX;
+        const y = event.offsetY;
+
+        if (!chart.chartArea) return; // protect against early events
+
+        const { left, right, top, height } = chart.chartArea;
+
+        const circleY = height / 2 + top;
+        const radius = 15;
+
+        const isLeft = x >= left - radius && x <= left + radius && y >= circleY - radius && y <= circleY + radius;
+        const isRight = x >= right - radius && x <= right + radius && y >= circleY - radius && y <= circleY + radius;
+
+        canvas.style.cursor = (isLeft || isRight) ? 'pointer' : 'default';
+      });
+
+      canvas._cursorListenerAttached = true; // flag so we don’t reattach
+    }
+  },
+
+  afterDraw(chart) {
+    const { ctx, chartArea: { left, right, top, height } } = chart;
+
+    class CircleChevron {
+      draw(ctx, x, pixel) {
+        const y = height / 2 + top;
+
+        ctx.beginPath();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(102, 102, 102, 0.5)';
+        ctx.fillStyle = 'white';
+        ctx.arc(x, y, 12, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fill();
+        ctx.closePath();
+
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 99, 132, 1)';
+        ctx.moveTo(x + pixel, y - 7.5);
+        ctx.lineTo(x - pixel, y);
+        ctx.lineTo(x + pixel, y + 7.5);
+        ctx.stroke();
+        ctx.closePath();
+      }
+    }
+
+    const drawer = new CircleChevron();
+    drawer.draw(ctx, left, 5);
+    drawer.draw(ctx, right, -5);
+  }
+};
+
+
+
+
+
+  const dataSets = [];
+
+// Iterate over the sourceData array
+sourceData.forEach((data, index) => {
+  // Create an object for each data set
+  const dataSet = {
+    mainChartData: data.mainChartData,
+    label: data.label,
+    x_secondary: data.x_secondary,
+    secondaryChartData: data.secondaryChartData,
+    label_b: data.label_b,
+    x_secondary_b: data.x_secondary_b,
+    secondaryChartData_b: data.secondaryChartData_b,
+    label_c: data.label_c,
+    x_secondary_c: data.x_secondary_c,
+    secondaryChartData_c: data.secondaryChartData_c
+  };
+
+  // Push the dataSet object to the dataSets array
+  dataSets.push(dataSet);
+});
+
+
+
+
+ 
+
+  const maxDataY = dataSets.reduce((max, dataSet) => {
+      const maxInDataSet = Math.max(
+          ...dataSet.mainChartData.map(item => item.y)
+      );
+      return Math.max(max, maxInDataSet);
+  }, 0);
+
+  // Calculate cumulative values and determine top 2 datasets
+dataSets.forEach(dataset => {
+  dataset.cumulativeValue = dataset.mainChartData.reduce((sum, item) => sum + item.y, 0);
+});
+dataSets.sort((a, b) => b.cumulativeValue - a.cumulativeValue);
+const top2Indices = [0, 1,2,3,4]; // Indices of top 2 datasets after sorting
+
+
+// Construct datasets dynamically
+const datasets = dataSets.map(({mainChartData, label}) => ({
+  label: label,
+  data: mainChartData.map(item => item.y),
+  backgroundColor: [
+    `rgba(${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, 0.2)`
+  ],
+  borderColor: [
+    `rgba(${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, 1)`
+  ],
+  borderWidth: 1,
+  pointRadius: 3,
+  pointHoverRadius: 7,
+  pointStyle: 'circle'
+}));
+
+
+
+  // Initialize the chart
+  var ctx = document.getElementById('myChart').getContext('2d');
+  var myChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      //for x-axis labels:
+      labels: dataSets[0].mainChartData.map(item => item.x),
+      datasets: datasets
+    },
+    options: {
+      //Changes the cursor to pointer when hovering over a chart element and back to default when not hovering.
+      onHover:(event, chartElement)=>{
+        
+        if (chartElement.length==1){
+          console.log(event.native.target.style.cursor);
+          event.native.target.style.cursor='pointer';
+       
+        }
+        if (chartElement.length==0){
+          event.native.target.style.cursor='default';
+        }
+
+      },
+      layout: {
+        padding: {
+          right: 18
+        }
+      },
+      //The x-axis has a range from 0 to 6, and the y-axis has a dynamic max value based on maxDataY
+      scales: {
+        x: {
+          min: 0,
+          max: 6
+        },
+        y: {
+          beginAtZero: true,
+          max: maxDataY + 2
+        }
+      },
+      //The legend is hidden using display: false
+      plugins:{
+        legend:{
+          display: false
+        }
+      }
+    },
+    plugins: [moveChart]
+  });
+  ctx.canvas.onclick = createClickHandler(myChart, dataSets);
+
+
+  function changeline() {
+      const updatetype = 'line';
+      myChart.destroy(); // Destroy current chart
+      myChart = new Chart(ctx, {
+        type: updatetype,
+        data: {
+          labels: dataSets[0].mainChartData.map(item => item.x),
+          datasets: datasets,
+          pointRadius: 7, // Radius of the point
+          pointHoverRadius: 9, // Radius of the point on hover
+          pointStyle: 'circle', // Shape of the point
+          fill: false
+          },
+          options: {
+      onHover:(event, chartElement)=>{
+        
+        if (chartElement.length==1){
+          console.log(event.native.target.style.cursor);
+          event.native.target.style.cursor='pointer';
+       
+        }
+        if (chartElement.length==0){
+          event.native.target.style.cursor='default';
+        }
+
+      },
+
+      layout: {
+        padding: {
+          right: 18
+        }
+      },
+      scales: {
+        x: {
+          min: 0,
+          max: 6
+        },
+        y: {
+          beginAtZero: true,
+          max: maxDataY + 2
+        }
+      },
+      plugins:{
+        legend:{
+          display: false
+        }
+      }
+    },
+    plugins: [moveChart]
+  });
+  hideAllExceptMax(myChart, dataSets);
+}
+  
+
+
+  function changebar() {
+  const updatetype = 'bar';
+  myChart.destroy(); // Destroy current chart
+  myChart = new Chart(ctx, {
+    type: updatetype,
+    data: {
+          labels: dataSets[0].mainChartData.map(item => item.x),
+          datasets: datasets,
+         
+          },
+          options: {
+      onHover:(event, chartElement)=>{
+        
+        if (chartElement.length==1){
+          console.log(event.native.target.style.cursor);
+          event.native.target.style.cursor='pointer';
+       
+        }
+        if (chartElement.length==0){
+          event.native.target.style.cursor='default';
+        }
+
+      },
+      layout: {
+        padding: {
+          right: 18
+        }
+      },
+      scales: {
+        x: {
+          min: 0,
+          max: 6
+        },
+        y: {
+          beginAtZero: true,
+          max: maxDataY + 2
+        }
+      },
+      plugins:{
+        legend:{
+          display: false
+        }
+      }
+    },
+    plugins: [moveChart]
+  });
+  hideAllExceptMax(myChart, dataSets);
+}
+
+  // Custom Legend
+const legendContainer = document.getElementById('legend-container');
+datasets.forEach((dataset, index) => {
+  const legendItem = document.createElement('div');
+  legendItem.classList.add('legend-item');
+  if (dataset.hidden) {
+    legendItem.classList.add('crossed-out');
+  } else {
+    legendItem.classList.add('visible');
+  }
+  legendItem.style.opacity = dataset.hidden ? 0.5 : 1; // Make inactive items transparent
+
+  legendItem.onclick = () => {
+    dataset.hidden = !dataset.hidden;
+    legendItem.classList.toggle('crossed-out', dataset.hidden);
+    legendItem.classList.toggle('visible', !dataset.hidden);
+    legendItem.style.opacity = dataset.hidden ? 0.5 : 1; // Update opacity
+    myChart.update();
+  };
+
+  const colorBox = document.createElement('div');
+  colorBox.classList.add('legend-color-box');
+  colorBox.style.backgroundColor = dataset.backgroundColor;
+  colorBox.style.borderColor = dataset.borderColor;
+
+  const text = document.createElement('span');
+  text.classList.add('legend-text');
+  text.textContent = dataset.label;
+
+  legendItem.appendChild(colorBox);
+  legendItem.appendChild(text);
+  legendContainer.appendChild(legendItem);
+});
+
+ 
+
+  // Function to find the datasets with the highest cumulative values
+function findMaxCumulatives(dataSets) {
+  const sums = dataSets.map(dataset => dataset.mainChartData.reduce((acc, val) => acc + val.y, 0));
+  const maxValues = [];
+  for (let i = 0; i < 5; i++) {
+    const maxIndex = sums.indexOf(Math.max(...sums));
+    maxValues.push(maxIndex);
+    sums[maxIndex] = -Infinity;
+  }
+  return maxValues;
+}
+
+function hideAllExceptMax(chart, dataSets) {
+  const maxIndices = findMaxCumulatives(dataSets);
+  chart.data.datasets.forEach((dataset, index) => {
+    dataset.hidden = !maxIndices.includes(index);
+  });
+  chart.update();
+
+  // Update legend to reflect changes
+  const legendItems = document.querySelectorAll('.legend-item');
+  legendItems.forEach((legendItem, index) => {
+    legendItem.classList.toggle('crossed-out', chart.data.datasets[index].hidden);
+    legendItem.classList.toggle('visible', !chart.data.datasets[index].hidden);
+    legendItem.style.opacity = chart.data.datasets[index].hidden ? 0.5 : 1;
+  });
+}
+
+// Call the function to hide all datasets except the ones with the highest cumulative values
+hideAllExceptMax(myChart, dataSets);
+
+
+  
+
+
+
+
+
+function scrollChart(chart, direction) {
+  const step = 7;
+  const dataLength = chart.data.datasets[0].data.length;
+
+  let currentMin = chart.options.scales.x.min ?? 0;
+  let currentMax = chart.options.scales.x.max ?? 6;
+  let windowSize = currentMax - currentMin;
+
+  // If something’s off, reset window
+  if (windowSize <= 0 || windowSize > dataLength) {
+    windowSize = Math.min(7, dataLength);
+    currentMin = 0;
+    currentMax = windowSize;
+  }
+
+  let newMin = currentMin + direction * step;
+  let newMax = currentMax + direction * step;
+
+  // Clamp
+  if (newMin < 0) {
+    newMin = 0;
+    newMax = windowSize;
+  }
+  if (newMax > dataLength) {
+    newMax = dataLength;
+    newMin = dataLength - windowSize;
+    if (newMin < 0) newMin = 0;
+  }
+
+  chart.options.scales.x.min = newMin;
+  chart.options.scales.x.max = newMax;
+  chart.update();
+}
+
+
+
+
+
+// Set the event listener correctly
+//myChart.canvas.onclick = moveScroll;
+
+
+
+
+function createClickHandler(chartInstance, dataSetsRef) {
+  return function(event) {
+    const canvas = chartInstance.canvas;
+    const chartArea = chartInstance.chartArea;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    const circleY = chartArea.top + chartArea.height / 2;
+    const circleRadius = 15;
+    const bufferRadius = 10;
+    const totalRadius = circleRadius + bufferRadius;
+
+    const clickedLeft = Math.abs(x - chartArea.left) <= totalRadius && Math.abs(y - circleY) <= totalRadius;
+    const clickedRight = Math.abs(x - chartArea.right) <= totalRadius && Math.abs(y - circleY) <= totalRadius;
+
+    if (clickedLeft || clickedRight) {
+        const direction = clickedLeft ? -1 : 1;
+        scrollChart(chartInstance, direction);
+        return;
+    }
+
+    // Drilldown only for the main chart (optional)
+    if (chartInstance === myChart) {
+      const points = chartInstance.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
+      if (points.length === 1) {
+          const index = points[0].index;
+          const datasetIndex = points[0].datasetIndex;
+          if (datasetIndex >= 0 && datasetIndex < dataSetsRef.length) {
+              const {
+                mainChartData, secondaryChartData, secondaryChartData_b, secondaryChartData_c,
+                x_secondary, x_secondary_b, x_secondary_c,
+                label, label_b, label_c
+              } = dataSetsRef[datasetIndex];
+
+              const clickedLabel = mainChartData[index].x;
+              const currentLang = localStorage.getItem('language') || 'hu';
+              const label1 = currentLang === 'hu' ? `${label}típusok, időpont: ${clickedLabel}` : `${label} breakdown by ${clickedLabel}`;
+              const label2 = currentLang === 'hu' ? `${label_b} cégek, időpont: ${clickedLabel}` : `${label_b} breakdown by ${clickedLabel}`;
+              const label3 = currentLang === 'hu' ? `${label_c}típusok, időpont: ${clickedLabel}` : `${label_c} breakdown by ${clickedLabel}`;
+
+              const data1 = secondaryChartData[index];
+              const data2 = secondaryChartData_b[index];
+              const data3 = secondaryChartData_c[index];
+
+              const bg = points[0].element.options.backgroundColor;
+              const bc = points[0].element.options.borderColor;
+
+              document.getElementById('myChart2').style.display = 'block';
+              document.getElementById('myChart3').style.display = 'block';
+              document.getElementById('myChart4').style.display = 'block';
+              document.getElementById('hr').style.display = 'block';
+              document.getElementById('hr2').style.display = 'block';
+              document.getElementById('hr3').style.display = 'block';
+              document.querySelectorAll('.tweet-button').forEach(button => button.style.display = 'block');
+
+              myChart2 = updateOrCreateChart(myChart2, ctx2, x_secondary, data1, label1, bg, bc, createClickHandler(myChart2, dataSetsRef));
+              myChart3 = updateOrCreateChart(myChart3, ctx3, x_secondary_b, data2, label2, bg, bc, createClickHandler(myChart3, dataSetsRef));
+              myChart4 = updateOrCreateChart(myChart4, ctx4, x_secondary_c, data3, label3, bg, bc, createClickHandler(myChart4, dataSetsRef));
+          }
+      }
+    }
+  };
+}
+
+
+function updateOrCreateChart(chartRef, ctx, labels, data, label, bg, bc, scrollHandler) {
+  const combined = labels.map((label, index) => ({ label, value: data[index] })).filter(item => !item.label.startsWith("**"));
+  combined.sort((a, b) => b.value - a.value); // Descending order
+
+  // Separate them back
+  const sortedLabels = combined.map(item => item.label);
+  const sortedData = combined.map(item => item.value);
+
+  console.log("Updating or creating chart with data:", data);
+  const maxDataY = Math.max(...sortedData);
+    if (!chartRef) {
+        chartRef = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sortedLabels,
+                datasets: [{
+                    label: label,
+                    data: sortedData,
+                    backgroundColor: bg,
+                    borderColor: bc,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                layout: { padding: { right: 18 } },
+                scales: {
+                    x: {
+                        min: 0,
+                        max: 6,
+                        ticks: {
+                            maxRotation: 20,
+                            minRotation: 20,
+                            autoSkip: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: maxDataY + 1
+                    }
+                }
+            },
+            plugins: [moveChart]
+        });
+        ctx.canvas.addEventListener('click', scrollHandler);
+    } else {
+        chartRef.data.labels = sortedLabels;
+        chartRef.data.datasets[0].data = sortedData;
+        chartRef.data.datasets[0].label = label;
+        chartRef.data.datasets[0].backgroundColor = bg;
+        chartRef.data.datasets[0].borderColor = bc;
+        chartRef.options.scales.y.max = maxDataY + 1;
+        chartRef.options.scales.x.min = 0;
+        chartRef.options.scales.x.max = 6;
+        chartRef.update();
+        ctx.canvas.removeEventListener('click', scrollHandler);
+        ctx.canvas.addEventListener('click', scrollHandler);
+    }
+
+    return chartRef; 
+}
+
+
+
+function handleResizeAll() {
+  [myChart, myChart2, myChart3, myChart4].forEach(chart => {
+    if (chart) {
+      handleResize(chart);
+    }
+  });
+}
+  
+window.addEventListener('resize', () => {
+  setTimeout(() => handleResizeAll(), 300);
+});
+
+
+
+
+
+  
+
+  
+
+
+  
+  
+  const logoutButton=document.querySelector("#logout")
+
+  logoutButton.addEventListener("click", function() {
+      // Navigate to the "/logout" route
+      window.location.href = "/logout";
+  });
+
+
+  // ##############################################################
+  // ###################    DATE    ###############################
+  // ##############################################################
+
+      function setupFlatpickr(yearField, monthField, dayField) {
+        flatpickr(yearField, {
+            dateFormat: "Y-m-d",
+            onChange: function(selectedDates, dateStr) {
+                const date = new Date(dateStr);
+                yearField.value = date.getFullYear();
+                monthField.value = String(date.getMonth() + 1).padStart(2, '0');
+                dayField.value = String(date.getDate()).padStart(2, '0');
+            }
+        });
+    }
+
+    // Get the input fields
+    const yearStart = document.querySelector('input[name="year_start"]');
+    const monthStart = document.querySelector('input[name="month_start"]');
+    const dayStart = document.querySelector('input[name="day_start"]');
+
+    const yearEnd = document.querySelector('input[name="year_end"]');
+    const monthEnd = document.querySelector('input[name="month_end"]');
+    const dayEnd = document.querySelector('input[name="day_end"]');
+
+    // Initialize Flatpickr on start date fields
+    setupFlatpickr(yearStart, monthStart, dayStart);
+
+    // Initialize Flatpickr on end date fields
+    setupFlatpickr(yearEnd, monthEnd, dayEnd);
+
+    document.getElementById('submitForm').addEventListener('submit', function(event) {
+        // Fields to check
+        const fieldsToCheck = ['hour', 'minutes', 'seconds', 'hour_end', 'minutes_end', 'seconds_end'];
+
+        fieldsToCheck.forEach(field => {
+            const input = document.querySelector(`input[name="${field}"]`);
+            if (input && !input.value) {
+                input.value = '00'; // Set default value
+            }
+        });
+    });
+
+
+
+
+    //  #############################  LANGUAGE #######################################################
+    //  #############################  LANGUAGE #########################################################
+    //  #############################  LANGUAGE #########################################################
+
+
+
+
+    const translations = {
+        en: {
+
+            // 1. slide
+
+            home: "Home",
+            detaileduserdata:"Interaction Breakdown",
+            chats:"Chats",
+            datepicker:"Period Picker",
+            hierarchicalchart:"Hierarchical Charts of the Number of Questions by Product Type, Manufacturer, and Brand",
+            breakdown: "{{year}}.{{month}}.{{day}}. {{hour}}:{{minutes}}:{{seconds}} to {{year_end}}.{{month_end}}.{{day_end}}. {{hour_end}}:{{minutes_end}}:{{seconds_end}} /{{frequency}} breakdown",
+            barchart:"Bar Chart",
+            linechart:"Line Chart",
+            customdatemetrics: "Advanced analytics",
+            weektodatequickoverview:"Week-to-Date Quick Overview",
+            
+            startdateyear: "Year (2024)",
+            startdatemonth: "Month (01)",
+            startdateday: "Day (01)",
+            startdatehour: "Hour (00)",
+            startdateminute: "Minute (00)",
+            startdatesecond: "Second (00)",
+            pleasespecifytheenddate: "Please specify the end date:",
+            enddateyear: "Year (2024)",
+            enddatemonth: "Month (02)",
+            enddateday: "Day (01)",
+            enddatehour: "Hour (00)",
+            enddateminute: "Minute (00)",
+            enddatesecond: "Second (00)",
+            trackedperiod: "Please specify the periods you want to track:",
+            pleasespecifythestartdate: "Please specify the start date:",
+            yearly: "Yearly",
+            monthly: "Monthly",
+            weekly: "Weekly",
+            daily: "Daily",
+            submit_: "Submit",
+            dashboard: "Dashboard",
+            product_category_chart_label: "Product category frequency /{{previous_monday_year}}-{{previous_monday_month}}-{{previous_monday_day}} to {{today_year}}-{{today_month}}-{{today_day}}/",
+            manufacturer_chart_label: "Manufacturer frequency /{{previous_monday_year}}-{{previous_monday_month}}-{{previous_monday_day}} to {{today_year}}-{{today_month}}-{{today_day}}/",
+
+
+            users: "users",
+            vs_previous_week: "vs previous week",
+            query: "query",
+            on_average: "on average",
+            per_user: "per user",
+         
+            click: "click",
+            to_read: "to read",
+            this_week_chats: "this week's chats",
+            top_3_locations: "top 3 locations",
+            by_user_density: "by user density",
+            user_density_map: "user density map",
+           
+            myservice: "My Services",
+            chatcontrol:"Chat Control",
+            metrics:"ChatBot Metrics & Insights",
+            prediction:"Advanced AI Predictive Solutions",
+           
+
+
+            
+            
+            logout:"Logout",
+          },
+        hu: {
+            // 1. slide
+            home:"Kezdőlap",
+            detaileduserdata:"Felhasználói aktivitás",
+            chats:"Beszélgetések",
+            datepicker:"Időszakválasztó",
+            hierarchicalchart:"Hierarchikus ábrák a kérdések számáról terméktípus, gyártó és márka szerint",
+            breakdown: "{{year}}.{{month}}.{{day}}. {{hour}}:{{minutes}}:{{seconds}} - {{year_end}}.{{month_end}}.{{day_end}}. {{hour_end}}:{{minutes_end}}:{{seconds_end}} | {{frequency}} bontásban",
+            frequencies: {
+              yearly: "éves",
+              monthly: "havi",
+              weekly: "heti",
+              daily: "napi"
+            },
+            barchart:"Oszlopdiagram",
+            linechart:"Vonaldiagram",
+            customdatemetrics: "Részletes elemzés",
+            weektodatequickoverview:"Heti gyorselemzés",
+
+      
+            startdateyear: "Év (2024)",
+            startdatemonth: "Hónap (01)",
+            startdateday: "Nap (01)",
+            startdatehour: "Óra (00)",
+            startdateminute: "Perc (00)",
+            startdatesecond: "Másodperc (00)",
+            pleasespecifythestartdate: "Kérlek add meg a kezdő dátumot:",
+            pleasespecifytheenddate: "Kérlek add meg a záró dátumot:",
+            enddateyear: "Év (2024)",
+            enddatemonth: "Hónap (02)",
+            enddateday: "Nap (01)",
+            enddatehour: "Óra (00)",
+            enddateminute: "Perc (00)",
+            enddatesecond: "Másodperc (00)",
+            trackedperiod: "Add meg, hogy milyen időbontást szeretnél:",
+            yearly: "Éves",
+            monthly: "Havi",
+            weekly: "Heti",
+            daily: "Napi",
+            submit_: "Beküldés",
+
+            users: "felhasználók",
+            vs_previous_week: "előző héthez képest",
+            query: "lekérdezés",
+            on_average: "átlagosan",
+            per_user: "felhasználónként",
+          
+            click: "kattints",
+            to_read: "a részletekért",
+            this_week_chats: "e heti csevegések",
+            top_3_locations: "top 3 helyszín",
+            by_user_density: "felhasználók száma szerint",
+            user_density_map: "felhasználók eloszlása",
+            product_category_chart_label: "Termékkategória gyakoriság /{{previous_monday_year}}-{{previous_monday_month}}-{{previous_monday_day}}-tól {{today_year}}-{{today_month}}-{{today_day}}-ig/",
+            manufacturer_chart_label: "Gyártói gyakoriság /{{previous_monday_year}}-{{previous_monday_month}}-{{previous_monday_day}}-tól {{today_year}}-{{today_month}}-{{today_day}}-ig/",
+
+            
+
+
+
+            dashboard: "Kezelőfelület",
+            chatcontrol:"Chatfelügyelet",
+            metrics:"Chatbot mutatók és elemzések", 
+            prediction:"Prediktív AI-megoldások",
+            
+            
+            
+              
+            logout:"Kijelentkezés",       
+        }
+      };
+
+            document.getElementById('lang-en').addEventListener('click', function() {
+              const newLang = 'en';
+              localStorage.setItem('language', newLang);
+              setLanguage(newLang);
+              
+              fetch('/update_language', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ user_id: currentUserId, language: newLang}),
+                credentials: 'include'
+              });
+            });
+
+            document.getElementById('lang-hu').addEventListener('click', function() {
+              const newLang = 'hu';
+              localStorage.setItem('language', newLang);
+              setLanguage(newLang);
+              
+              fetch('/update_language', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({language: newLang}),
+                credentials: 'include'
+              });
+            });
+
+            // Set language on page load
+            window.onload = function() {
+                if (typeof translations !== 'undefined') {
+                    // Use backend-provided language if available, otherwise use localStorage, otherwise default to 'hu'
+                    const backendLang = "{{ language }}"; // Jinja variable
+                    const storedLang = localStorage.getItem('language');
+                    const language = backendLang && backendLang !== "" ? backendLang : (storedLang || 'hu');
+
+                    setLanguage(language);
+                }
+            };
+
+      function setLanguage(language) {
+        console.log("Setting language:", language);
+        document.querySelectorAll('[data-lang]').forEach(element => {
+          const langKey = element.getAttribute('data-lang');
+          let translation = translations[language][langKey];
+
+          if (translation) {
+
+            if (langKey === "breakdown" && typeof chartParams !== "undefined") {
+              const freqKey = chartParams.frequency;
+              const freqTranslation = translations[language].frequencies?.[freqKey] || freqKey;
+
+              translation = translation
+                .replace('{{year}}', chartParams.year)
+                .replace('{{month}}', chartParams.month)
+                .replace('{{day}}', chartParams.day)
+                .replace('{{hour}}', chartParams.hour)
+                .replace('{{minutes}}', chartParams.minutes)
+                .replace('{{seconds}}', chartParams.seconds)
+                .replace('{{year_end}}', chartParams.year_end)
+                .replace('{{month_end}}', chartParams.month_end)
+                .replace('{{day_end}}', chartParams.day_end)
+                .replace('{{hour_end}}', chartParams.hour_end)
+                .replace('{{minutes_end}}', chartParams.minutes_end)
+                .replace('{{seconds_end}}', chartParams.seconds_end)
+                .replace('{{frequency}}', freqTranslation);
+            }
+
+
+            if (element.hasAttribute('placeholder')) {
+              // For inputs like <input placeholder="...">
+              element.setAttribute('placeholder', translation);
+            }else if(element.tagName === "INPUT" && element.type === "submit") {
+            // For submit buttons
+            element.value = translation;
+              
+            } else {
+              // For regular elements like <div>, <span>, etc.
+              element.innerHTML = translation;
+            }
+          }
+        });
+      }
+
+      const chartParams = {
+        year: "{{ year }}",
+        month: "{{ month }}",
+        day: "{{ day }}",
+        hour: "{{ hour }}",
+        minutes: "{{ minutes }}",
+        seconds: "{{ seconds }}",
+        year_end: "{{ year_end }}",
+        month_end: "{{ month_end }}",
+        day_end: "{{ day_end }}",
+        hour_end: "{{ hour_end }}",
+        minutes_end: "{{ minutes_end }}",
+        seconds_end: "{{ seconds_end }}",
+        frequency: "{{ frequency }}"
+  };
+
+
+
+
+
+
+//  #############################  WRAPPER #########################################################
+
+var homeButton = document.querySelector("#home");
+homeButton.addEventListener("click", function() {
+        // Navigate to the "/" route
+        window.location.href = "/";
+    });
+
+  const wrapper = document.querySelector('.wrapper');
+  const btnCustomDate = document.querySelector('.btnCustomDate-popup');
+  const iconClose = document.querySelector('.icon-close');
+
+  btnCustomDate.addEventListener('click', () => {
+    wrapper.classList.add('active-popup');
+  });
+
+  iconClose.addEventListener('click', () => {
+    wrapper.classList.remove('active-popup');
+  });
+
+  function showDropdown(dropdown, button) {
+        dropdown.style.display = 'block';
+        button.classList.add('active');
+    }
+
+    function hideDropdown(dropdown, button) {
+        dropdown.style.display = 'none';
+        button.classList.remove('active');
+    }
+
+    
+
+    // For V character dropdown
+    circleDropdown.addEventListener('mouseenter', function() {
+        showDropdown(circleDropdownContent, circleDropdown);
+    });
+
+    circleDropdown.addEventListener('mouseleave', function() {
+        setTimeout(function() {
+            if (!circleDropdownContent.matches(':hover') && !circleDropdown.matches(':hover')) {
+                hideDropdown(circleDropdownContent, circleDropdown);
+            }
+        }, 200); // Delay to ensure dropdown doesn't vanish immediately
+    });
+
+    circleDropdownContent.addEventListener('mouseleave', function() {
+        setTimeout(function() {
+            if (!circleDropdown.matches(':hover')) {
+                hideDropdown(circleDropdownContent, circleDropdown);
+            }
+        }, 200); // Delay to ensure dropdown doesn't vanish immediately
+    });
+
+    circleDropdownContent.addEventListener('mouseenter', function() {
+        showDropdown(circleDropdownContent, circleDropdown);
+    });
+
+
+    circleDashboardLink.addEventListener("click", function() {
+        // Navigate to the "/dashboard" route
+        window.location.href = "/dashboard";
+      });
+
+      circleDashboardLink2.addEventListener("click", function() {
+          // Navigate to the "/dashboard" route
+          window.location.href = "/predictive_dashboard";
+      });
+
+      dashboardLink.addEventListener("click", function() {
+        // Navigate to the "/dashboard" route
+        window.location.href = "/dashboard";
+      });
+      dashboardLink2.addEventListener("click", function() {
+        // Navigate to the "/dashboard" route
+        window.location.href = "/predictive_dashboard";
+      });
+    
+  
+  </script>
+  <script>
+      // Dot animation for "Loading..."
+      let dotCount = 0;
+      const loadingText = document.getElementById('loadingText');
+      const dotInterval = setInterval(() => {
+        dotCount = (dotCount + 1) % 4;
+        loadingText.textContent = 'Loading' + '.'.repeat(dotCount);
+      }, 500);
+
+      // When page is fully loaded, hide overlay and remove blur
+      window.addEventListener('load', function () {
+        clearInterval(dotInterval);
+        document.getElementById('loadingOverlay').style.display = 'none';
+        document.body.classList.remove('loading');
+      });
+    </script>
+  
+  
+</body>
+</html>

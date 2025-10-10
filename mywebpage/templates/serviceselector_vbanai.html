@@ -1,0 +1,1835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unicons.iconscout.com/release/v2.0.1/css/unicons.css">
+  <title>Service Selector</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap");
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Poppins", sans-serif;
+    }
+    
+    a {
+      text-decoration: none;
+    }
+    h2 {
+      margin-bottom: 20px;
+      color: #5b5b5b;
+    }
+    p {
+      color: #5b5b5b;
+    }
+    .form_container .button{
+      background: #283255;
+      margin-top: 30px;
+      width: 100%;
+      padding: 10px 0;
+      border-radius: 10px;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .header0 {
+      height: 65px;
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      position: fixed;
+      align-items: center;  /* NEW */
+      top: 0;
+      left: 0;
+      right: 0;
+      background-color: rgba(0, 0, 0, 0.3);
+      border-bottom-width: 1px;
+      border-bottom-style: solid;
+      z-index: 1005;
+      transition: background-color 0.3s ease;
+    }
+    .header0.scrolled {
+      background-color: rgba(0, 0, 0, 1);
+    }
+    .left-section {
+      align-items: center;
+      justify-content: center;
+      display: flex;
+      margin-left: 20px;
+      width: auto;
+      margin-bottom: 10px;
+    }
+    .hamburger {
+      height: 50px;
+    }
+    .middle-section_régi {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 30px;
+      margin-right: 30px;
+      max-width: 70%;
+      position: relative;
+    }
+
+    .middle-section {
+      position: absolute;    /* Positioning relative to the entire header */
+      left: 48%;             /* 50% from the left side of the header */
+      transform: translateX(-50%);  /* Adjust by 50% of its own width to center it */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      max-width: 70%;
+    }
+ 
+    .right-section_régi {
+      width: 150px;
+      display: flex;
+      align-items: center;
+      justify-content: right;
+      margin-right: 20px;
+      margin-left: 20px;
+      flex-shrink: 0;
+    }
+    .right-section {
+        width: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 20px;
+        flex-shrink: 0;  /* Prevent shrinking the block */
+      }
+
+      @media screen and (max-width: 880px) {
+        .header0 {
+          background-color: rgba(0, 0, 0, 1) !important; /* Force black background */
+          flex-direction: column; /* Stack elements vertically */
+          align-items: center; /* Center align items */
+          height: auto; /* Adjust height dynamically */
+        }
+        .inner_container {
+        
+          margin-top: calc(95px + 20vh) !important;
+        }
+        .left-section{
+          margin-top:5px;
+        }
+
+        .middle-section {
+          position: relative; /* Remove absolute positioning */
+          left: auto;
+          transform: none;
+          width: 100%; /* Full width */
+          justify-content: center;
+          margin-top: 10px;
+        }
+        
+
+        .right-section {
+          width: 100%; /* Full width */
+          justify-content: center; /* Center align */
+          margin-right: 0; /* Remove margin */
+          margin-top: 10px;
+          margin-bottom: 5px;
+        }
+      }
+
+      
+      .language-switcher {
+        display: flex;
+        align-items: center;
+        margin-right: 7px;  /* Space between the flags and login button */
+        width: auto;
+        font-size: 0;  /* Remove space between inline elements */
+      }
+
+      .language-switcher a {
+        
+        margin-right: 7px;
+        text-decoration: none;
+      }
+
+      .language-switcher img {
+        width: 19px;  /* Smaller flag size */
+        height: 13px;  /* Smaller flag size */
+      }
+
+      /* Make Hungarian flag slightly larger */
+      .language-switcher a:nth-child(2) img {
+        width: 15px;  /* Hungarian flag size */
+        height: 10px;  /* Hungarian flag size */
+      }
+
+
+    .nav,
+    .nav_item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav_logo,
+    .nav_link,
+    .button {
+      color: #fff;
+    }
+    .nav_logo {
+      font-size: 25px;
+    }
+    .nav_item {
+      column-gap: 25px;
+      position: relative;
+    }
+    .nav_link:hover {
+      color: #d9d9d9;
+    }
+    .buttonlogout {
+      padding: 4px 22px;
+      border: 1.2px solid #fff;
+      background: transparent;
+      border-radius: 50px;
+      cursor: pointer;
+      font-size: 15px;
+      color: #fff;
+    }
+    .buttonsubscription {
+      cursor: pointer;
+      color: #fff;
+      position: relative;
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+    .buttonsubscription::before {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background-color: #fff;
+      transition: width 0.3s ease;
+      transform: scaleX(0);
+      transform-origin: bottom right;
+      transition: transform 0.3s ease, background-color 0.3s ease, opacity 0.3s ease; /* Added opacity transition */
+    }
+    .buttonsubscription:hover::before,
+    .buttonsubscription.active::before {
+      transform: scaleX(1);
+      transform-origin: bottom left;
+      background-color: #4d8bcd;
+    }
+    .buttonsubscription:hover,
+    .buttonsubscription.active {
+      color: #d9d9d9;
+    }
+    .button:active {
+      transform: scale(0.98);
+    }
+ 
+    
+  .home {
+    
+    position: relative;
+    display: flex; /* Enable flexbox for centering */
+    flex-direction: column; /* Stack children vertically */
+    justify-content: flex-start;
+    align-items: center; /* Center horizontally */
+    height: 100vh;
+    width: 100%;
+    background-image: url('static/RedRain.jpg');
+    background-size: cover;
+    background-position: center;
+    overflow:hidden;
+   
+  }
+
+
+  
+  .home::before{
+  
+  content: "";
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  background-color: rgba(0,0,0,0.5);
+  backdrop-filter: blur(10px);
+  z-index: 1009;
+  opacity:0;
+  pointer-events: none;
+  transition:all 0.5s ease-out;
+  
+
+
+}
+.home.show::before{
+  opacity:1;
+  pointer-events:auto;
+   
+}
+
+
+
+
+
+/* Form container: Positioning remains as is */
+.form_container {
+    position: absolute;
+    max-width: 1200px;
+    width: 40%;
+    height: auto; /* Allow height to adapt to content */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(1.2);
+    z-index: 11011;
+    background: #fff;
+    padding: 25px 30px;
+    border-radius: 12px;
+    box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 10px;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.4s ease-out;
+    display: flex; /* Enable Flexbox */
+    flex-direction: column; /* Stack child elements vertically */
+    gap: 20px; /* Add space between elements */
+   
+  
+}
+.form_container.show {
+    display: block;
+}
+
+
+
+.invite_form.show {
+    opacity: 0.84;
+    pointer-events: auto;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.roleManagement.show {
+    opacity: 0.84;
+    pointer-events: auto;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.resourceRemoval.show {
+    opacity: 0.84;
+    pointer-events: auto;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+
+/* Input and dropdown styling */
+.input_box {
+    display: flex;
+    flex-direction: column;
+}
+
+.input_group_label {
+  font-size: clamp(10px, 1.2vw, 18px);
+    
+    margin-bottom: 5px;
+}
+
+input[type="email"],
+select {
+    width: 100%;
+    padding: 10px;
+    font-size: clamp(10px, 1.2vw, 18px);
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+input[type="text"],
+select {
+    width: 100%;
+    padding: 10px;
+    font-size: clamp(10px, 1.2vw, 18px);
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+
+  body {
+          margin: 0;
+          height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background-color: #f0f0f0; /* Optional: Set a background color for the body */
+          overflow:hidden
+        }
+
+/* Centering container */
+.inner_container {
+  margin-top: calc(65px + 10vh);
+  display: grid;
+  grid-template-columns: 1fr;
+  width: 90%;
+  z-index: 1001;
+  justify-items: center; /* Center items horizontally */
+  align-items: center;
+  margin-bottom: 10vh; /* Add space below for the center container */
+}
+
+/* Center container holding chat grids */
+.center-container {
+    display: flex;
+    justify-content: center; /* Center horizontally */
+    align-items: flex-start; /* Align items to the start */
+    gap: 20px; /* Space between each container-chat-grid */
+    width: 100%; /* Take full width of parent */
+    flex-wrap: nowrap; /* Prevent wrapping */
+    overflow-x: auto; /* Allow horizontal scroll if needed */
+    padding: 10px;
+    z-index: 1001;
+}
+
+.container-chat-grid {
+    display: flex; /* Change to flex for centering content */
+    flex-direction: column; /* Stack children vertically */
+    justify-content: center; /* Center content vertically */
+    align-items: center; /* Center content horizontally */
+    flex-shrink: 1; /* Allow shrinking */
+    width: 100%; /* Full width within the center-container */
+    max-width: 300px; /* Set max width */
+    max-height: 240px;
+    background-color: rgba(255, 255, 255, 0.7);
+    padding: 10px;
+    border-radius: 10px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    z-index: 1003;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
+}
+
+/* Making content inside container responsive */
+.container-chat-grid img {
+    width: 100%;
+    height: auto;
+    max-height: 50%;
+    object-fit: contain;
+    transition: width 0.3s ease, height 0.3s ease;
+}
+
+/* Scaling text inside the chat grid */
+.container-chat-grid .chatbot-title {
+    font-size: 1rem;
+    text-align: center;
+    color: white;
+    margin-top: 10px;
+    max-width: 100%;
+    transition: font-size 0.3s ease;
+    min-height: 25px;
+}
+
+/* Media query for smaller screens */
+@media (max-width: 768px) {
+    .container-chat-grid {
+        max-width: 220px; /* Adjust width */
+        max-height: 200px; /* Adjust height */
+        padding: 10px;
+    }
+
+    .container-chat-grid img {
+        max-height: 40%; /* Adjust image height */
+    }
+
+    .container-chat-grid .chatbot-title {
+        font-size: 0.9rem; /* Adjust font size */
+    }
+}
+
+/* Media query for mobile screens */
+@media (max-width: 480px) {
+    .container-chat-grid {
+        max-width: 180px;
+        max-height: 160px;
+        padding: 5px;
+    }
+
+    .container-chat-grid img {
+        max-height: 35%;
+    }
+
+    .container-chat-grid .chatbot-title {
+        font-size: 0.8rem;
+    }
+}
+.container-chat-grid:hover {
+  transform:  translateY(-10px); /* Move the element up slightly */
+  box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.2); /* Enhance the shadow */
+}
+  .chatbot-title {
+      font-size: 16px; /* Adjust the font size as needed */
+      text-align: center;
+      font-family: Arial, sans-serif; /* Change font family */
+      font-weight: bold; /* Change font weight */
+      font-style: italic; /* Change font style */
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8); /* Add text shadow */
+  }
+  .image-link img {
+      width: 100%; /* Image takes 100% of the parent container's width */   
+      height: 250px;
+  }
+  .slogan {
+  
+  font-size: calc(1rem + 0.4vw); /* Adjust as needed */
+ 
+  transition: color 0.5s ease-out; /* Add transition for color change */
+}
+
+
+
+/* Minimum font size for very small screens */
+@media screen and (max-width: 400px) {
+  .slogan {
+    font-size: 2rem; /* Adjust font size for very small screens */
+  }
+}
+
+/* Maximum font size for very large screens */
+@media screen and (min-width: 1600px) {
+  .slogan {
+    font-size: 2rem; /* Adjust font size for very large screens */
+  }
+}
+
+
+ .image-link {
+            width: 100%; /* Adjust the width of the div */
+            height: auto; /* Adjust the height of the div */
+            max-width: 300px;
+            max-height: 200px;
+            aspect-ratio: 3 / 2;
+            overflow: hidden; /* Ensures the image doesn't overflow the div */
+            display: flex; /* Optional: Flexbox for centering */
+            justify-content: center; /* Optional: Center horizontally */
+            align-items: center; /* Optional: Center vertically */
+        }
+
+        .image-link img {
+            width: 100%; /* Make the image fill the div */
+            height: auto; /* Make the image fill the div */
+            object-fit: contain;
+            transform: scale(2.2); /* Zoom in the image by default */
+            transition: transform 0.3s ease; /* Smooth transition for zoom effect */
+           
+        }
+        .greeting2 {
+      color: white;
+      text-shadow: 3px 3px 5px rgba(0, 0, 0, 0.9),
+                   6px 6px 5px rgba(0, 0, 0, 0.5),
+                   9px 9px 5px rgba(0, 0, 0, 0.3);
+    }
+
+    .circle-container {
+    position: relative;
+    display: inline-block;
+    
+}
+
+.circle {
+    position: relative;
+    width: 40px; /* Adjust size of the circle */
+    height: 40px; /* Adjust size of the circle */
+    border: 1px solid white; /* White border */
+    border-radius: 50%; /* Make it a circle */
+    overflow: hidden;
+}
+
+.content {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgb(90, 93, 147), #110659);
+    color: white; /* Text color */
+    font-size: 20px; /* Adjust font size */
+    cursor: pointer; /* Change cursor to pointer */
+}
+
+    .resource-dropdown-content a + a,
+    .circle-dropdown-content a + a,
+    .dropdown-content a + a {
+      border-top: 1px solid rgba(255, 255, 255, 0.5);
+    }
+    .resource-dropdown-content a:first-child,
+    .circle-dropdown-content a:first-child,
+    .dropdown-content a:first-child {
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+    }
+    .circle--content a:last-child,
+    .dropdown-content a:last-child {
+      border-bottom-left-radius: 10px;
+      border-bottom-right-radius: 10px;
+    }
+    .resource-dropdown-content::before,
+    .resource-dropdown-content::after,
+    .circle-dropdown-content::before,
+    .circle-dropdown-content::after,
+    .dropdown-content::before,
+    .dropdown-content::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background-color: rgba(255, 255, 255, 0.5);
+      top: calc(100% - 1px);
+    }
+    .resource-dropdown-content::before,
+    .circle-dropdown-content::before,
+    .dropdown-content::before {
+      top: -1px;
+    }
+    .resource-dropdown-content a:hover,
+    .circle-dropdown-content a:hover,
+    .dropdown-content a:hover {
+      background-color: #ddd;
+    }
+    
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
+      min-width: 250px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+      z-index: 1;
+      border-radius: 10px;
+      overflow: hidden;
+      top: calc(100% + 5px);
+      left: 30%;
+      transform: translateX(-50%);
+    }
+
+    .circle-dropdown-content{
+      display: none;
+      position: absolute;
+      background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
+      min-width: 250px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+      z-index: 1;
+      border-radius: 10px;
+      overflow: hidden;
+      top: calc(100% + 5px);
+      left: calc(50% - 90px);
+      transform: translateX(-50%);
+    }
+    .resource-dropdown-content{
+      display: none;
+      position: absolute;
+      background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
+      min-width: 250px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+      z-index: 1;
+      border-radius: 10px;
+      overflow: hidden;
+      top: calc(100% + 5px);
+      left: 75%;
+      transform: translateX(-50%);
+    }
+    .resource-dropdown-content a,
+    .circle-dropdown-content a,
+    .dropdown-content a {
+      color: rgb(9, 13, 44);
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      transition: background 0.3s;
+    }
+    .form_close{
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      color: #0b0217;
+      font-size: 22px;
+      opacity:0.7;
+      cursor:pointer;
+    }
+
+    .form.signup_form {
+    display: flex; /* Enables Flexbox */
+    flex-direction: column; /* Stacks children vertically */
+    justify-content: center; /* Centers vertically */
+    align-items: center; /* Centers horizontally */
+    width: 100%; /* Full width */
+    box-sizing: border-box; /* Ensures padding/borders are included in the dimensions */
+    }
+
+    .flash {
+    padding: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    background-color: #f8f9fa;
+    transition: opacity 1s ease, transform 1s ease;
+    }
+    .flash.success {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    .flash.danger {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+  
+    .fade-out {
+        opacity: 0; /* Fade out */
+        transform: translateY(-20px); /* Slide up */
+    }
+
+    .input-error {
+    border: 2px solid red;
+    }
+    .flash.danger {
+        color: red;
+        margin-top: 0.5rem;
+    }
+
+    .signup_form {
+        max-width: 100%;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 1rem;
+        padding: clamp(0.5rem, 2vw, 2rem); /* flexible padding */
+        margin: clamp(0.5rem, 2vw, 2rem) auto; /* flexible top/bottom margin */
+      }
+
+      .signup_form h2 {
+        text-align: center;}
+
+    .signup_form input,
+    .signup_form select,
+    .signup_form button {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .button {
+      font-size: clamp(10px, 1.2vw, 16px);
+      padding: 0.5rem 1rem;
+      max-width: 100%;
+      word-wrap: break-word;
+      white-space: normal;
+    }
+
+    /* Tighter layout for small screens */
+    @media (max-width: 700px) {
+      .form_container {
+       
+        width: 90%;
+      }
+      form {
+        width: 100%;
+        margin: 0 auto; /* centers it horizontally */
+      }
+      .signup_form {
+        padding: 0.5rem;
+        margin: 0.5rem;
+      }
+
+      .signup_form h2 {
+        font-size: clamp(14px, 5vw, 22px);
+      }
+
+      .button {
+        font-size: clamp(10px, 4vw, 14px);
+      }
+    }
+
+
+
+
+
+  </style>
+</head>
+<body>
+  <div class="header0">
+    <div class="left-section">
+      <img src="static/RedRainLogo8.png" alt="" class="hamburger">
+    </div>
+    <div class="middle-section">
+      <ul>
+        <li class="nav_item">
+          <a href="#home" class="nav_link buttonsubscription" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" id="home" data-lang="home">Home</a>
+          <div id="navItem">
+            <a href="#services" class="buttonsubscription" id="buttonSubscription" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" data-lang="myservice">My Services</a>
+            <div class="dropdown-content" id="dropdownContent">
+              {% if chat_control_access %}
+                <a href="#service1" id="dashboardLink0" data-lang="chatcontrol">Chat Control</a>
+              {% endif %}
+              {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
+                <a href="#service1" id="dashboardLink" data-lang="metrics">ChatBot Metrics & Insights</a>
+              {% endif %}
+              {% if advanced_ai_access and user_role in ['Manager', 'Team Leader'] %}
+                <a href="{{ url_for('predictive_dashboard') }}" data-lang="prediction">Advanced AI Predictive Solutions</a>
+              {% endif %}
+              </div>
+          </div>
+          <!-- <a href="#services" class="nav_link buttonsubscription" id="form-open">Resource Management</a> -->
+          {% if user_role in ['Manager', 'Team Leader'] %}
+            <div id="navItem2">
+              <a href="#services" class="buttonsubscription" id="buttonSubscription" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" data-lang="resourcemanagement">Resource Management</a>
+              <div class="resource-dropdown-content" id="resourcedropdownContent">
+                <a href="#service1" id="form-Invitation" data-lang="invitation">Invitation</a>
+                <a href="#" id="form-roleManagement" data-lang="manageroles">Manage Roles</a>
+                <a href="#service1" id="form-Removal" data-lang="removeresource">Remove Resource</a>
+              </div>
+            </div>
+          {% endif %}
+        </li>
+        
+      </ul>
+    </div>
+    <div class="right-section">
+      <div class="language-switcher">
+        <div class="language-switcher">
+          <a href="#" id="lang-en" class="language-link">
+            <img src="static/en-flag.png" alt="EN" />
+          </a><a href="#" id="lang-hu" class="language-link">
+            <img src="static/hu-flag.png" alt="HU" />
+          </a>
+        </div>
+      </div>
+
+      <div class="circle-container">
+        <div class="circle" id="circleDropdown">
+          <div class="content">
+            {{First_character}} <!-- Your character or content here -->
+          </div>
+        </div>
+        <div class="circle-dropdown-content" id="circleDropdownContent">
+          {% if chat_control_access %}
+            <a href="#service1" id="circleDashboardLink0" data-lang="chatcontrol">Chat Control</a>
+          {% endif %}
+          {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
+            <a href="{{ url_for('dashboard_vbanai') }}" data-lang="metrics">ChatBot Metrics & Insights</a>
+          {% endif %}
+          {% if advanced_ai_access and user_role in ['Manager', 'Team Leader'] %}
+            <a href="{{ url_for('predictive_dashboard') }}" data-lang="prediction">Advanced AI Predictive Solutions</a>
+          {% endif %}
+            <a href="#logout" id="logout" action="{{ url_for('logout') }}" method="post" data-lang="logout">Logout</a>
+        </div>
+      </div>
+      
+      <!-- <a href="#home" class="buttonlogout" id="form-open">Logout</a> -->
+      
+    </div>
+  </div>
+  
+  <section class="home" id="home">
+   
+    <div class="form_container invite_form">
+      <i class="uil uil-times form_close" id="closeInvite"></i>
+      
+      <div class="form signup_form" >
+        <form id="inviteForm" method="post">
+          <!-- <meta name="csrf-token" content="{{ csrf_token() }}"> -->
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="user_role" value="{{ user_role }}">
+          <input type="hidden" name="First_character" value="{{ First_character }}">
+          <input type="hidden" name="email_prefix" value="{{ email_prefix }}">
+          <input type="hidden" name="client_name" value="{{ client_name }}">
+          <input type="hidden" name="service_message" value="{{ service_message }}">
+          <input type="hidden" name="chat_control_access" value="{{ chat_control_access }}">
+          <input type="hidden" name="metrics_access" value="{{ metrics_access }}">
+          <input type="hidden" name="advanced_ai_access" value="{{ advanced_ai_access }}">
+          <input type="hidden" name="form_type" value="invite_user">
+
+          <!-- {% with messages = get_flashed_messages() %}
+            {% if messages %}
+              <ul class="flash-messages">
+                {% for message in messages %}
+                  <li>{{ message }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          {% endwith %} -->
+          <h2 style="color: #283255; font-size: clamp(14px, 1.6vw, 34px); text-align: center;" data-lang="invitenewusers">Invite New Users</h2>
+          <div class="input_box">
+            <p class="input_group_label" style="font-size: clamp(9px, 1vw, 14px)" data-lang="enteremails">Enter email(s) separated by comas:</p>
+            <div class="input_box">
+              <input type="email" name="emails" data-lang="placeholder_email" style="font-size: clamp(9px, 1vw, 14px)" placeholder="email(ek)" required />
+            </div>
+          </div>
+
+          <div class="input_box" style="margin-top: 6px;">
+            <p class="input_group_label" style="font-size: clamp(9px, 1vw, 14px)" data-lang="enternames">Enter name(s) in the same order as the email(s), separated by commas:</p>
+            <div class="input_box">
+              <input type="text" name="names" style="font-size: clamp(9px, 1vw, 14px)" data-lang="placeholder_name" placeholder="name(s)" />
+            </div>
+          </div>
+          
+          
+          <div class="input_box" style="margin-top: 6px;">
+            <p class="input_group_label" style="font-size: clamp(9px, 1vw, 14px)" data-lang="selectarole">Select a role:</p>
+            <select name="role" id="role" style="font-size: clamp(9px, 1vw, 14px);" >
+                <option value="manager" data-lang="manager">Manager</option>
+                <option value="Team Leader" data-lang="teamleader">Team Leader</option>
+                <option value="administrator" data-lang="administrator">Administrator</option>
+            </select>
+          </div>
+          <button type="button" id="inviteSubmitButton" class="button" style="font-size: clamp(11px, 1vw, 14px);" data-lang="submit">Submit</button>
+          <!-- <button type="submit">Submit</button> -->
+         
+        </form>
+      </div>
+    </div>
+
+    <div class="form_container roleManagement">
+      <i class="uil uil-times form_close" id="closeRoleManagement"></i>
+      <div class="form signup_form" >
+        <form id="roleManagementForm" method="post">
+          <!-- <meta name="csrf-token" content="{{ csrf_token() }}"> -->
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="user_role" value="{{ user_role }}">
+          <input type="hidden" name="First_character" value="{{ First_character }}">
+          <input type="hidden" name="email_prefix" value="{{ email_prefix }}">
+          <input type="hidden" name="client_name" value="{{ client_name }}">
+          <input type="hidden" name="service_message" value="{{ service_message }}">
+          <input type="hidden" name="chat_control_access" value="{{ chat_control_access }}">
+          <input type="hidden" name="metrics_access" value="{{ metrics_access }}">
+          <input type="hidden" name="advanced_ai_access" value="{{ advanced_ai_access }}">
+          <input type="hidden" name="form_type" value="manage_user">
+    
+
+          <h2 style="color: #283255; font-size: clamp(14px, 1.6vw, 34px); text-align: center;" data-lang="modifyrole">Modify role</h2>
+
+          <div class="input_box" style="margin-bottom: 5px;">
+            <p class="input_group_label" data-lang="selectauser" style="font-size: clamp(9px, 1vw, 14px)">Select a user:</p>
+            <select style="font-size: clamp(9px, 1vw, 14px)" name="selected_user" id="userDropdownRole">
+              <option value=""  data-lang="loadusers">Click here to load users</option>
+            </select>
+          </div>
+          
+          
+          <div class="input_box">
+            <p class="input_group_label" style="font-size: clamp(9px, 1vw, 14px)" data-lang="selectarole">Select a role:</p>
+            <select name="selected_role" style="font-size: clamp(9px, 1vw, 14px)" id="selected_role">
+                <option value="Manager" data-lang="manager">Manager</option>
+                <option value="Team Leader" data-lang="teamleader">Team Leader</option>
+                <option value="Administrator" data-lang="administrator">Administrator</option>
+            </select>
+          </div>
+
+          <button type="button" id="roleSubmitButton" class="button" style="font-size: clamp(11px, 1vw, 14px);" data-lang="submitmodifyrole">Submit</button>
+          <!-- <button type="submit">Submit</button> -->
+         
+        </form>
+      </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+    <div class="form_container resourceRemoval">
+      <i class="uil uil-times form_close" id="closeResourceRemoval"></i>
+      <div class="form signup_form" >
+        <form id="userRemovalForm" method="post">
+          <!-- <meta name="csrf-token" content="{{ csrf_token() }}"> -->
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="user_role" value="{{ user_role }}">
+          <input type="hidden" name="First_character" value="{{ First_character }}">
+          <input type="hidden" name="email_prefix" value="{{ email_prefix }}">
+          <input type="hidden" name="client_name" value="{{ client_name }}">
+          <input type="hidden" name="service_message" value="{{ service_message }}">
+          <input type="hidden" name="chat_control_access" value="{{ chat_control_access }}">
+          <input type="hidden" name="metrics_access" value="{{ metrics_access }}">
+          <input type="hidden" name="advanced_ai_access" value="{{ advanced_ai_access }}">
+          <input type="hidden" name="form_type" value="remove_user">
+         
+          <h2 style="color: #283255; font-size: clamp(14px, 1.6vw, 34px);" data-lang="removeresourceh2">Remove Resource</h2>
+          <div class="input_box">
+            <p class="input_group_label" style="font-size: clamp(9px, 1vw, 14px)" data-lang="selectauser">Select a user:</p>
+            <select name="selected_user" style="font-size: clamp(9px, 1vw, 14px)" id="userDropdownRemoval">
+              <option value=""  data-lang="loadusers">Click here to load users</option>
+            </select>
+          </div>
+          <button type="button" id="removalSubmitButton" class="button" style="font-size: clamp(11px, 1vw, 14px);" data-lang="removeresourcesubmit">Submit</button>
+          <!-- <button type="submit">Submit</button> -->
+         
+        </form>
+      </div>
+    </div>
+
+    
+   
+      
+    
+    <div class="inner_container" >
+      <h1 class="greeting slogan" style="color: white; margin-bottom: 3px; font-size: clamp(13px, 2vw, 20px); font-family: 'Inter', sans-serif; " data-lang="greeting">Hello {{ name }} from {{ client_name }}, Welcome to your subscription!</h2>
+      <p class="greeting2" style="color: white; font-size: clamp(10px, 1.3vw, 15px);" data-lang="greeting2"> Please select a service</p>
+      <!-- Your form or other content goes here -->
+    </div>
+
+    
+    <div id="flash-messages"></div>
+
+    <div class="center-container">
+      {% if service_message %}
+          <p style="color: red; font-size: 1.5vw;">{{ service_message }}</p>
+      {% else %}
+              {% if chat_control_access %}
+              <!-- Chat Control: Accessible to Manager, Team Leader, Administrator with Gold or Platinum subscriptions -->
+              <!-- {% if subscription and subscription.can_access_chat_control %} -->
+                  <a href="#service1" id="chatGridLink" class="container-chat-grid">
+                      <p class="chatbot-title" style="color: white; margin-top: 5px; font-size: clamp(10px, 1.4vw, 17px)" data-lang="chatcontrol" >Chat Control</p>
+                      <div class="image-link">
+                          <img src="static/adminpage.png" alt="Clickable Image" />
+                      </div>
+                  </a>
+              {% endif %}
+              
+              <!-- Chatbot Metrics & Insights: Accessible to Manager and Team Leader with Basic, Gold, or Platinum subscriptions -->
+              {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
+                  <a href="{{ url_for('dashboard_vbanai') }}" class="container-chat-grid">
+                      <p class="chatbot-title" style="color: white; margin-top: 5px; font-size: clamp(10px, 1.4vw, 17px);" data-lang="metrics" >Chatbot Metrics & Insights</p>
+                      <div class="image-link">
+                          <img src="static/Data extraction-pana.png" alt="Clickable Image" />
+                      </div>
+                  </a>
+              {% endif %}
+              
+              <!-- Advanced AI Predictive Solutions: Accessible to Manager and Team Leader with Platinum subscription -->
+              {% if advanced_ai_access and user_role in ['Manager', 'Team Leader'] %}
+                  <a href="{{ url_for('predictive_dashboard') }}"  class="container-chat-grid">
+                      <p class="chatbot-title" style="color: white; margin-top: 5px; font-size: clamp(10px, 1.4vw, 17px);" data-lang="prediction">Advanced AI Predictive Solutions</p>
+                      <div class="image-link">
+                          <img src="static/robotic-process-automation-illustration.png" style="object-fit: contain" alt="Clickable Image" />
+                      </div>
+                  </a>
+              {% endif %}
+          {% endif %}
+      {% endif %}
+    </div>
+  
+  
+    
+    
+  </section>
+  <script>
+    const currentUserId = "{{ user_id }}";
+    const userLanguage = "{{ language }}";
+    if (userLanguage) {
+    localStorage.setItem('language', userLanguage);
+}
+  </script>
+  <script src="\static\inactivitytimeout.js"></script>
+
+  <!-- <iframe id="chatIframe" src="https://chatbothungarianbv.azurewebsites.net" frameborder="0"></iframe> -->
+  <!-- <script src="static/scriptform.js"></script> -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+    var home = document.querySelector(".home");
+    var navItem = document.getElementById('navItem');
+    var navItem2 = document.getElementById('navItem2');
+
+
+    
+    var formFormInvitation = document.querySelector(".invite_form");
+    var formFormRoleManagement = document.querySelector(".roleManagement");
+    var formFormResourceRemoval = document.querySelector(".resourceRemoval");
+
+    var closeInviteButton = document.getElementById("closeInvite");
+    var closeRoleManagementButton = document.getElementById("closeRoleManagement");
+    var closeResourceRemoval = document.getElementById("closeResourceRemoval");
+
+    var formOpenInvite = document.getElementById("form-Invitation");
+    var formOpenRoles = document.getElementById("form-roleManagement");
+    var formLinkOpenRemoval = document.getElementById("form-Removal");
+    
+    var dropdownContent = document.getElementById('dropdownContent');
+    var resourcedropdownContent = document.getElementById('resourcedropdownContent');
+    var buttonSubscription = document.getElementById('buttonSubscription');
+    var buttonSubscription2 = document.getElementById('buttonSubscription2');
+    var logoutButton = document.querySelector("#logout");
+    var homeButton = document.querySelector("#home");
+    var dashboardLink0 = document.getElementById('dashboardLink0');
+    var dashboardLink = document.getElementById('dashboardLink');
+    var dashboardLink2 = document.getElementById('dashboardLink2');
+    var chatGridLink = document.getElementById('chatGridLink');
+    var chatGridLink2 = document.getElementById('chatGridLink2');
+    var circleDropdownContent = document.getElementById('circleDropdownContent');
+    var circleDropdown = document.getElementById('circleDropdown');
+    var circleDashboardLink0= document.getElementById('circleDashboardLink0');
+    var circleDashboardLink= document.getElementById('circleDashboardLink');
+    var circleDashboardLink2= document.getElementById('circleDashboardLink2');
+    var dropdownRole = document.getElementById("userDropdownRole");
+    var dropdownRemoval = document.getElementById("userDropdownRemoval");
+
+    if (dropdownRole) {
+    dropdownRole.addEventListener("click", function () {
+      const selectedValue = dropdownRole.value;
+      const language = localStorage.getItem('language') || 'hu';
+      fetch("/get_users")
+        .then(response => response.json())
+        .then(users => {
+          dropdownRole.innerHTML = ""; // Clear existing options
+          users.forEach(user => {
+            const option = document.createElement("option");
+            option.value = user.email;
+
+             // Translate role if available in translations
+            let roleDisplay = user.role;
+            const roleKey = user.role.replace(/\s+/g, '').toLowerCase(); // e.g., "manager", "administrator"
+            if (translations[language] && translations[language][roleKey]) {
+                roleDisplay = translations[language][roleKey];
+            }
+            console.log(roleKey)
+            const displayName = user.name ? `${user.name} <${user.email}>` : user.email;
+            option.textContent = `${displayName} - ${roleDisplay}`;
+            dropdownRole.appendChild(option);
+            if (option.value === selectedValue) {
+                    option.selected = true;
+                }
+          });
+        })
+        .catch(error => {
+          console.error("Error fetching users:", error);
+        });
+    });
+  }
+
+  
+    if (dropdownRemoval) {
+    dropdownRemoval.addEventListener("click", function () {
+    const selectedValue = dropdownRemoval.value; // Store the selected value before clearing
+    const language = localStorage.getItem('language') || 'hu';
+
+    fetch("/get_users")
+        .then(response => response.json())
+        .then(users => {
+            dropdownRemoval.innerHTML = ""; // Clear existing options
+
+            // Add options for users
+            users.forEach(user => {
+                const option = document.createElement("option");
+                option.value = user.email;
+
+                   // Translate role if available in translations
+                let roleDisplay = user.role;
+                const roleKey = user.role.replace(/\s+/g, '').toLowerCase(); // e.g., "manager", "administrator"
+                if (translations[language] && translations[language][roleKey]) {
+                    roleDisplay = translations[language][roleKey];
+                }
+                const displayName = user.name ? `${user.name} <${user.email}>` : user.email;
+                option.textContent = `${displayName} - ${roleDisplay}`;
+                dropdownRemoval.appendChild(option);
+
+                // Restore previous selection if it still exists in the new list
+                if (option.value === selectedValue) {
+                    option.selected = true;
+                }
+            });
+        })
+        .catch(error => {
+            console.error("Error fetching users:", error);
+        });
+});
+    }
+
+
+
+
+
+
+     // Function to show a form
+    function showForm(formToShow) {
+        // Hide both forms
+        formFormInvitation.classList.remove("show");
+        formFormRoleManagement.classList.remove("show");
+        formFormResourceRemoval.classList.remove("show");
+       
+        // Show the selected form
+        formToShow.classList.add("show");
+        
+        // Add blur effect to the home section
+        home.classList.add("show");
+    }
+
+    // Event listener to open the Invitation form
+    if (formOpenInvite) {
+    formOpenInvite.addEventListener("click", (e) => {
+        e.preventDefault();
+        showForm(formFormInvitation);
+    });
+  }
+
+    // Event listener to open the Manage Roles form
+    if (formOpenRoles) {
+    formOpenRoles.addEventListener("click", (e) => {
+        e.preventDefault();
+        showForm(formFormRoleManagement);
+    });
+  }
+
+    // Event listener to close forms
+    if (closeInviteButton) {
+    closeInviteButton.addEventListener("click", () => {
+        formFormInvitation.classList.remove("show");
+        home.classList.remove("show"); // Remove blur effect
+    });
+  }
+  if (formLinkOpenRemoval) {
+    formLinkOpenRemoval.addEventListener("click", (e) => {
+        e.preventDefault();
+        showForm(formFormResourceRemoval);
+    });
+  }
+  if (closeRoleManagementButton) {
+    closeRoleManagementButton.addEventListener("click", () => {
+        formFormRoleManagement.classList.remove("show");
+        home.classList.remove("show"); // Remove blur effect
+    });
+  }
+  if (closeResourceRemoval) {
+    closeResourceRemoval.addEventListener("click", () => {
+      formFormResourceRemoval.classList.remove("show");
+        home.classList.remove("show"); // Remove blur effect
+    });
+  }
+      
+    // formOpenBtn.addEventListener("click", () => home.classList.add("show"));
+    // formCloseBtn.addEventListener("click", () => home.classList.remove("show"));
+    
+
+    function displayFlashMessages(messages) {
+    const flashContainer = document.getElementById('flash-messages');
+    flashContainer.innerHTML = ''; // Clear existing messages
+
+      messages.forEach(message => {
+          const messageDiv = document.createElement('div');
+          messageDiv.className = `alert alert-${message.category}`;
+          messageDiv.innerText = message.text;
+          flashContainer.appendChild(messageDiv);
+      });
+
+      // Optionally remove flash messages after a few seconds
+      setTimeout(() => {
+          flashContainer.innerHTML = '';
+      }, 5000);
+    }
+
+
+    //////////////////////////////////////////////////////////
+    /////     RESOURCE MANAGEMENT SUBMIT BUTTONS       //////
+    /////////////////////////////////////////////////////////
+   if (document.getElementById("inviteSubmitButton")){
+    document.getElementById("inviteSubmitButton").addEventListener("click", function () {
+        const form = document.getElementById("inviteForm");
+
+
+     
+        // Checking the length of emails and names
+        const emailsInputEl = form.querySelector("input[name='emails']");
+        const namesInputEl = form.querySelector("input[name='names']");
+        const emailsInput = emailsInputEl.value;
+        const namesInput = namesInputEl.value;
+
+        const emailList = emailsInput.split(/[, \n]+/).map(e => e.trim()).filter(e => e !== "");
+        const nameList = namesInput.split(",").map(n => n.trim()).filter(n => n !== "");
+
+        // Find or create the flash message container inside the form
+        let flashMessages = form.querySelector("#invite-flash-messages");
+        if (!flashMessages) {
+            flashMessages = document.createElement("div");
+            flashMessages.id = "invite-flash-messages";
+            flashMessages.classList.add("flash-messages");
+            form.prepend(flashMessages);
+        }
+
+        if (emailList.length !== nameList.length) {
+            flashMessages.innerHTML = `<div class="flash danger">The number of names must match the number of emails.</div>`;
+
+            // Optional: highlight the mismatched inputs
+            emailsInputEl.classList.add("input-error");
+            namesInputEl.classList.add("input-error");
+
+            // Optional: remove the highlight after a short time
+            setTimeout(() => {
+                emailsInputEl.classList.remove("input-error");
+                namesInputEl.classList.remove("input-error");
+            }, 2000);
+
+            return;
+        } else {
+            // Clear any existing flash message
+            flashMessages.innerHTML = "";
+        }
+
+        
+        
+        
+        
+        
+        const formData = new FormData(form);
+        
+        
+
+        fetch("{{ url_for('manager_dashboard') }}", {
+            method: "POST",
+            body: formData,
+            headers: {
+                "X-Requested-With": "XMLHttpRequest", // To identify AJAX requests
+                "X-CSRF-Token": document.querySelector("input[name='csrf_token']").value
+              }
+        })
+        .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json(); // Parse JSON response
+    })
+        .then(data => {
+            const flashMessages = document.getElementById("flash-messages");
+            if (flashMessages) {
+                flashMessages.innerHTML = ""; // Clear existing messages
+            } else {
+                console.error("flashMessages element not found in the DOM.");
+            }
+            const language = localStorage.getItem('language') || 'hu';
+           
+            if (data.messages) {
+                data.messages.forEach(message => {
+                    const div = document.createElement("div");
+                    div.className = `flash ${message.category}`;
+                    //div.textContent = message.text;
+                    div.textContent = message[`text_${language}`] || message.text_en || "Error";
+                    flashMessages.appendChild(div);
+
+                    setTimeout(() => {
+                    div.classList.add("fade-out");
+                    div.addEventListener("transitionend", () => div.remove()); // Remove after transition
+                }, 3500);
+                });
+            }
+            
+
+            const homeElement = document.querySelector('.home');
+              if (homeElement) {
+          
+                homeElement.classList.remove('show'); // Hide the entire container
+              } else {
+                console.error("Home element not found.");
+              }
+            
+              const formContainer = document.querySelector('.form_container');
+              if (formContainer) {
+                  formContainer.style.opacity = "0";  // Fade out
+                  formContainer.style.pointerEvents = "none";  // Disable interaction
+                  formContainer.style.transform = "translate(-50%, -50%) scale(0.8)"; // Optional shrinking effect
+                  setTimeout(() => {
+                      formContainer.style.display = "none"; // Fully hide after animation
+                  }, 400); // Match the CSS transition duration
+              }
+            
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            flashMessages.innerHTML = `<div class="flash danger">An error occurred. Please try again.</div>`;
+        });
+    });
+  }
+    if (document.getElementById("roleSubmitButton")){
+    document.getElementById("roleSubmitButton").addEventListener("click", function () {
+        const form = document.getElementById("roleManagementForm");
+        const formData = new FormData(form);
+        
+        const selectedUser = formData.get("selected_user"); 
+        console.log("Selected user value before submit:", selectedUser);
+        
+
+        fetch("{{ url_for('manager_dashboard') }}", {
+            method: "POST",
+            body: formData,
+            headers: {
+                "X-Requested-With": "XMLHttpRequest", // To identify AJAX requests
+                "X-CSRF-Token": document.querySelector("input[name='csrf_token']").value
+              }
+        })
+        .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json(); // Parse JSON response
+    })
+        .then(data => {
+            const flashMessages = document.getElementById("flash-messages");
+            if (flashMessages) {
+                flashMessages.innerHTML = ""; // Clear existing messages
+            } else {
+                console.error("flashMessages element not found in the DOM.");
+            }
+            const language = localStorage.getItem('language') || 'hu';
+            if (data.messages) {
+                data.messages.forEach(message => {
+                    const div = document.createElement("div");
+                    div.className = `flash ${message.category}`;
+                    console.log("MESSAGE:", message)
+                    div.textContent = message[`text_${language}`] || message.text_en || "Error";
+                    flashMessages.appendChild(div);
+
+                    setTimeout(() => {
+                    div.classList.add("fade-out");
+                    div.addEventListener("transitionend", () => div.remove()); // Remove after transition
+                }, 3500);
+                });
+            }
+            
+
+            const homeElement = document.querySelector('.home');
+              if (homeElement) {
+          
+                homeElement.classList.remove('show'); // Hide the entire container
+              } else {
+                console.error("Home element not found.");
+              }
+
+              const formContainer = document.querySelector('.form_container.roleManagement');
+              if (formContainer) {
+                  formContainer.classList.remove("show");
+                  formContainer.style.opacity = "0";  // Fade out
+                  formContainer.style.pointerEvents = "none";  // Disable interaction
+                  formContainer.style.transform = "translate(-50%, -50%) scale(0.8)"; // Optional shrinking effect
+                  setTimeout(() => {
+                      formContainer.style.display = "none"; // Fully hide after animation
+                  }, 400); // Match the CSS transition duration
+              }    
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            flashMessages.innerHTML = `<div class="flash danger">An error occurred. Please try again.</div>`;
+        });
+    });
+  }
+
+  if (document.getElementById("removalSubmitButton")){
+    document.getElementById("removalSubmitButton").addEventListener("click", function () {
+        console.log("Submit button clicked")
+        const form = document.getElementById("userRemovalForm");
+        const formData = new FormData(form);
+        
+        const selectedUser = formData.get("selected_user"); 
+        console.log("Selected user value before submit:", selectedUser);
+        
+
+        fetch("{{ url_for('manager_dashboard') }}", {
+            method: "POST",
+            body: formData,
+            headers: {
+                "X-Requested-With": "XMLHttpRequest", // To identify AJAX requests
+                "X-CSRF-Token": document.querySelector("input[name='csrf_token']").value
+            }
+        })
+        .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json(); // Parse JSON response
+    })
+        .then(data => {
+            const flashMessages = document.getElementById("flash-messages");
+            if (flashMessages) {
+                flashMessages.innerHTML = ""; // Clear existing messages
+            } else {
+                console.error("flashMessages element not found in the DOM.");
+            }
+            const language = localStorage.getItem('language') || 'hu';
+           
+            if (data.messages) {
+                data.messages.forEach(message => {
+                    const div = document.createElement("div");
+                    div.className = `flash ${message.category}`;
+                    //div.textContent = message.text;
+                    div.textContent = message[`text_${language}`] || message.text_en || "Error";
+                    flashMessages.appendChild(div);
+
+                    setTimeout(() => {
+                    div.classList.add("fade-out");
+                    div.addEventListener("transitionend", () => div.remove()); // Remove after transition
+                }, 3500);
+                });
+            }
+            
+
+            const homeElement = document.querySelector('.home');
+              if (homeElement) {
+          
+                homeElement.classList.remove('show'); // Hide the entire container
+              } else {
+                console.error("Home element not found.");
+              }
+
+              const formContainer = document.querySelector('.form_container.resourceRemoval');
+              if (formContainer) {
+                  formContainer.classList.remove("show");
+                  formContainer.style.opacity = "0";  // Fade out
+                  formContainer.style.pointerEvents = "none";  // Disable interaction
+                  formContainer.style.transform = "translate(-50%, -50%) scale(0.8)"; // Optional shrinking effect
+                  setTimeout(() => {
+                      formContainer.style.display = "none"; // Fully hide after animation
+                  }, 400); // Match the CSS transition duration
+              }
+            
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            flashMessages.innerHTML = `<div class="flash danger">An error occurred. Please try again.</div>`;
+        });
+    });
+  }
+    function showDropdown(dropdown, button) {
+        dropdown.style.display = 'block';
+        button.classList.add('active');
+    }
+
+    function hideDropdown(dropdown, button) {
+        dropdown.style.display = 'none';
+        button.classList.remove('active');
+    }
+
+    if (navItem2){
+    navItem2.addEventListener('mouseenter', function() {
+        showDropdown(resourcedropdownContent, buttonSubscription2);
+    });
+  }
+  if (navItem2){
+    navItem2.addEventListener('mouseleave', function() {
+        setTimeout(function() {
+            if (!resourcedropdownContent.matches(':hover') && !navItem2.matches(':hover')) {
+                hideDropdown(resourcedropdownContent, buttonSubscription2);
+            }
+        }, 100); // Delay to ensure dropdown doesn't vanish immediately
+    });
+  }
+
+
+    // For My Services dropdown
+    if (navItem){
+    navItem.addEventListener('mouseenter', function() {
+        showDropdown(dropdownContent, buttonSubscription);
+    });
+  }
+  if (navItem){
+    navItem.addEventListener('mouseleave', function() {
+        setTimeout(function() {
+            if (!dropdownContent.matches(':hover') && !navItem.matches(':hover')) {
+                hideDropdown(dropdownContent, buttonSubscription);
+            }
+        }, 100); // Delay to ensure dropdown doesn't vanish immediately
+    });
+  }
+  if (dropdownContent){
+    dropdownContent.addEventListener('mouseleave', function() {
+        setTimeout(function() {
+            if (!navItem.matches(':hover')) {
+                hideDropdown(dropdownContent, buttonSubscription);
+            }
+        }, 100); // Delay to ensure dropdown doesn't vanish immediately
+    });
+  }
+
+  if (dropdownContent){
+    dropdownContent.addEventListener('mouseenter', function() {
+        showDropdown(dropdownContent, buttonSubscription);
+    });
+  }
+  if (circleDropdown){
+    // For V character dropdown
+    circleDropdown.addEventListener('mouseenter', function() {
+        showDropdown(circleDropdownContent, circleDropdown);
+    });
+  }
+  if (circleDropdown){
+    circleDropdown.addEventListener('mouseleave', function() {
+        setTimeout(function() {
+            if (!circleDropdownContent.matches(':hover') && !circleDropdown.matches(':hover')) {
+                hideDropdown(circleDropdownContent, circleDropdown);
+            }
+        }, 200); // Delay to ensure dropdown doesn't vanish immediately
+    });
+  }
+  if (circleDropdownContent){
+    circleDropdownContent.addEventListener('mouseleave', function() {
+        setTimeout(function() {
+            if (!circleDropdown.matches(':hover')) {
+                hideDropdown(circleDropdownContent, circleDropdown);
+            }
+        }, 200); // Delay to ensure dropdown doesn't vanish immediately
+    });
+  }
+    circleDropdownContent.addEventListener('mouseenter', function() {
+        showDropdown(circleDropdownContent, circleDropdown);
+    });
+
+    logoutButton.addEventListener("click", function() {
+        // Navigate to the "/logout" route
+        window.location.href = "/logout";
+    });
+
+    homeButton.addEventListener("click", function() {
+        // Navigate to the "/" route
+        window.location.href = "/";
+    });
+
+
+
+    if (dashboardLink0){
+    dashboardLink0.addEventListener("click", function() {
+    const firstCharacterElement = document.querySelector("#circleDropdown .content");
+
+    if (!firstCharacterElement) {
+        console.error("circleDropdown .content NOT found.");
+        return;
+    }
+
+    const firstCharacter = firstCharacterElement.innerText.trim();
+    console.log("Sending firstCharacter:", firstCharacter);
+
+    // Append first_character as a query parameter to the URL
+    const url = `/chatAdminPage?first_character=${encodeURIComponent(firstCharacter)}`;
+
+    // Redirect to the URL
+    window.location.href = url;
+});
+    }
+
+    if (circleDashboardLink0){
+circleDashboardLink0.addEventListener("click", function() {
+    const firstCharacterElement = document.querySelector("#circleDropdown .content");
+
+    if (!firstCharacterElement) {
+        console.error("circleDropdown .content NOT found.");
+        return;
+    }
+
+    const firstCharacter = firstCharacterElement.innerText.trim();
+    console.log("Sending firstCharacter:", firstCharacter);
+
+    // Append first_character as a query parameter to the URL
+    const url = `/chatAdminPage?first_character=${encodeURIComponent(firstCharacter)}`;
+
+    // Redirect to the URL
+    window.location.href = url;
+});
+    }
+
+    if (chatGridLink){
+chatGridLink.addEventListener("click", function() {
+    const firstCharacterElement = document.querySelector("#circleDropdown .content");
+
+    if (!firstCharacterElement) {
+        console.error("circleDropdown .content NOT found.");
+        return;
+    }
+
+    const firstCharacter = firstCharacterElement.innerText.trim();
+    console.log("Sending firstCharacter:", firstCharacter);
+
+    // Append first_character as a query parameter to the URL
+    const url = `/chatAdminPage?first_character=${encodeURIComponent(firstCharacter)}`;
+
+    // Redirect to the URL
+    window.location.href = url;
+});
+    }
+
+    if (dashboardLink){
+    dashboardLink.addEventListener("click", function() {
+        // Navigate to the "/dashboard" route
+        window.location.href = "/dashboard";
+    });
+  }
+  if (dashboardLink2){
+    dashboardLink2.addEventListener("click", function() {
+        // Navigate to the "/dashboard" route
+        window.location.href = "/predictive_dashboard";
+    });
+  }
+
+    // chatGridLink.addEventListener("click", function(event) {
+    //     // Prevent the default link behavior
+    //     event.preventDefault();
+    //     // Navigate to the "/dashboard" route
+    //     window.location.href = "/dashboard";
+    // });
+
+    if (chatGridLink2){
+    chatGridLink2.addEventListener("click", function(event) {
+        // Prevent the default link behavior
+        event.preventDefault();
+        // Navigate to the "/dashboard" route
+        window.location.href = "/predictive_dashboard";
+    });
+  }
+  if (circleDashboardLink){
+    circleDashboardLink.addEventListener("click", function() {
+        // Navigate to the "/dashboard" route
+        window.location.href = "/dashboard";
+    });
+  }
+  if (circleDashboardLink2){
+    circleDashboardLink2.addEventListener("click", function() {
+        // Navigate to the "/dashboard" route
+        window.location.href = "/predictive_dashboard";
+    });
+  }
+
+});
+
+// Translation object
+const translations = {
+  en: {
+
+      // 1. slide
+
+      home: "Home",
+      myservice: "My Services",
+      chatcontrol:"Chat Control",
+      metrics:"ChatBot Metrics & Insights",
+      prediction:"Advanced AI Predictive Solutions",
+      resourcemanagement:"Resource Management",
+      invitation:"Invitation",
+      manageroles:"Manage Roles",
+      removeresource:"Remove Resource",
+      placeholder_email: "email(s)",
+      invitenewusers: "Invite New Users",
+      enteremails: "Enter email(s) separated by comas:",
+      enternames: "Enter names in the same order as the emails, separated by commas:",
+      placeholder_name:"name(s)",
+      selectarole: "Select a role:",
+      teamleader:"Team Leader",
+      manager:"Manager",
+      administrator:"Administrator",
+      submit:"Submit",
+      loadusers: "Click here to load users",
+      modifyrole: "Modify role",
+      selectauser: "Select a user:",
+      submitmodifyrole: "Submit",
+      removeresourcesubmit: "Submit",
+      removeresourceh2:"Remove Resource",
+      greeting: "Hello {{name}} from {{client_name}}, Welcome to your subscription!",
+      greeting2: "Please select a service",
+
+
+      
+      
+      logout:"Logout",
+    },
+  hu: {
+      // 1. slide
+      home:"Kezdőlap",
+      myservice: "Előfizetéseim",
+      chatcontrol:"Chatfelügyelet",
+      metrics:"Chatbot mutatók és elemzések", 
+      prediction:"Prediktív AI-megoldások",
+      resourcemanagement:"Adminkezelés",
+      invitation:"Felhasználó hozzáadás",
+      manageroles:"Jogosultságkezelés",
+      removeresource:"Felhasználó eltávolítás",
+      placeholder_email: "email(ek)",
+      enteremails: "Add meg a csatlakozók email címeit vesszővel elválasztva:",
+      enternames: "Add meg a csatlakozók nevét vesszővel elválasztva, az e-mailek sorrendjében:",
+      placeholder_name:"név(nevek)",
+      invitenewusers: "Új felhasználók meghívása",
+      selectarole: "Pozíció megnevezése:",
+      teamleader:"Csoportvezető",
+      manager:"Menedzser",
+      administrator:"Adminisztrátor",
+      submit:"Meghívás",
+      loadusers: "Kattints ide a felhasználók betöltéséhez",
+      modifyrole: "Munkakör módosítása",
+      selectauser: "Válassz egy felhasználót:",
+      submitmodifyrole: "Mentés",
+      removeresourcesubmit: "Eltávolítás",
+      removeresourceh2:"A felhasználó eltávolítása",
+      greeting: "Helló {{name}} a(z) {{client_name}}-től, Üdvözlünk a platformon!",
+      greeting2: "Kérlek válassz egy szolgáltatást!",
+
+      
+       
+        
+      logout:"Kijelentkezés",       
+  }
+};
+
+
+
+
+document.getElementById('lang-en').addEventListener('click', function() {
+  const newLang = 'en';
+  localStorage.setItem('language', newLang);
+  setLanguage(newLang);
+  
+  fetch('/update_language', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ user_id: currentUserId, language: newLang}),
+    credentials: 'include'
+  });
+});
+
+document.getElementById('lang-hu').addEventListener('click', function() {
+  const newLang = 'hu';
+  localStorage.setItem('language', newLang);
+  setLanguage(newLang);
+  
+  fetch('/update_language', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({language: newLang}),
+    credentials: 'include'
+  });
+});
+
+// Set language on page load
+window.onload = function() {
+    if (typeof translations !== 'undefined') {
+        // Use backend-provided language if available, otherwise use localStorage, otherwise default to 'hu'
+        const backendLang = "{{ language }}"; // Jinja variable
+        const storedLang = localStorage.getItem('language');
+        const language = backendLang && backendLang !== "" ? backendLang : (storedLang || 'hu');
+
+        setLanguage(language);
+    }
+};
+
+
+
+
+
+function setLanguage(language) {
+  document.querySelectorAll('[data-lang]').forEach(element => {
+    const langKey = element.getAttribute('data-lang');
+    const translation = translations[language][langKey];
+
+    if (translation) {
+      if (element.hasAttribute('placeholder')) {
+        // For inputs like <input placeholder="...">
+        element.setAttribute('placeholder', translation);
+      } else {
+        // For regular elements like <div>, <span>, etc.
+        element.innerHTML = translation;
+      }
+    }
+  });
+}
+
+
+
+    
+  </script>
+</body>
+</html>

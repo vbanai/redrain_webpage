@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Website with Login & Registration Form</title>
+    <link rel="stylesheet" href="/static/stylereset.css">
+    <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.0.0/css/line.css" />
+  </head>
+  <body>
+    
+    <header class="header">
+      <nav class="nav">
+        <a href="#" class="nav_logo">Red Rain</a>
+  
+        <ul class="nav_items">
+          <li class="nav_item">
+            <h2 class="nav_logo">Password Reset Page</h2>
+          </li> 
+        </ul>
+      </nav>
+    </header> 
+
+    <div id="flash-messages-container">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+              <div class="flash-messages">
+                  {% for category, message in messages %}
+                      <div class="flash-message {{ category }}">
+                          {{ message }}
+                      </div>
+                  {% endfor %}
+              </div>
+          {% endif %}
+      {% endwith %}
+    </div>
+    <!-- Home -->
+    <section class="home">
+      <div class="form_container">
+        
+
+<!-- RESET -->
+
+        <div class="form reset-token">
+          <form class="reset_token" id="resetToken" action="{{ url_for('reset_token', token=token) }}" method="post">
+            {{ form.csrf_token }}
+            {{ form.hidden_tag() }}
+            <h2>Reset password</h2>
+          
+            
+            <div class="input_box">
+              {{ form.password.label }}
+              <div class="input_with_icon">
+                <i class="uil uil-lock password"></i>
+                {{ form.password(placeholder="Create password (minimum 12 characters)") }}
+                <i class="uil uil-eye-slash pw_hide"></i>
+              </div>
+              {% for error in form.password.errors %}
+              <p class="error">{{ error }}</p>
+              {% endfor %}
+            </div>
+            <div class="input_box">
+              {{ form.confirm_password.label }}
+              <div class="input_with_icon">
+                <i class="uil uil-lock password"></i>
+                {{ form.confirm_password(placeholder="Confirm password")}}
+                <i class="uil uil-eye-slash pw_hide"></i>
+              </div>
+              {% for error in form.confirm_password.errors %}
+                <p class="error">{{ error }}</p>
+              {% endfor %}
+            </div>
+          
+          
+            <div>
+              {{ form.csrf_token }}
+              <button class="button" id="changePasswordButton">Change Password</button>
+            
+            </div>
+          </form>
+        </div>
+      </div>  
+    </section>
+   
+  </body>
+</html>

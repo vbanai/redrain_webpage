@@ -1,0 +1,333 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Auto Play on Scroll (Cropped)</title>
+    <style>
+        
+
+        body {
+  position: relative;
+  min-height: 100vh; /* Ensure the body takes up the full viewport height */
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+h2 {
+
+margin-bottom: 20px;
+color: #5b5b5b;
+}
+
+
+.slides{
+  height: 100vh;
+  width: 100vw;
+  scroll-snap-align: start;
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  display: flex;
+  flex-direction: column; 
+  align-items: center;
+  justify-content: center;
+  overflow:hidden;
+  padding: 20px;
+  color: white;
+}
+        
+        .grid-item_chat {
+    background-color: #cbd6fe;
+    text-align: center;
+    border-radius: 10px;
+    height: 52vh; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: clamp(5px, 1.2vw, 24px); 
+
+    /* Animation */
+    opacity: 0; /* Initially hidden */
+    transform: translateY(20px); /* Start position */
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+}
+
+/* Add this class dynamically */
+.grid-item_chat.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Delay each grid-item for sequential appearance */
+.grid-item_chat:nth-child(1) {
+    animation-delay: 0.3s;
+}
+.grid-item_chat:nth-child(2) {
+    animation-delay: 0.6s;
+}
+.grid-item_chat:nth-child(3) {
+    animation-delay: 0.9s;
+}
+
+/* Keyframes for the animation */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+        .grid-item_chat:first-child {
+          padding-left: 15px; /* Adjust this value as needed */
+          text-align: left; /* Align text to the left */
+          padding-right: 15px
+      }
+
+      .grid-item_chat:first-child ul {
+          padding: 0;
+          margin: 0;
+          list-style: none; /* Remove default bullets */
+      }
+
+      .grid-item_chat:first-child li {
+          margin-bottom: 10px; /* Space between list items */
+      }
+
+        .grid-item_chat:nth-child(2), .grid-item_chat:nth-child(3) {
+            padding: 0;
+        }
+
+        .images {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #ADD8E6;
+            border-radius: 10px;
+            height: 100%; /* Fill parent height */
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .video-wrapper {
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            border-radius: 10px;
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        video {
+            display: none; /* Hide the actual video */
+        }
+
+
+     
+        .chat-grid_0 {
+        
+          display: grid;
+          grid-template-columns: 1fr 1fr 2.3fr; /* 1st and 2nd take 1fr, last takes 2.3fr */
+          gap: 20px; /* Space between grid items */
+          padding: 20px; /* Padding around the grid */
+           
+            
+        }
+
+        .grid-item_chat ul li {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: fadeInUp 0.8s forwards;
+}
+
+.grid-item_chat ul li:nth-child(1) { animation-delay: 0.5s; }
+.grid-item_chat ul li:nth-child(2) { animation-delay: 1s; }
+.grid-item_chat ul li:nth-child(3) { animation-delay: 1.5s; }
+.grid-item_chat ul li:nth-child(4) { animation-delay: 2s; }
+.grid-item_chat ul li:nth-child(5) { animation-delay: 2.5s; }
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.grid-item_chat ul li {
+  color: rgb(53, 51, 51); /* Sets text color to black */
+}
+
+
+  
+    </style>
+</head>
+<body>
+  <div class="container">
+    <div class="slides slide1" id="services"></div>
+    <div class="slides slide2" id="services">
+      <div class="headertext">
+        <h2>Smart ChatBot with Analytics and Predictions</h2>
+      </div>
+      <div class="chat-grid_0">
+        <!-- First grid item -->
+        <div class="grid-item_chat">
+          <div class="content">
+            <ul>
+              <li><strong>Automatic Chatbot:</strong> Streamlining customer interactions with AI-driven automation.</li>
+              <li><strong>Manual Intervention:</strong> Enabling human oversight when necessary for personalized support.</li>
+              <li><strong>Resource Management:</strong> Optimizing resource allocation for maximum efficiency.</li>
+              <li><strong>Data Analytics:</strong> Gaining insights through data-driven decision-making.</li>
+              <li><strong>Prediction:</strong> Leveraging predictive models to forecast future trends and outcomes.</li>
+            </ul>
+          </div>
+        </div>
+        <!-- Second grid item with the first video -->
+        <div class="grid-item_chat">
+            <div class="images">
+                <div class="video-wrapper">
+                    <canvas id="croppedCanvas1"></canvas>
+                    <video id="sourceVideo1" muted preload="auto" autoplay loop>
+                        <source src="{{ url_for('static', filename='Chatbot_madewithclipchamp.mp4') }}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+            </div>
+        </div>
+
+        <!-- Merged Third & Fourth grid item with the second video -->
+        <div class="grid-item_chat">
+            <div class="images">
+                <div class="video-wrapper">
+                    <canvas id="croppedCanvas2"></canvas>
+                    <video id="sourceVideo2" muted preload="auto" autoplay loop>
+                        <source src="{{ url_for('static', filename='ChatControl_made_with_clipchamp.mp4') }}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+    <script>
+
+document.addEventListener("DOMContentLoaded", function () {
+    const gridItems = document.querySelectorAll(".grid-item_chat");
+    const slide2 = document.querySelector(".slide2");
+
+    const observer = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                gridItems.forEach((item, index) => {
+                    setTimeout(() => {
+                        item.classList.add("visible");
+                    }, index * 300); // Stagger the animation by 300ms per item
+                });
+
+                observer.unobserve(entry.target); // Stop observing after the first trigger
+            }
+        });
+    }, { threshold: 0.4 }); // Trigger when 20% of slide2 is visible
+
+    observer.observe(slide2);
+});
+
+
+function setupVideo(videoId, canvasId, cropLeft, cropTop, cropRight, cropBottom) {
+    const video = document.getElementById(videoId);
+    const canvas = document.getElementById(canvasId);
+    const ctx = canvas.getContext("2d");
+
+    if (!video || !canvas) {
+        console.error("Video or Canvas not found.");
+        return;
+    }
+
+    video.addEventListener("loadedmetadata", () => {
+        console.log(`Video Metadata Loaded for ${videoId}:`, video.videoWidth, video.videoHeight);
+
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+            console.error("Video dimensions are zero. Check if the video is loading properly.");
+            return;
+        }
+
+        // Calculate crop parameters based on percentages
+        const cropX = video.videoWidth * cropLeft; 
+        const cropY = video.videoHeight * cropTop; 
+        const cropWidth = video.videoWidth * (1 - cropLeft - cropRight); 
+        const cropHeight = video.videoHeight * (1 - cropTop - cropBottom); 
+
+        // Set canvas size
+        canvas.width = cropWidth;
+        canvas.height = cropHeight;
+
+        function drawFrame() {
+            if (!video.paused && !video.ended) {
+                // Stop video at 1:47 (107 seconds) and reset
+                if (video.currentTime >= 107) {
+                    video.pause();
+                    video.currentTime = 0; // Reset to the beginning
+                    console.log(`${videoId} reached 1:47 and reset.`);
+                    return;
+                }
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
+                requestAnimationFrame(drawFrame);
+            }
+        }
+
+        // Play/Pause video based on visibility
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.intersectionRatio >= 0.1) { 
+                    // Video is at least 10% visible → Reset and Play
+                    video.currentTime = 0;
+                    video.play();
+                    drawFrame();
+                    console.log(`${videoId} restarted.`);
+                } else {
+                    // Video is out of view → Pause and Reset to 0
+                    video.pause();
+                    video.currentTime = 0;
+                    console.log(`${videoId} reset due to scrolling out.`);
+                }
+            });
+        }, { threshold: 0.1 }); // 10% visibility triggers restart
+
+        observer.observe(canvas);
+    });
+
+    video.load(); // Ensure video metadata is loaded
+}
+
+// Setup both videos with their respective cropping
+document.addEventListener("DOMContentLoaded", function () {
+    setupVideo("sourceVideo1", "croppedCanvas1", 0.46, 0.253, 0.0235, 0.025); // First video cropping
+    setupVideo("sourceVideo2", "croppedCanvas2", 0.01, 0.18, 0.01, 0.13); // Second video cropping
+});
+
+  </script>
+  
+  
+
+</body>
+</html>

@@ -1,0 +1,571 @@
+
+
+
+
+
+
+.tab-container {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  overflow-y: auto; /* Prevent scrolling */
+  height: 80vh
+
+}
+
+#tab-contents {
+  flex-grow: 1; /* Allow to grow */
+  flex-shrink: 1; /* Allow to shrink */
+  flex-basis: auto; /* Initial size based on content */
+  overflow-y: auto; /* Allow scrolling if content exceeds */
+  height: 75vh;
+
+  
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+
+}
+
+.tabs .clickable {
+  cursor: pointer;
+}
+
+
+
+.tabs div {
+  padding: 10px 20px;
+  background: linear-gradient(to right, rgba(241, 242, 243, 0.75), rgba(255, 255, 255, 0.75)); /* Add transparency */
+  margin-right: 5px;
+  border-radius: 5px 5px 0 0;
+  font-size: calc(0.8vw + 1px); 
+
+}
+
+.tabs .active {
+background: linear-gradient(to right, rgba(151, 188, 252, 0.7), rgba(216, 228, 250, 0.7)); /* Add transparency */
+border-bottom: none;
+font-weight: bold;
+font-size: calc(0.8vw + 1px); 
+
+}
+
+.tab.highlight {
+  background-color: lightyellow;
+  border: 2px solid rgb(79, 127, 216);
+}
+
+.top-row {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 10%; /* Top row */
+  border-bottom: 1px solid #ccc;
+}
+
+
+.bottom-row {
+  height: 90%; /* Bottom row */
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+.top-left-section,
+.top-middle-section,
+.top-right-section {
+  display: flex; /* Use flexbox for centering */
+  justify-content: center; /* Center horizontally */
+  align-items: center; /* Center vertically */
+  text-align: center; /* Center text */
+}
+
+
+/* Style for the left container to ensure equal width sections */
+.left-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%; /* Ensure the container spans the full width */
+}
+
+/* Style for top and bottom sections within the left container */
+.top-left-section,
+.bottom-left-section {
+  width: 100%; /* Ensure sections span the full width of the container */
+}
+
+/* Add space for the black line between the sections */
+.bottom-left-section {
+  border-top: 0.2px #ccc;
+}
+
+
+#toggle-response-mode {
+  background-color: #28A745;
+  color: white;
+  width: 120px;
+  height: 40px;
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  font-size: 10px;
+  margin-right: 20px;
+  transition: all 0.3s ease; /* Smooth transition for all properties */
+}
+
+#toggle-response-mode:hover {
+  transform: scale(1.02); /* Slightly increase size on hover */
+
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2); /* Add a shadow for a lifting effect */
+}
+.user-rectangle-hover {
+  background: linear-gradient(to right, rgba(151, 188, 252, 0.4), rgba(183, 207, 250, 0.4)); /* Add transparency */
+  border-top-right-radius: 22px;
+  border-bottom-right-radius: 22px;
+}
+
+.user-rectangle-hover-lightblue {
+  background: linear-gradient(to right, rgba(151, 188, 252, 0.4), rgba(183, 207, 250, 0.4)); /* Add transparency */
+  border-top-right-radius: 22px;
+  border-bottom-right-radius: 22px;
+}
+
+.user-rectangle-hover-lightgreen {
+  background: linear-gradient(to right, rgba(186, 255, 186, 0.7), rgba(85, 255, 85, 0.7)); /* Add transparency */
+  border-top-right-radius: 22px;
+  border-bottom-right-radius: 22px;
+}
+
+.default-green {
+  background: linear-gradient(to right, rgba(144, 238, 144, 0.7), rgba(34, 139, 34, 0.7));
+}
+
+.default-blue {
+  background: linear-gradient(to right, rgb(25, 37, 75), rgb(53, 75, 115));
+}
+.ctrl-click-selected{
+  border-top-right-radius: 22px;
+  border-bottom-right-radius: 22px;
+}
+
+.top-left-section,
+.bottom-left-section {
+  background: linear-gradient(to right, rgb(25, 37, 75), rgb(53, 75, 115));
+  color: white; /* Optionally set text color to white for better contrast */
+}
+.top-left-section,
+.top-right-section,
+.bottom-left-section,
+.bottom-right-section {
+  flex: 1;
+  border-right: 1px solid #ccc;
+  
+}
+
+
+.top-middle-section,
+.bottom-middle-section{
+  flex: 3;
+  border-right: 1px solid #ccc;
+}
+.bottom-left-section{
+  overflow-y: auto; /* Enable vertical scrolling */
+  display: flex; /* Flexbox layout */
+  flex-direction: column; /* Items will be added from top to bottom */
+  justify-content: flex-start; /* Start adding items from the top */
+  align-items: stretch;
+  box-sizing: border-box;
+  
+}
+
+.bottom-middle-section {
+  display: flex;
+  flex-direction: column; /* Arrange children in a column */
+  height: 100%;
+  overflow: hidden; /* Prevent overflow */
+  
+
+}
+
+.chat-container {
+  position: relative; /* Add this */
+  display: flex;
+  flex-direction: column; /* Column layout for chatBox and adminResponseControls */
+  height: 100%;
+  justify-content: flex-end; /* Align chatBox to the top and adminResponseControls to the bottom */
+}
+
+
+.chat-box {
+  height: calc(100% - 60px);
+  overflow-y: auto; /* Enable scrolling for chat messages */
+  padding: 10px;
+  box-sizing: border-box;
+  
+}
+
+.chat-box_automatic {
+  height: calc(100% - 5px);
+  overflow-y: auto; /* Enable scrolling for chat messages */
+  padding: 10px;
+  box-sizing: border-box;
+  
+}
+
+.admin-response-controls {
+  justify-content: space-between;
+  position: absolute; /* Add this */
+  bottom: 0; /* Add this to fix it to the bottom */
+  left: 0; /* Ensure it's aligned to the left of the container */
+  right: 0; /* Ensure it stretches across the width of the container */
+  border-top: 1px solid #ccc; /* Optional for visual separation */
+  padding: 10px;
+  background-color: #ebeded; /* Optional for visual effect */
+  box-sizing: border-box;
+  
+}
+
+.manual-response {
+  flex-grow: 1; /* Set the width of the input box */
+  height: 30px; /* Set the height of the input box */
+  border: none;
+  border-radius: 8px;
+  padding: 5px; /* Add padding inside the input box */
+  margin-right: 10px; /* Add some margin to the right to separate from the button */
+  font-size: 14px; /* Font size for the input text */
+  box-sizing: border-box; /* Ensure padding is included in the element's total width and height */
+}
+
+.manual-response:focus {
+  border-color: #9bb1c8; /* Border color on focus */
+  box-shadow: 0 0 5px rgba(165, 184, 205, 0.3); /* Glow effect on focus */
+  outline: none; /* Remove default outline */
+}
+.send-response {
+  background-color: #79aade; /* Button background color */
+  color: #fff; /* Button text color */
+  border: none; /* No border */
+  padding: 10px 20px; /* Padding inside the button */
+  font-size: 14px; /* Font size for button text */
+  border-radius: 8px; /* Rounded corners */
+  cursor: pointer; /* Pointer cursor on hover */
+  transition: background-color 0.3s, transform 0.2s; /* Smooth transition effects */
+  flex-shrink: 0; /* Prevent button from shrinking */
+  margin-left: 0; /* Optional margin adjustment */
+}
+
+.send-response:hover {
+  background-color: #295ead; /* Darker shade on hover */
+ 
+}
+
+.send-response:active {
+  background-color: #003d82; /* Even darker shade on click */
+
+}
+
+
+
+.top-right-section {
+  border-right: none; /* Last column in top row doesn't need a right border */
+}
+
+.bottom-right-section {
+  border-right: none; /* Last column in bottom row doesn't need a right border */
+  overflow-y: auto
+}
+
+.tab-content {
+
+display: flex;
+flex-direction: column;
+box-sizing: border-box;
+border-radius: 10px;
+background-color: #ffffff;
+height: 60vh;
+ 
+}
+
+.tab-content.active {
+display: block;
+flex-grow: 1;
+height: 100%; /* Or similar rule to ensure it fills the container */
+}
+
+
+
+.chat-box.awaiting-response {
+  border: none; 
+  border-color: red;
+}
+
+.chat-box.not-awaiting-response {
+  border: none; 
+  border-color: green;
+}
+
+.user-rectangle.awaiting-response::after {
+  content: '!';
+  color: red;
+  font-weight: bold;
+  margin-right: 20px;
+  margin-left: 20px;
+}
+
+
+
+
+.message {
+  display: flex; /* Use Flexbox to arrange child elements */
+  flex-direction: column; /* Ensure the user message appears above the admin message */
+  margin-top: 10px; /* Add some spacing between messages */
+  align-items: stretch; /* Stretch messages to fill the container width */
+}
+
+.user-message {
+  max-width: 70%; /* Limit width to prevent overflow */
+  align-self: flex-end; /* Align user messages to the right */
+  text-align: right; /* Text alignment to the right */
+  
+  padding: 10px;
+  border-radius: 10px;
+  margin-left: auto; /* Push to the right */
+  margin-bottom: 5px; /* Add a bit of space below the user message */
+
+  font-size: clamp(9px, 0.87vw, 14px);
+}
+
+.headline-message{
+  max-width: 70%; /* Limit width to prevent overflow */
+  align-self: flex-end; /* Align user messages to the right */
+  text-align: right; /* Text alignment to the right */
+  font-weight: bold;
+  padding: 10px;
+  border-radius: 10px;
+  margin-left: auto; /* Push to the right */
+  margin-bottom: 5px; /* Add a bit of space below the user message */
+
+  font-size: clamp(9px, 0.9vw, 14px);
+}
+
+.admin-message {
+  max-width: 70%; /* Limit width to prevent overflow */
+  align-self: flex-start; /* Align admin messages to the left */
+  text-align: left; /* Text alignment to the left */
+  background-color: #f1f8e9; /* Light background for admin message */
+  padding: 10px;
+  border-radius: 10px;
+  margin-right: auto; /* Push to the left */
+  margin-top: 0; /* Ensure no extra margin above admin message */
+  font-size: clamp(9px, 0.87vw, 14px);
+  word-wrap: break-word; /* Allow long words to break and wrap onto the next line */
+  white-space: normal; /* Allow text to wrap and use multiple lines */
+  overflow-wrap: break-word; /* Break long words if they overflow */
+}
+
+.timestamp, .user-id, .user-input, .admin-response, .bot-response {
+  display: block; /* Ensure each message part is on a new line */
+}
+
+.message span {
+display: block;
+}
+
+.user-input {
+font-weight: bold;
+color: #333;
+}
+
+.bot-response {
+color: #555;
+}
+
+.admin-response {
+color: #007bff;
+}
+
+
+.admin-response-controls {
+  display: flex;
+  justify-content: space-between; /* Space out input and button */
+  padding: 10px; /* Optional padding */
+  border-top: 1px solid #ccc; /* Optional border */
+  margin-top: auto; /* Push to bottom */
+}
+
+
+
+.admin-response-controls button {
+padding: 5px 10px;
+}
+
+#edit-tabs-container{
+  display: none; /* Initially hidden */
+  padding : 20px;
+
+}
+
+#tabs-input-container {
+  display: none; /* Initially hidden */
+  opacity: 0; /* Start with invisible */
+  transition: opacity 0.5s ease; /* Smooth transition for opacity */
+  /* You can also add other styles here, like padding or background, if needed */
+  margin-bottom: 10px;
+}
+
+#tabs-input-container.visible {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  opacity: 1; /* Fully visible */
+
+}
+
+#edit-tabs-container.visible {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+  /* --------- CHAT ICON ---------------------------------     */
+  .chat-icon {
+  font-size: 20px;      /* adjust size as you want */
+  color: white;         /* adjust color to fit your header */
+  cursor: pointer;      /* makes it clear it's clickable */
+  user-select: none;    /* avoid accidental text selection */
+  transition: color 0.3s ease, transform 0.6s ease;
+  margin-left: 10px;
+}
+
+.chat-icon:hover {
+    color: #bfd9fa;       /* example hover color */
+    transform: scale(1.2);
+  }
+
+
+
+  /* Chat dropdown window */
+  .chat-dropdown {
+    position: absolute;
+    right: 20px;
+    top: 60px;
+    width: 320px;
+    height: 400px;
+    background: #222;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    color: white;
+    z-index: 1000;
+
+    opacity: 0;
+    transform: scale(0.9);
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .chat-dropdown.show {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+  }
+
+  /* Messages area (scrollable) */
+  .chat-messages {
+    flex-grow: 1;
+    padding: 10px;
+    overflow-y: auto;
+    border-bottom: 1px solid #444;
+  }
+
+  /* Chat form at bottom */
+  .chat-form {
+    display: flex;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px;
+    background: #111;
+    gap: 8px;
+    border-radius: 0 0 8px 8px;
+  }
+
+  #chatInput {
+    flex-grow: 1;
+    min-width: 0;
+    padding: 8px;
+    border-radius: 4px;
+    border: none;
+    font-size: 14px;
+  }
+
+  #chatInput:focus {
+    outline: none;
+  }
+
+  .chat-form button {
+    padding: 6px 12px;
+    border: none;
+    background-color: #007bff;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .chat-form button:hover {
+    background-color: #009acd;
+  }
+
+  #chatDropdown {
+    display: flex;
+    flex-direction: column;
+    height: 370px; /* or whatever fits your design */
+    border: 1px solid #333;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  #chatMessages {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    overflow-y: auto;
+    background-color: #222;
+    color: white;
+    min-height: 0;
+  }
+
+  #chatForm {
+  display: flex;
+  padding: 10px;
+  background-color: #333;
+  border-top: 1px solid #444;
+}
+#chatInput {
+  flex: 1;
+  padding: 6px;
+  background-color: #444;
+  color: white;
+  border: none;
+}
+#chatForm button {
+  margin-left: 6px;
+  padding: 6px 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+}
+
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+  }
+  #chatAlert.pulsing {
+    animation: pulse 1s infinite;
+  }
+

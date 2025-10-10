@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Admin Dashboard</title>
+        <link rel="stylesheet" href="static/styles_admin.css">
+        <link rel="stylesheet" href="static/styles_admin2.css">
+       
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+        <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+         <!-- chat icon -->
+     
+ 
+        <link rel="preload" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=swap" as="style" onload="this.rel='stylesheet'">
+<noscript>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=swap">
+</noscript>
+        <style>
+          .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+  }
+          .header0{
+  width: 100%;
+  height: 65px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(9, 9, 9, 0.3); /* Initial transparent background */
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+  align-items: center;
+  z-index: 1005;
+  transition: background-color 0.3s ease; /* Smooth transition */
+
+}
+
+
+.header0.scrolled {
+  background-color: rgba(0, 0, 0, 1); /* Full background color when scrolled */
+}
+
+.left-section{
+ 
+  align-items: center;
+  justify-content: center;
+  display: flex;
+  margin-left: 20px;
+  width:auto;
+  margin-bottom: 2px ;
+  
+}
+.hamburger{
+  height: 50px;
+
+}
+.middle-section{
+  position: absolute;
+  transform: translateX(-50%);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  
+  max-width: 70%;
+}
+.right-section{
+
+  width: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* ennél is először a right blockot felx-e csináljuk a méretezhetőség
+  miatt, majd evenly spaceeket csinálok; */
+  margin-right: 20px;
+  flex-shrink: 0;  /*prevent shrinking the block */
+}
+
+#tabsContainer {
+  display: flex;
+  
+  overflow-y: hidden;  /* Prevents vertical scroll */
+
+}
+
+
+
+@media (max-width: 710px) {
+  .middle-section {
+    display: none;
+  }
+
+
+  #tabs-input-container > div,
+  #edit-tabs-container > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .header0{
+    background-color: rgba(0, 0, 0, 1); /* Full background color when scrolled */
+  }
+  
+}
+
+@media (max-width: 550px) {
+  body {
+    overflow: auto; /* Allow vertical scrolling */
+    background-attachment: fixed; /* Make sure the background image stays fixed */
+    background-size: cover; /* Ensure the background image stretches */
+  }
+  
+}
+
+    
+            .image-container {
+                width: 300px; /* Set a specific width */
+                display: grid; /* Use flexbox for centering image */
+                justify-content: center; /* Center horizontally */
+                place-items: center; /* Center vertically */
+                overflow: hidden; /* Ensure image does not overflow */
+            }
+            .image-container img {
+                max-width: 100%; /* Maximum width of the image is the container width */
+                max-height: 90%; /* Maximum height of the image is the container height */
+                height: auto; /* Maintain aspect ratio */
+            }
+            .right-section2 {
+              width: 270px;
+              display: flex;
+              margin-right: 10px;
+              margin-left: 20px;
+              gap: 0px; /* Adjust the spacing between elements */
+     
+        
+        }
+        .canvas {
+        width: 100% !important;
+        height: 100% !important;
+        }
+        .circle-container {
+        position: relative;
+        display: inline-block;
+    
+        }
+
+        .circle {
+            position: relative;
+            width: 40px; /* Adjust size of the circle */
+            height: 40px; /* Adjust size of the circle */
+            border: 1px solid white; /* White border */
+            border-radius: 50%; /* Make it a circle */
+            overflow: hidden;
+        }
+
+        .content {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to right, rgb(90, 93, 147), #110659);
+            color: white; /* Text color */
+            font-size: 20px; /* Adjust font size */
+            cursor: pointer; /* Change cursor to pointer */
+        }
+
+
+            .circle-dropdown-content a + a,
+            .dropdown-content a + a {
+            border-top: 1px solid rgba(255, 255, 255, 0.5);
+            }
+            .circle-dropdown-content a:first-child,
+            .dropdown-content a:first-child {
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            }
+            .circle--content a:last-child,
+            .dropdown-content a:last-child {
+            border-bottom-left-radius: 10px;
+            border-bottom-right-radius: 10px;
+            }
+            .circle-dropdown-content::before,
+            .circle-dropdown-content::after,
+            .dropdown-content::before,
+            .dropdown-content::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background-color: rgba(255, 255, 255, 0.5);
+            top: calc(100% - 1px);
+            }
+            .circle-dropdown-content::before,
+            .dropdown-content::before {
+            top: -1px;
+            }
+            .circle-dropdown-content a:hover,
+            .dropdown-content a:hover {
+            background-color: #ddd;
+            }
+            
+            .dropdown-content {
+            display: none;
+            position: absolute;
+            background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
+            min-width: 250px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            z-index: 1;
+            border-radius: 10px;
+            overflow: hidden;
+            top: calc(100% + 5px);
+            left: 50%;
+            transform: translateX(-50%);
+            }
+
+            .circle-dropdown-content{
+            display: none;
+            position: absolute;
+            background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
+            min-width: 250px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            z-index: 1;
+            border-radius: 10px;
+            overflow: hidden;
+            top: calc(100% + 5px);
+            left: calc(50% - 90px);
+            transform: translateX(-50%);
+            }
+            .circle-dropdown-content a,
+            .dropdown-content a {
+            color: rgb(9, 13, 44);
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            transition: background 0.3s;
+            }
+
+                /* LANGUAGE */
+
+        .language-switcher {
+            display: flex;
+            align-items: center;
+            margin-right: 7px;  /* Space between the flags and login button */
+            width: auto;
+            font-size: 0;  /* Remove space between inline elements */
+          }
+
+          .language-switcher a {
+            
+            margin-right: 7px;
+            text-decoration: none;
+          }
+
+          .language-switcher img {
+            width: 19px;  /* Smaller flag size */
+            height: 13px;  /* Smaller flag size */
+          }
+
+          /* Make Hungarian flag slightly larger */
+          .language-switcher a:nth-child(2) img {
+            width: 15px;  /* Hungarian flag size */
+            height: 10px;  /* Hungarian flag size */
+          }
+
+          
+
+          #dropdown-container {
+            position: absolute;
+            background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
+            
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-height: 200px;
+            overflow-y: auto;
+            width: 100%; /* Match input width */
+            z-index: 1000;
+            border-radius: 10px;
+
+            /* New styles */
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.15s ease, visibility 0.15s ease;
+            pointer-events: none; /* Prevent interaction while hidden */
+
+            display: flex;
+            flex-direction: column;
+            top: calc(100% + 5px); /* Position it 5px below the input field */
+            left: 50%; /* Center horizontally relative to the container */
+            transform: translateX(-50%);
+          }
+
+          #dropdown-container.visible {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+          }
+
+          .dropdown-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            transition: background-color 0.2s;
+           
+          }
+
+          .dropdown-item:not(:first-child) {
+              border-top: 1px solid rgba(255, 255, 255, 0.5); /* Add a white border between items except for the first one */
+            }
+
+
+          .dropdown-item:hover {
+            background-color: #f0f0f0;
+          }
+
+          .dropdown-item.selected {
+            background-color: #ccf4c7;
+          }
+
+          .online-dot {
+            display: inline-block;
+            height: 8px;
+            width: 8px;
+            background-color: limegreen;
+            border-radius: 50%;
+            margin-right: 6px;
+            vertical-align: middle;
+          }
+
+          #history-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            backdrop-filter: blur(5px);
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 9999;
+
+            /* Always use flex for layout */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            /* Start hidden with opacity and pointer-events */
+            opacity: 0;
+            pointer-events: none;
+
+            /* Smooth transition for opacity */
+            transition: opacity 0.3s ease;
+          }
+
+
+            #history-loading-message {
+              background-color: #222;
+              color: #fff;
+              padding: 20px 30px;
+              border-radius: 10px;
+              font-size: 1.2rem;
+              box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            }
+
+            #history-overlay.show {
+            /* Show by making fully opaque and enabling pointer events */
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            display: flex !important;
+          }
+
+          .full-user-id-locbox {
+            display: inline;
+          }
+          .truncated-user-id-locbox {
+            display: none;
+          }
+          .user-id-header {
+            background-color: #ebeded;
+            padding: 10px;
+            font-weight: bold;
+            font-size: clamp(8px, 1.2vw, 15px);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            word-break: break-word;
+         
+          }
+          .paddingleft{
+            padding-left: 15px;
+          }
+         
+
+          @media (max-width: 770px) {
+             /* Rectangle version gets hidden entirely */
+            .truncated-user-id {
+              display: none;
+            }
+            .userID_text{
+              display: none;
+            }
+            /* LocationBox switches from full → truncated */
+            .full-user-id-locbox {
+                display: none;
+              }
+              .truncated-user-id-locbox {
+                display: inline;
+              }
+            .paddingleft{
+            padding-left: 4px;
+          }
+
+            
+          }
+
+        </style>
+    </head>
+    <body>
+
+        <div id="history-overlay">
+          <div id="history-loading-message">
+            <span data-lang="historyLoading">Reloading chat history</span>
+            <span id="dot-animation">.</span>
+          </div>
+        </div>
+        <div class="header0">
+            <div class="left-section">
+            <img src="static/RedRainLogo8.png" alt="" class="hamburger">
+            </div>
+            <div class="middle-section">
+            <li class="nav_item" id="navItem"></li>
+            <p style="color: white; margin-right: 30px; font-size: clamp(6px, 2vw, 14px)" data-lang="adminDash">Admin Dashboard</p></a>
+                
+                
+            </li>   
+            </div>
+            <div class="right-section2">
+
+                <div class="language-switcher">
+                  <div class="language-switcher">
+                    <a href="#" id="lang-en" class="language-link">
+                      <img src="static/en-flag.png" alt="EN" />
+                    </a><a href="#" id="lang-hu" class="language-link">
+                      <img src="static/hu-flag.png" alt="HU" />
+                    </a>
+                    <!-- CHAT ICON added here -->
+
+
+                    
+                    <span id="chatIconWrapper" style="position: relative; display: inline-block;">
+                      <span id="chatAlert" style="color: white; background-color: red; font-weight: bold; font-size: 12px; padding: 1px 5px; border-radius: 50%; position: absolute; top: -6px; right: -6px; display: none; line-height: 1;
+                      ">!</span>
+                      <span class="material-symbols-outlined chat-icon" title="Internal Chat">chat</span>
+                    </span>
+                  </div>
+                  <!-- CHAT dropdown -->
+                  <div id="chatDropdown" class="chat-dropdown hidden">
+                     <!-- Chat header -->
+                    <div class="chat-header" style="background-color: #333; color: white; padding: 8px 12px; border-bottom: 1px solid #555; font-size: 14px; display: flex; align-items: center; gap: 8px;
+                    ">
+                      <span style="background-color: #007bff; color: white; border-radius: 50%; padding: 6px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+                      ">
+                      <span class="material-symbols-outlined" style="font-size: 18px;">chat</span>
+                    </span>
+                    <span id="chatTitle" data-lang="chatTitle">Adminisztrátori Chat</span>
+                    </div>
+
+                    <div class="chat-messages" id="chatMessages">
+                      <!-- messages will appear here -->
+                    </div>
+                    <form id="chatForm" class="chat-form">
+                      <input type="text" id="chatInput" data-lang-placeholder="chatPlaceholder" placeholder="Üzenet a kollégáknak..." autocomplete="off" />
+                      <button type="submit" data-lang="chatSendButton">Küld</button>
+                    </form>
+                  </div>
+
+
+                </div>
+
+                
+                
+                <button id="toggle-response-mode" data-lang="toggleMode">Switch to Manual Response</button>
+                <div class="circle-container">
+                    <div class="circle" id="circleDropdown">
+                      <div class="content">
+                        {{first_character}} <!-- Your character or content here -->
+                      </div>
+                    </div>
+                    <div class="circle-dropdown-content" id="circleDropdownContent">
+                      <a href="#home"   data-lang="home">Home</a>
+                      <a href="#service1" id="circleDashboardLink0" data-lang="dashboard">Dashboard</a>
+                      <a href="{{ url_for('dashboard_vbanai') }}" data-lang="metrics">ChatBot Metrics & Insights</a>
+                      <a href="{{ url_for('predictive_dashboard') }}" data-lang="prediction">Advanced AI Predictive Solutions</a>
+                      <a href="{{ url_for('logout') }}" method="post" data-lang="logout">Logout</a>
+                    </div>
+                </div>
+            
+            <!-- <a href="#home" class="buttonlogout" id="form-open">Logout</a> -->
+            
+            </div>
+            
+            
+       
+        </div> 
+        <!-- Header section with title and manual response button -->
+        <!-- <div class="header">
+            <h1>Admin Dashboard with Dynamic Tabs</h1>
+            <button id="toggle-response-mode">Switch to Manual Response</button> -->
+        <!-- </div> -->
+
+        <!-- Input to create tabs (hidden in automatic mode) -->
+        <section class="home">      
+            <div id="tabs-input-container">       
+              <div style="display: flex;">
+                <label for="colleagues" style="color: white; margin-right:20px; font-size: 2px;">Enter colleagues handling chats (comma separated):</label>
+              
+                <div style="position: relative; display: inline-block;">
+                  <input type="text" id="colleagues" placeholder="E.g., Viktor, Zsuzsanna">
+                  <div id="dropdown-container" class="dropdown"></div>
+                </div>
+                <button id="create-tabs-button" onclick="createTabs()">Create Tabs</button>
+              
+                <button id="edit-tabs-button" onclick="showEditTabs()" style="margin-left: auto">Edit Tabs</button>
+              </div>    
+                     
+            </div>
+          
+            <!-- Hidden by default, shown when "Edit Tabs" is clicked -->
+            <div id="edit-tabs-container">
+              <div style="display: flex; justify-content: space-between; width: 100%;">
+                <label for="add-colleague" style="color: white; margin-right:10px">Add Colleague:</label>
+                <input type="text" id="add-colleague" placeholder="E.g., New Colleague">
+                <button id="add-colleague-button" onclick="addColleague()">Add</button>
+            
+                <label for="remove-colleague" style="color: white; margin-right:10px">Remove Colleague:</label>
+                <input type="text" id="remove-colleague" placeholder="E.g., Existing Colleague">
+                <button id="remove-colleague-button" onclick="removeColleague()">Remove</button>
+            
+                <button id="back-button" onclick="showTabsInput()">Back</button>
+              </div>
+            </div>
+
+            <!-- Container for tabs -->
+            <div class="tab-container">
+                <div id="tabs" class="tabs">
+                    <!-- AI Response Tab by default -->
+                    <div class="active">AI Response</div>
+                </div>
+                <div id="tab-contents">
+                    <!-- AI Response Content by default -->
+                    <div class="tab-content active"></div>
+                </div>
+            </div>
+        </section>
+        <script>
+            // Assign the Flask variables to JavaScript variables
+            const user_id = "{{ user_id }}";
+            const user_org = "{{ user_org }}";
+        </script>
+        <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+        <script src="\static\script_admin.js"></script>
+        <script src="\static\script_admin2.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+            var circleDropdownContent = document.getElementById('circleDropdownContent');
+            var circleDropdown = document.getElementById('circleDropdown');
+            var circleDashboardLink0= document.getElementById('circleDashboardLink0');
+            var circleDashboardLink= document.getElementById('circleDashboardLink');
+            var circleDashboardLink2= document.getElementById('circleDashboardLink2');
+
+            function showDropdown(dropdown, button) {
+                dropdown.style.display = 'block';
+                button.classList.add('active');
+            }
+
+            function hideDropdown(dropdown, button) {
+                dropdown.style.display = 'none';
+                button.classList.remove('active');
+            }
+
+
+            // For V character dropdown
+            circleDropdown.addEventListener('mouseenter', function() {
+                showDropdown(circleDropdownContent, circleDropdown);
+            });
+
+            circleDropdown.addEventListener('mouseleave', function() {
+                setTimeout(function() {
+                    if (!circleDropdownContent.matches(':hover') && !circleDropdown.matches(':hover')) {
+                        hideDropdown(circleDropdownContent, circleDropdown);
+                    }
+                }, 200); // Delay to ensure dropdown doesn't vanish immediately
+            });
+
+            circleDropdownContent.addEventListener('mouseleave', function() {
+                setTimeout(function() {
+                    if (!circleDropdown.matches(':hover')) {
+                        hideDropdown(circleDropdownContent, circleDropdown);
+                    }
+                }, 200); // Delay to ensure dropdown doesn't vanish immediately
+            });
+
+            circleDropdownContent.addEventListener('mouseenter', function() {
+                showDropdown(circleDropdownContent, circleDropdown);
+            });
+
+            circleDashboardLink0.addEventListener("click", function() {
+            // Navigate to the "/dashboard" route
+            window.location.href = "/serviceselector";
+            });
+
+            circleDashboardLink.addEventListener("click", function() {
+            // Navigate to the "/dashboard" route
+            window.location.href = "/dashboard";
+            });
+
+            circleDashboardLink2.addEventListener("click", function() {
+                // Navigate to the "/dashboard" route
+                window.location.href = "/predictive_dashboard";
+            });
+
+        });
+        </script>
+        
+    </body>
+</html>

@@ -1,0 +1,99 @@
+.header0{
+  width: 100%;
+  height: 65px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  position: fixed;
+  align-items: center;
+  top: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.3); /* Initial transparent background */
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+ 
+  z-index: 1005;
+  transition: background-color 0.3s ease; /* Smooth transition */
+
+}
+
+
+.header0.scrolled {
+  background-color: rgba(0, 0, 0, 1); /* Full background color when scrolled */
+}
+
+.left-section{
+ 
+  align-items: center;
+  justify-content: center;
+  display: flex;
+  margin-left: 20px;
+  width:auto;
+  margin-bottom: 2px ;
+  
+}
+.hamburger{
+  height: 50px;
+
+}
+.middle-section{
+ 
+  position: absolute;    /* Positioning relative to the entire header */
+  left: 48%;             /* 50% from the left side of the header */
+  transform: translateX(-50%);  /* Adjust by 50% of its own width to center it */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 70%;
+}
+.right-section{
+
+  width: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* ennél is először a right blockot felx-e csináljuk a méretezhetőség
+  miatt, majd evenly spaceeket csinálok; */
+  margin-right: 20px;
+  flex-shrink: 0;  /*prevent shrinking the block */
+ 
+}
+
+@media screen and (max-width: 880px) {
+  .header0 {
+    background-color: rgba(0, 0, 0, 1) !important; /* Force black background */
+    flex-direction: column; /* Stack elements vertically */
+    align-items: center; /* Center align items */
+    height: auto; /* Adjust height dynamically */
+    
+  }
+  .left-section{
+    margin-top:5px;
+  }
+
+  .middle-section {
+    position: relative; /* Remove absolute positioning */
+    left: auto;
+    transform: none;
+    width: 100%; /* Full width */
+    justify-content: center;
+    margin-top: 10px;
+  }
+
+  .right-section {
+    width: 100%; /* Full width */
+    justify-content: center; /* Center align */
+    margin-right: 0; /* Remove margin */
+    margin-top: 10px; /* Add some spacing */
+    margin-bottom: 5px;
+  }
+
+  .right-section2{
+    margin-top: 10px; /* Add some spacing */
+    margin-bottom: 5px;
+  }
+}
+
+
+

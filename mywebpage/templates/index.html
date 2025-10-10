@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Red Rain</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.0.0/css/line.css" />
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='body.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='contact.css') }}">
+
+    <style>
+      .circle {
+        position: relative;
+        width: 40px; /* Adjust size of the circle */
+        height: 40px; /* Adjust size of the circle */
+        border: 1px solid white; /* White border */
+        border-radius: 50%; /* Make it a circle */
+        overflow: hidden;
+    }
+      .circle-container {
+        position: relative;
+        display: inline-block;
+        
+    }
+
+      .circle-dropdown-content a + a,
+      .dropdown-content a + a {
+        border-top: 1px solid rgba(255, 255, 255, 0.5);
+      }
+      .circle-dropdown-content a:first-child,
+      .dropdown-content a:first-child {
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+      }
+      .circle--content a:last-child,
+      .dropdown-content a:last-child {
+        border-bottom-left-radius: 10px;
+        border-bottom-right-radius: 10px;
+      }
+      .circle-dropdown-content::before,
+      .circle-dropdown-content::after,
+      .dropdown-content::before,
+      .dropdown-content::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background-color: rgba(255, 255, 255, 0.5);
+        top: calc(100% - 1px);
+      }
+      .circle-dropdown-content::before,
+      .dropdown-content::before {
+        top: -1px;
+      }
+      .circle-dropdown-content a:hover,
+      .dropdown-content a:hover {
+        background-color: #ddd;
+      }
+
+      .content {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgb(90, 93, 147), #110659);
+    color: white; /* Text color */
+    font-size: 20px; /* Adjust font size */
+    cursor: pointer; /* Change cursor to pointer */
+}
+
+
+      .circle-dropdown-content{
+        display: none;
+        position: absolute;
+        background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
+        min-width: 250px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+        border-radius: 10px;
+        overflow: hidden;
+        top: calc(100% + 5px);
+        left: calc(50% - 90px);
+        transform: translateX(-50%);
+      }
+      .circle-dropdown-content a,
+      .dropdown-content a {
+        color: rgb(9, 13, 44);
+        padding: 12px 16px;
+        text-decoration: none;
+        display: block;
+        transition: background 0.3s;
+      }
+
+    </style>
+  </head>
+  <body>
+    <div class="header0">
+      <div class="left-section">
+        <img src="static/RedRainLogo8.png" alt="" class="hamburger">
+      
+        
+      </div>
+      <div class="middle-section">
+        <ul >
+          <li class="nav_item">
+            <a href="#home" class="nav_link" data-lang="home"></a>
+            <a href="#services" class="nav_link" data-lang="service"></a>
+            <a href="#" id="carrier_open" class="nav_link" data-lang="carrier"></a>
+            <a href="#contact" class="nav_link" data-lang="contact"></a>
+          </li> 
+        </ul>
+      </div>
+      
+      
+      <div class="right-section">
+        <div class="language-switcher">
+          <div class="language-switcher">
+            <a href="#" id="lang-en" class="language-link">
+              <img src="static/en-flag.png" alt="EN" />
+            </a><a href="#" id="lang-hu" class="language-link">
+              <img src="static/hu-flag.png" alt="HU" />
+            </a>
+          </div>
+        </div>
+
+        {% if logged_in %}
+          <div class="circle-container">
+            <div class="circle" id="circleDropdown">
+              <div class="content">
+                {{First_character}} <!-- Your character or content here -->
+              </div>
+            </div>     
+            <div class="circle-dropdown-content" id="circleDropdownContent">
+              <a href="{{url_for('serviceselector_vbanai')}}" id="circleDashboardLink" data-lang="dashboard"></a>
+              {% if chat_control_access %}
+                <a href="{{url_for('chat_admin_page', first_character=First_character)}}" data-lang="chatcontrol"></a>
+              {% endif %}
+              {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
+                <a href="{{ url_for('dashboard_vbanai') }}" data-lang="metrics"></a>
+              {% endif %}
+              {% if advanced_ai_access and user_role in ['Manager', 'Team Leader'] %}
+              <a href="{{ url_for('predictive_dashboard') }}" data-lang="prediction_nav"></a>
+              {% endif %}
+              <a href="#logout" id="logout" action="{{ url_for('logout') }}" data-lang="logout" method="post"></a>
+            </div>
+          </div>
+        <!-- <button class="button" id="form-open">Login</button> -->
+        {% else %}
+        
+          <a href="#" class="buttonlogin" data-lang="login" id="form-open" onclick="window.location.href='/login/external'; return false;"></a>
+
+          <!-- Hidden form to handle the POST request -->
+          <!-- <form id="loginForm" action="/login/external" method="POST" style="display: none;">
+            
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          </form> -->
+        {% endif %}
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="slogan">
+      <span class="word" data-lang="word"></span> 
+      <span class="word1" data-lang="word1"></span><br>
+      <span class="second-line">
+        <span class="word2" data-lang="word2"></span> 
+        <span class="word3" data-lang="word3"></span>
+      </span>
+    </div>
+
+    <div id="flash-messages-container">
+        {% if flash_message %}
+            <div class="flash-messages">
+                <div class="flash-message {{ flash_message.category }}">
+                    {{ flash_message.text }}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    <!-- Home -->
+    <section class="home" id="home">
+      <div class="background"></div>
+
+      <div id="popup_overlay" class="popup_overlay"></div>
+
+      <div class="popup_container" id="carrierPopup">
+        <i class="uil uil-times popup_close" id="carrierClose"></i>
+        <div class="popup_content">
+          <h2 data-lang="carrierh2" style="text-align: center; font-size: calc(0.8vw + 0.8vh); margin-top: 10px; width: 95%; "></h2>
+          <img src="{{ url_for('static', filename='hiring.jpg') }}" alt="Carrier Image" class="popup_image" style="box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.6);">
+          <p data-lang="carrierp" style="text-align: center; margin-top: 20px; font-size: calc(0.8vw + 0.8vh)">
+            
+          </p>
+        
+        </div>
+      </div>
+    </section>
+    <div class="container">
+      
+      <div class="slides slide1" id="services">
+        <div class="headertext">
+          <h2 data-lang="servicesTitle"></h2>
+        </div>
+        <div class="chat-grid_0">
+          <!-- First grid item -->
+          <div class="grid-item_chat">
+            <div>
+              <ul>
+                <li data-lang="chatbot"></li>
+                <li data-lang="manual"></li>
+                <li data-lang="resource"></li>
+                <li data-lang="analytics"></li>
+                <li data-lang="prediction"></li>
+              </ul>
+            </div>
+          </div>
+          <!-- Second grid item with the first video -->
+          <div class="grid-item_chat">
+              <div class="images">
+                  <div class="video-wrapper">
+                      <canvas id="croppedCanvas1"></canvas>
+                      <video id="sourceVideo1" muted preload="auto" autoplay loop>
+                          <source src="{{ url_for('static', filename='Chatbot_madewithclipchamp.mp4') }}" type="video/mp4">
+                          Your browser does not support the video tag.
+                      </video>
+                  </div>
+              </div>
+          </div>
+  
+          <!-- Merged Third & Fourth grid item with the second video -->
+          <div class="grid-item_chat">
+              <div class="images">
+                  <div class="video-wrapper">
+                      <canvas id="croppedCanvas2"></canvas>
+                      <video id="sourceVideo2" muted preload="auto" autoplay loop>
+                          <source src="{{ url_for('static', filename='ChatControl_made_with_clipchamp.mp4') }}" type="video/mp4">
+                          Your browser does not support the video tag.
+                      </video>
+                  </div>
+              </div>
+          </div>
+        </div>
+        
+        <div>
+          <div style="width: 100%; display: flex; justify-content: center; margin-top: 180%;">
+            <a href="#agri"><i class="fas fa-chevron-down" style="font-size: 2vw; color: #5b5b5b"></i></a>
+          </div>        
+        </div>     
+      </div>
+
+      <div class="slides slide2 " id="agri">
+        <div class="headertext">
+          <h2 data-lang="agriTitle"></h2>
+        </div>
+        <div class="grid-container-agri22">
+          <div class="extra-text-agri">
+            <p data-lang="agritext1" class="agri-text">  </p>
+          </div>
+          <div class="extra-text-bottom">
+            <p data-lang="agritext2" class="agri-text"> </p>
+          </div>
+
+        </div>
+        
+        
+        <div style="position: absolute; left:50%; bottom: 10px">
+          <a href="#maintenance"><i class="fas fa-chevron-down" style="font-size: 2vw; color: #fffefe"></i></a>
+        </div>
+        
+        
+      </div>
+
+      <div class="slides slide3" id="maintenance">
+        <div class="headertext">
+          <h2 data-lang="maintenance_h2"></h2>
+        </div>
+        <div class="chat-grid" style="margin-bottom: 1%;">
+          <div class="extra-text-chat-maintenance">
+            <p class="smartchat_text" style="margin-bottom: 9px" data-lang="maintenance1">
+                
+            </p>
+            
+            <p class="smartchat_text" data-lang="maintenance2">
+                
+            </p>
+          </div>
+          
+          <div style="box-shadow: 0 12px 20px rgba(0, 0, 0, 0.4);">
+            <img style="border-radius: 3%; height: 100%;" src="static/maintenence.png" >
+          </div>
+
+          <div class="extra-text-chat-maintenance">
+            <p class="smartchat_text" style="margin-bottom: 9px" data-lang="maintenance3">
+                
+            </p>
+            
+            <p class="smartchat_text" data-lang="maintenance4">
+               
+            </p>
+                
+          </div>
+          <div style="box-shadow: 0 12px 20px rgba(0, 0, 0, 0.4);">
+            <img style="border-radius: 3%; height: 100%" src="static/maintenence2.png" >
+          </div>
+        </div>
+      </div>
+
+      <div class="slides slide3" id="contact">
+        <div class="headertext" style="padding-top: 7%; padding-bottom: 1%" >
+          <h2 style="margin: 0;" data-lang="getintouch_h2">
+            Get in Touch
+          </h2>
+        </div>
+        <div class="contact-grid backgroundcontact">
+          <div class="extra-text-chat-contact">
+            <p class="responsive-text" data-lang="getintouch_text_1">
+              
+            </p>
+            <hr style="margin-top: 10%; margin-left:3%">
+            <p class="responsive-text2"  data-lang="getintouch_text_2">
+              
+              <p class="responsive-text3" style=" color:#fff; margin-left:3%; margin-bottom: 2%; font-size: 1vw;" data-lang="getintouch_text_3">
+            
+
+              </p>
+              
+              
+            
+            </p>
+
+          </div>
+          <div class="form-container" >
+            <form action="https://api.web3forms.com/submit" method="POST">
+              <!-- https://www.youtube.com/watch?v=524ycUqs3f0 
+                   https://www.youtube.com/watch?v=-HeadgoqJ7A-->
+              <input type="hidden" name="access_key" value="9e75d8ad-e9e3-4128-8541-96c4e8ecfebf">
+              <div class="row">
+                <div class="input-group">
+                  <input type="text" name="name" required>
+                  <label for="name" data-lang="getintouch_yourname"><i class="fa-solid fa-user"></i> </label>
+                </div>
+                <div class="input-group">
+                  <input type="text" name="phone" required>
+                  <label for="number" data-lang="getintouch_phone"><i class="fa-solid fa-phone"></i> </label>
+                </div>
+              </div>
+              
+              <div class="input-group">
+                <input type="email" name="email" required>
+                <label for="number" data-lang="getintouch_email"><i class="fa-solid fa-envelope"></i> </label>
+              </div>
+              <div class="input-group">
+                <textarea name="message" rows="8" required></textarea>
+                <label for="message" data-lang="getintouch_yourmessage"><i class="fas fa-comments"></i> </label>
+              </div>
+              <button type="submit" data-lang="getintouch_button"> <i class="fas fa-paper-plane"></i></button>
+              
+            </form>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+ 
+
+  
+      
+    
+    <!-- <iframe id="popupFrame" src="https://chatbothungarianbv.azurewebsites.net/messengerchat" style="display: block; position: fixed; top: 0; left: 0; width: 100%; height: 100%; border: none; z-index: 999;"></iframe> -->
+    <!-- <iframe id="popupFrame" src="http://127.0.0.1:8000/" style="border-radius: 10px; position: fixed; bottom: 10px; right: 10px; width: 350px; height: 550px; border: none; z-index: 999;"></iframe> -->
+    
+    <!-- <iframe id="chatIframe" src="https://chatbothungarianbv.azurewebsites.net" frameborder="0"></iframe> -->
+
+  
+  
+  
+
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+    <!-- <script src="static/script.js"></script> -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- <a href="https://storyset.com/online">Online illustrations by Storyset</a> -->
+    <script src="https://kit.fontawesome.com/2726ec25ba.js" crossorigin="anonymous"></script>
+    {% if logged_in %}
+      <script src="\static\inactivitytimeout.js"></script>
+    {% endif %}
+    <script>
+  
+    var circleDropdownContent = document.getElementById('circleDropdownContent');
+    var circleDropdown = document.getElementById('circleDropdown');
+    var logoutButton = document.querySelector("#logout");
+    var circleDashboardLink= document.getElementById('circleDashboardLink');
+    var circleDashboardLink2= document.getElementById('circleDashboardLink2');
+      
+//  POPUP
+
+const carrierOpenBtn = document.getElementById("carrier_open");
+const carrierPopup = document.getElementById("carrierPopup");
+const carrierCloseBtn = document.getElementById("carrierClose");
+const popupOverlay = document.getElementById("popup_overlay");
+
+// Show the popup and overlay
+carrierOpenBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    carrierPopup.classList.add("show");
+    popupOverlay.classList.add("show");
+});
+
+// Close the popup and overlay
+carrierCloseBtn.addEventListener("click", () => {
+    carrierPopup.classList.remove("show");
+    popupOverlay.classList.remove("show");
+});
+
+// Close when clicking outside the popup
+popupOverlay.addEventListener("click", () => {
+    carrierPopup.classList.remove("show");
+    popupOverlay.classList.remove("show");
+});
+
+
+//  VIDEO
+
+    document.addEventListener("DOMContentLoaded", function () {
+    const gridItems = document.querySelectorAll(".grid-item_chat");
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry, index) => {
+            if (entry.isIntersecting) {
+                setTimeout(() => {
+                    entry.target.classList.add("visible");
+                }, index * 300); // Stagger animation per item
+                
+                observer.unobserve(entry.target); // Stop observing once animated
+            }
+        });
+    }, { threshold: 0.4 }); // Adjusted threshold to trigger earlier
+
+    gridItems.forEach(item => observer.observe(item));
+});
+
+// Jó változat
+// function setupVideo(videoId, canvasId, cropLeft, cropTop, cropRight, cropBottom) {
+//     console.log(`🎥 Setting up ${videoId} with cropping:`, { cropLeft, cropTop, cropRight, cropBottom });
+
+//     const video = document.getElementById(videoId);
+//     const canvas = document.getElementById(canvasId);
+//     const ctx = canvas.getContext("2d");
+
+//     if (!video || !canvas) {
+//         console.error("❌ Video or Canvas not found.");
+//         return;
+//     }
+
+//     function updateCanvasSize() {
+//         if (video.videoWidth === 0 || video.videoHeight === 0) {
+//             console.error(`❌ Invalid video dimensions for ${videoId}. Cannot crop.`);
+//             return null;
+//         }
+
+//         const cropX = video.videoWidth * cropLeft;
+//         const cropY = video.videoHeight * cropTop;
+//         const cropWidth = video.videoWidth * (1 - cropLeft - cropRight);
+//         const cropHeight = video.videoHeight * (1 - cropTop - cropBottom);
+
+//         if (cropWidth <= 0 || cropHeight <= 0) {
+//             console.error(`❌ Invalid crop values for ${videoId}:`, { cropWidth, cropHeight });
+//             return null;
+//         }
+
+//         // Set correct canvas size
+//         canvas.width = cropWidth;
+//         canvas.height = cropHeight;
+//         console.log(`🖼 Canvas resized for ${videoId}:`, { cropWidth, cropHeight });
+
+//         return { cropX, cropY, cropWidth, cropHeight };
+//     }
+
+//     let cropParams = updateCanvasSize();
+//     if (!cropParams) return; // Exit if invalid crop values
+
+//     function drawFrame() {
+//         if (!video.paused && !video.ended) {
+//             ctx.clearRect(0, 0, canvas.width, canvas.height);
+//             ctx.drawImage(video, cropParams.cropX, cropParams.cropY, cropParams.cropWidth, cropParams.cropHeight, 0, 0, canvas.width, canvas.height);
+//             requestAnimationFrame(drawFrame);
+//         }
+//     }
+
+//     video.oncanplay = () => {
+//         console.log(`▶ Playing ${videoId}`);
+//         video.currentTime = 0;
+//         video.play();
+//         drawFrame();
+//     };
+
+//     video.onerror = (err) => {
+//         console.error(`❌ Error loading video ${videoId}`, err);
+//     };
+
+//     // Intersection Observer to re-crop when visible
+//     const observer = new IntersectionObserver((entries) => {
+//         entries.forEach(entry => {
+//             if (entry.isIntersecting) {
+//                 console.log(`👀 ${videoId} is visible.`);
+//                 cropParams = updateCanvasSize();
+//                 video.play();
+//                 drawFrame();
+//             } else {
+//                 console.log(`🚫 ${videoId} is out of view.`);
+//                 video.pause();
+//             }
+//         });
+//     }, { threshold: 0.1 });
+
+//     observer.observe(canvas);
+// }
+
+
+async function setupVideo(videoId, canvasId, cropLeft, cropTop, cropRight, cropBottom) {
+  console.log("Azonnal, ahogy bejön ${videoId}:, { cropLeft, cropTop, cropRight, cropBottom }");
+
+  const video = document.getElementById(videoId);
+  console.log("Video", video);
+  
+  const canvas = document.getElementById(canvasId);
+  console.log("canvas", canvas);
+  
+  const ctx = canvas.getContext("2d");
+  console.log("ctx", ctx);
+
+  if (!video || !canvas) {
+    console.error("Video or Canvas not found.");
+    return;
+  }
+
+  // Wait for video metadata to load before proceeding
+  await new Promise((resolve, reject) => {
+    video.addEventListener("loadedmetadata", () => {
+      console.log("Video Metadata Loaded for ${videoId}:, video.videoWidth, video.videoHeight");
+
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        console.error("Video dimensions are zero. Check if the video is loading properly.");
+        reject("Invalid video dimensions");
+        return;
+      }
+
+      resolve();
+    });
+
+    // Optionally, handle errors (like the video not loading)
+    video.addEventListener("error", (err) => {
+      console.error("Error loading metadata for ${videoId}:, err");
+      reject(err);  // Reject the promise if there's an error loading the video
+    });
+
+    // Ensure the video is loaded
+    video.load();
+  });
+
+  // Now that metadata is loaded, proceed with cropping
+  console.log("Crop percentages for ${videoId}:, { cropLeft, cropTop, cropRight, cropBottom }");
+
+  // Calculate crop parameters based on percentages
+  const cropX = video.videoWidth * cropLeft; 
+  const cropY = video.videoHeight * cropTop; 
+  const cropWidth = video.videoWidth * (1 - cropLeft - cropRight); 
+  const cropHeight = video.videoHeight * (1 - cropTop - cropBottom); 
+  console.log("Crop values for ${videoId}:, { cropX, cropY, cropWidth, cropHeight }");
+
+  if (cropWidth <= 0 || cropHeight <= 0) {
+    console.error("Invalid crop values for ${videoId}:, { cropLeft, cropRight, cropTop, cropBottom }");
+    return;
+  }
+
+  // Set canvas size
+  canvas.width = cropWidth;
+  canvas.height = cropHeight;
+
+  function drawFrame() {
+    if (!video.paused && !video.ended) {
+      // Stop video at 1:47 (107 seconds) and reset
+      if (video.currentTime >= 107) {
+        video.pause();
+        video.currentTime = 0; // Reset to the beginning
+        console.log("${videoId} reached 1:47 and reset.");
+        return;
+      }
+
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
+      requestAnimationFrame(drawFrame);
+    }
+  }
+
+  // Play/Pause video based on visibility
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.intersectionRatio >= 0.1) { 
+        // Video is at least 10% visible → Reset and Play
+        video.currentTime = 0;
+        video.play();
+        drawFrame();
+        console.log("${videoId} restarted.");
+      } else {
+        // Video is out of view → Pause and Reset to 0
+        video.pause();
+        video.currentTime = 0;
+        console.log("${videoId} reset due to scrolling out.");
+      }
+    });
+  }, { threshold: 0.1 }); // 10% visibility triggers restart
+
+  observer.observe(canvas);
+}
+
+
+
+
+
+// Setup both videos with their respective cropping
+document.addEventListener("DOMContentLoaded", function () {
+  const language = localStorage.getItem('language') || 'hu'; 
+  updateVideos(); 
+   
+    // setupVideo("sourceVideo1", "croppedCanvas1", 0.494, 0.274, 0.0225, 0.038); // First video cropping
+    // setupVideo("sourceVideo2", "croppedCanvas2", 0.009, 0.160, 0.028, 0.025); // Second video cropping
+
+    // setupVideo("sourceVideo1", "croppedCanvas1", 0.46, 0.253, 0.0300, 0.010); // First video cropping
+    // setupVideo("sourceVideo2", "croppedCanvas2", 0.01, 0.185, 0.01, 0.13); // Second video cropping
+
+   
+  });
+
+//-----------------------------  LANGUAGE --------------------
+
+
+document.getElementById('lang-en').addEventListener('click', function() {
+  localStorage.setItem('language', 'en');
+  setLanguage('en');
+  //location.reload(); // Reload to apply changes
+});
+
+document.getElementById('lang-hu').addEventListener('click', function() {
+  localStorage.setItem('language', 'hu');
+  setLanguage('hu');
+  //location.reload(); // Reload to apply changes
+});
+
+// Set language on page load
+window.onload = function() {
+  if (typeof translations !== 'undefined') {
+      const language = localStorage.getItem('language') || 'hu';
+      setLanguage(language);
+  }
+};
+
+function setLanguage(language) {
+  document.querySelectorAll('[data-lang]').forEach(element => {
+      const langKey = element.getAttribute('data-lang');
+      if (translations[language][langKey]) {
+          element.innerHTML = translations[language][langKey]; // Use innerHTML to keep the email link
+      }
+  });
+  updateVideos(language);
+}
+
+
+
+// Function to update video sources dynamically
+function updateVideos(language) {
+  const video1 = document.getElementById("sourceVideo1");
+  const video2 = document.getElementById("sourceVideo2");
+
+  if (!video1 || !video2) {
+      console.error("Video elements not found.");
+      return;
+  }
+
+  // Select correct video sources based on language
+  const video1Src = language === "en" ? "static/Chatbot_madewithclipchamp.mp4" : "static/Chatbot_madewithclipchamp_hu.mp4";
+  const video2Src = language === "en" ? "static/ChatControl_made_with_clipchamp.mp4" : "static/ChatControl_made_with_clipchamp_hu.mp4";
+
+  // Change video sources
+  video1.querySelector("source").src = video1Src;
+  video2.querySelector("source").src = video2Src;
+
+  // Reload videos to apply the new source
+  video1.load();
+  video2.load();
+  console.log("*** LANGUAGE ", language)
+  // Setup video cropping based on language
+  if (language === "en") {
+    console.log("Az Angol út")
+    // English crop parameters
+    setupVideo("sourceVideo1", "croppedCanvas1", 0.46, 0.253, 0.0300, 0.010); // First video cropping
+    setupVideo("sourceVideo2", "croppedCanvas2", 0.01, 0.185, 0.01, 0.13); // Second video cropping
+  } else if (language === "hu") {
+    console.log("Az Magyar út")
+    // Hungarian crop parameters
+    setupVideo("sourceVideo1", "croppedCanvas1", 0.494, 0.274, 0.0225, 0.038); // First video cropping
+    setupVideo("sourceVideo2", "croppedCanvas2", 0.035, 0.160, 0.035, 0.025); // Second video cropping
+  }
+}
+
+window.addEventListener('resize', checkWidthHeightRatio);
+
+function checkWidthHeightRatio() {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  
+  // Check if width is above 880px and the width-to-height ratio is less than 0.7
+  if (width > 970 && (width / height) < 1.2) {
+    // Apply styles for max-width: 970px (same as your mobile adjustments)
+    document.body.classList.add('below-1_2-ratio');
+  } else {
+    // Remove the styles if condition is not met
+    document.body.classList.remove('below-1_2-ratio');
+  }
+
+   // Apply class if width <= 530px
+   if (width <= 530) {
+    document.body.classList.add('under-530');
+  } else {
+    document.body.classList.remove('under-530');
+  }
+  
+
+}
+
+checkWidthHeightRatio(); // Initial check when the page loads
+
+// jó változat
+// function setupVideo(videoId, canvasId, cropLeft, cropTop, cropRight, cropBottom) {
+//     console.log(`🎥 Setting up ${videoId} with cropping:`, { cropLeft, cropTop, cropRight, cropBottom });
+
+//     const video = document.getElementById(videoId);
+//     const canvas = document.getElementById(canvasId);
+//     const ctx = canvas.getContext("2d");
+
+//     if (!video || !canvas) {
+//         console.error("❌ Video or Canvas not found.");
+//         return;
+//     }
+
+//     function updateCanvasSize() {
+//         if (video.videoWidth === 0 || video.videoHeight === 0) {
+//             console.error(`❌ Invalid video dimensions for ${videoId}. Cannot crop.`);
+//             return null;
+//         }
+
+//         const cropX = video.videoWidth * cropLeft;
+//         const cropY = video.videoHeight * cropTop;
+//         const cropWidth = video.videoWidth * (1 - cropLeft - cropRight);
+//         const cropHeight = video.videoHeight * (1 - cropTop - cropBottom);
+
+//         if (cropWidth <= 0 || cropHeight <= 0) {
+//             console.error(`❌ Invalid crop values for ${videoId}:`, { cropWidth, cropHeight });
+//             return null;
+//         }
+
+//         // Set correct canvas size
+//         canvas.width = cropWidth;
+//         canvas.height = cropHeight;
+//         console.log(`🖼 Canvas resized for ${videoId}:`, { cropWidth, cropHeight });
+
+//         return { cropX, cropY, cropWidth, cropHeight };
+//     }
+
+//     let cropParams = updateCanvasSize();
+//     if (!cropParams) return; // Exit if invalid crop values
+
+//     function drawFrame() {
+//         if (!video.paused && !video.ended) {
+//             ctx.clearRect(0, 0, canvas.width, canvas.height);
+//             ctx.drawImage(video, cropParams.cropX, cropParams.cropY, cropParams.cropWidth, cropParams.cropHeight, 0, 0, canvas.width, canvas.height);
+//             requestAnimationFrame(drawFrame);
+//         }
+//     }
+
+//     video.oncanplay = () => {
+//         console.log(`▶ Playing ${videoId}`);
+//         video.currentTime = 0;
+//         video.play();
+//         drawFrame();
+//     };
+
+//     video.onerror = (err) => {
+//         console.error(`❌ Error loading video ${videoId}`, err);
+//     };
+
+//     // Intersection Observer to re-crop when visible
+//     const observer = new IntersectionObserver((entries) => {
+//         entries.forEach(entry => {
+//             if (entry.isIntersecting) {
+//                 console.log(`👀 ${videoId} is visible.`);
+//                 cropParams = updateCanvasSize();
+//                 video.play();
+//                 drawFrame();
+//             } else {
+//                 console.log(`🚫 ${videoId} is out of view.`);
+//                 video.pause();
+//             }
+//         });
+//     }, { threshold: 0.1 });
+
+//     observer.observe(canvas);
+// }
+
+
+
+
+// Translation object
+const translations = {
+  en: {
+
+      // 1. slide
+
+      home: "Home",
+      service: "Services",
+      carrier: "Carrier",
+      contact: "Contact",
+      login: "Login",
+      word: "Smart",
+      word1: "AI Solutions,",
+      word2: "Smarter",
+      word3: "Business.",
+      carrierh2:"Have medior or senior experience in machine learning and web programming?",
+      carrierp: 'Send your CV to <a href="mailto:viktorbanai@redrain.hu" style="color: blue;">viktorbanai@redrain.hu</a>!',
+      dashboard:"Dashboard",
+      chatcontrol:"Chat Control",
+      metrics:"ChatBot Metrics & Insights",
+      prediction_nav:"Advanced AI Predictive Solutions",
+      logout:"Logout",
+      
+
+
+      // 2. slide
+      
+      servicesTitle: "Smart ChatBot with Analytics and Predictions",
+      chatbot: "<strong>Automatic Chatbot:</strong> Streamlining customer interactions with AI-driven automation.",
+      manual: "<strong>Manual Intervention:</strong> Enabling human oversight when necessary for personalized support.",
+      resource: "<strong>Resource Management:</strong> Optimizing resource allocation for maximum efficiency.",
+      analytics: "<strong>Data Analytics:</strong> Providing insights for data-driven management.",
+      prediction: "<strong>Prediction:</strong> Leveraging predictive models to forecast future trends and outcomes.",
+    
+      
+      agriTitle: "Smart Agricultural Solutions",
+      maintenanceTitle: "Smart Maintenance",
+      agritext1: "By combining artificial intelligence with agriculture, we offer innovative solutions that help producers optimize resource allocation, enhance sustainability, and improve competitiveness.",
+      agritext2: "Our services include real-time crop health monitoring, yield forecasting using predictive models, nutrient supply optimization, and intelligent irrigation management.",
+      contactTitle: "Get in Touch",
+      formName: "Your Name",
+      formPhone: "Phone",
+      formEmail: "Email",
+      formMessage: "Your Message",
+      submitButton: "SUBMIT",
+
+      //3.slide
+
+      maintenance_h2: "Smart Maintenance",
+      maintenance1: "<strong>Proactive Equipment Monitoring:</strong> Highlighting the ability to continuously monitor machinery in real-time to detect early signs of performance degradation or potential failures, thereby preventing unexpected downtime.",
+      maintenance2: "<strong>Predictive Analytics:</strong> Emphasizing the use of advanced AI algorithms and machine learning models to analyze data patterns, enabling accurate predictions of equipment health and facilitating timely maintenance actions.",
+      maintenance3: "<strong>Centralised Dashboards:</strong> Showcasing user-friendly interfaces that provide comprehensive overviews of equipment status across various sectors, allowing for efficient monitoring and management from a single platform.",
+      maintenance4: "<strong>Alerts and Notifications:</strong> AI-driven maintenance systems automatically inform maintenance teams of anomalies or potential issues, ensuring swift responses to prevent minor problems from escalating.",
+  
+      //4.slide
+
+      getintouch_h2: "Get in Touch",
+      getintouch_text_1: "We'd love to hear from you! Should our services pique your interest, please don't hesitate to let us know. Whether you have a question or feedback, feel free to reach out using the form on the right. Our team will get back to you as soon as possible. Your input is valuable to us and helps us improve.",
+      getintouch_text_2: "Red Rain Corporation",
+      getintouch_text_3: "Tel: +36-30-531-3407<br>Nádasdy utca 10 D<br>Budapest, 1097 Hungary",
+      getintouch_yourname: "Your Name",
+      getintouch_phone: "Phone",
+      getintouch_email: "Email",
+      getintouch_yourmessage: "Your Message",
+      getintouch_button: "SUBMIT",
+
+  
+  
+    },
+  hu: {
+
+      // 1. slide
+
+
+      login: "Bejelentkezés",
+      home: "Kezdőlap",
+      service: "Megoldások",
+      carrier: "Karrier",
+      contact: "Kapcsolat",
+      word: "Intelligens",
+      word1: "AI megoldások,",
+      word2: "jobb",
+      word3: "üzleti döntések",
+      carrierh2:"Rendelkezel medior vagy senior szintű tapasztalattal a gépi tanulás és a webprogramozás terén?",
+      carrierp: 'Küldd el az önéletrajzodat a következő címre: <a href="mailto:viktorbanai@redrain.hu" style="color: blue;">viktorbanai@redrain.hu</a>!',
+      dashboard: "Irányítópult",   
+      chatcontrol:"Chatfelügyelet", 
+      metrics:"Chatbot mutatók és elemzések", 
+      prediction_nav:"Prediktív AI-megoldások",  
+      logout:"Kijelentkezés",
+
+
+
+      // 2. slide
+
+      servicesTitle: "AI ChatBot, Marketing információs és előrejelző rendszer",
+      chatbot: "<strong>Automatikus Chatbot:</strong> Ügyfélkapcsolati feladatok AI-alapú automatizációja.",
+      manual: "<strong>Manuális Beavatkozás:</strong> Emberi beavatkozás az ügyfélkapcsolati kommunikációba, amikor szükséges.",
+      resource: "<strong>Erőforrás-menedzsment:</strong> Hatékony humánerőforrás allokáció a kommunikációs munkában.",
+      analytics: "<strong>Adatelemzés:</strong> Marketingelemző rendszer az adatalapú döntéshozatal elősegítéséhez.",
+      prediction: "<strong>Előrejelzés:</strong> Prediktív modellek a jövőbeli trendek és eredmények előrejelzéséhez.",
+      
+      
+      agriTitle: "Intelligens mezőgazdasági megoldások",
+      agritext1:"A mesterséges intelligencia és a mezőgazdaság egyesítésével olyan innovatív megoldásokat kínálunk, amelyek segítenek a termelőknek a hatékonyabb erőforrás-elosztásban, a fenntarthatóság növelésében és a versenyképesség javításában.",
+      agritext2:"Szolgáltatásaink közé tartozik többek között a valós idejű növényegészség-monitorozás, prediktív modellekkel történő hozam előrejelzés, tápanyag-ellátás optimalizálás, intelligens öntözésirányítás.",
+      maintenanceTitle: "Okos Karbantartás",
+      contactTitle: "Lépj Kapcsolatba Velünk",
+      formName: "Neved",
+      formPhone: "Telefon",
+      formEmail: "E-mail",
+      formMessage: "Üzeneted",
+      submitButton: "KÜLDÉS",
+
+      // 3. slide
+
+      
+      maintenance_h2: "AI alapú automatizált karbantartás",
+      maintenance1: "<strong>Proaktív berendezésfigyelés:</strong> Lehetővé teszi a folyamatos, valós idejű gépfelügyeletet, amely korai jelzéseket ad a teljesítményromlásról vagy lehetséges meghibásodásokról, megelőzve a váratlan leállásokat.",
+      maintenance2: "<strong>Prediktív analitika:</strong> Az AI-algoritmusok és gépi tanulási modellek fejlett használatára helyezi a hangsúlyt, amelyek adatminták elemzésével pontos előrejelzéseket biztosítanak a berendezések állapotáról, lehetővé téve az időben történő karbantartást.",
+      maintenance3: "<strong>Központosított irányítópultok:</strong> A felhasználóbarát felületeket, átfogó képet nyújtanak a különböző szektorok berendezéseinek állapotáról, lehetővé téve a hatékony felügyeletet és kezelést egyetlen platformról.",
+      maintenance4: "<strong>Riasztások és értesítések:</strong> Az AI-alapú karbantartási rendszerek automatikusan értesítik a karbantartó csapatokat az anomáliákról vagy lehetséges problémákról, biztosítva a gyors beavatkozást, megakadályozva a kisebb problémák eszkalálódását.",
+
+      //4. slide
+
+      getintouch_h2: "Kapcsolatfelvétel",
+      getintouch_text_1: "Ha szolgáltatásaink felkeltették érdeklődésedet, ne habozz jelezni nekünk. Ha kérdésed vagy visszajelzésed van, nyugodtan vedd fel velünk a kapcsolatot a jobb oldalon található űrlapon keresztül. Csapatunk mielőbb válaszolni fog. Véleményed értékes számunkra, és segít nekünk a fejlődésben.",
+      getintouch_text_2: "Red Rain Corporation",
+      getintouch_text_3: "Tel: +36-30-531-3407<br>Nádasdy utca 10 D<br>Budapest, 1097 Magyarország",
+      getintouch_yourname: "Név",
+      getintouch_phone: "Telefon",
+      getintouch_email: "Email",
+      getintouch_yourmessage: "Üzenet",
+      getintouch_button: "KÜLDÉS",
+
+
+     
+          
+  }
+};
+
+
+  //  AFTER LOGIN DESIGN 
+
+function showDropdown(dropdown, button) {
+    dropdown.style.display = 'block';
+    button.classList.add('active');
+}
+
+function hideDropdown(dropdown, button) {
+    dropdown.style.display = 'none';
+    button.classList.remove('active');
+}
+
+circleDropdown.addEventListener('mouseenter', function() {
+    showDropdown(circleDropdownContent, circleDropdown);
+});
+
+circleDropdown.addEventListener('mouseleave', function() {
+    setTimeout(function() {
+        if (!circleDropdownContent.matches(':hover') && !circleDropdown.matches(':hover')) {
+            hideDropdown(circleDropdownContent, circleDropdown);
+        }
+    }, 200); // Delay to ensure dropdown doesn't vanish immediately
+});
+
+circleDropdownContent.addEventListener('mouseenter', function() {
+    showDropdown(circleDropdownContent, circleDropdown);
+});
+
+circleDropdownContent.addEventListener('mouseleave', function() {
+    setTimeout(function() {
+        if (!circleDropdown.matches(':hover')) {
+            hideDropdown(circleDropdownContent, circleDropdown);
+        }
+    }, 200); // Delay to ensure dropdown doesn't vanish immediately
+});
+logoutButton.addEventListener("click", function() {
+        // Navigate to the "/logout" route
+        window.location.href = "/logout";
+    });
+
+    circleDashboardLink.addEventListener("click", function() {
+        // Navigate to the "/dashboard" route
+        window.location.href = "/dashboard";
+    });
+
+    circleDashboardLink2.addEventListener("click", function() {
+        // Navigate to the "/dashboard" route
+        window.location.href = "/predictive_dashboard";
+    });
+  
+    
+
+ 
+
+    </script>
+  </body>
+</html>
+

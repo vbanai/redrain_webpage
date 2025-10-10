@@ -1,0 +1,385 @@
+
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap");
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+
+}
+/* ugyanaz */
+a{
+  text-decoration: none;
+}
+/* ugyanaz */
+h2 {
+
+  margin-bottom: 20px;
+  color: #5b5b5b;
+}
+p {
+  color: #5b5b5b;
+}
+
+
+body {
+  position: relative;
+  min-height: 100vh; /* Ensure the body takes up the full viewport height */
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ugyanaz */
+
+
+h1 {
+  color: #6e6e6e; /* Change this to the desired color */
+  font-size: calc(2vw + 1px); /* Adjust the font size as needed */
+  padding-top: 2.8em; /* Adjust the padding as needed */
+  
+  text-align: center; /* Center the text horizontally */
+}
+
+.slogan {
+  position: absolute;
+  left: 10%;
+  transform: translate(-32%, -50%);
+  font-size: calc(2vw + 20px); /* Adjust as needed */
+  color: #fff;
+  z-index: 1001;
+  margin: 0;
+  text-align: center;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0 20px;
+  transition: color 0.5s ease-out; /* Add transition for color change */
+ 
+
+}
+
+/* ugyanaz */
+
+
+.slogan.dark {
+  color: rgba(255, 255, 255, 0.5); /* Semi-transparent white color */
+}
+
+.slogan .second-line {
+  display: inline-block;
+  margin-top: 20px; /* Adjust as needed */
+}
+
+/* Minimum font size for very small screens */
+@media screen and (max-width: 400px) {
+  .slogan {
+    font-size: 1.5rem; /* Adjust font size for very small screens */
+  }
+}
+
+/* Maximum font size for very large screens */
+@media screen and (min-width: 1600px) {
+  .slogan {
+    font-size: 3rem; /* Adjust font size for very large screens */
+  }
+}
+
+
+
+
+.parent-container {
+  position: relative;
+  /* Add other styles for the parent container if needed */
+}
+/* ugyanaz */
+#chatIframe {
+  position: absolute;
+  bottom: 0px; /* Adjust the distance from the bottom as needed */
+  right: 10px; /* Adjust the distance from the right as needed */
+  width: 100%; /* Set the desired width of the iframe */
+  height: 550px; /* Set the initial height of the iframe */
+}
+/* ugyanaz */
+.image-container {
+  position: absolute; /* Ensure the container has a defined position */
+  z-index: 1; /* Ensure the image is above other elements */
+}
+
+
+.header {
+  position: fixed;
+  height: 80px;
+  width: 100%;
+  z-index: 1005;
+  padding: 0 20px;
+  background-color: rgba(0, 0, 0, 0.3); /* Initial transparent background */
+  display: flex;
+  align-items: center;
+  transition: background-color 0.3s ease; /* Smooth transition */
+}
+/* ugyanaz */
+.header.scrolled {
+  background-color: rgba(0, 0, 0, 1); /* Full background color when scrolled */
+}
+
+.nav {
+  max-width: 100%;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center; /* Center vertically */
+}
+
+.nav,
+.nav_item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.middle-section .nav_item a {
+ 
+  margin-right: 10px; 
+}
+
+.nav_logo,
+.nav_link,
+.button{
+  color: #fff;
+  cursor: pointer;
+}
+/* ugyanaz */
+.nav_logo{
+  font-size: 25px;
+}
+/* ugyanaz */
+.nav_item{
+  column-gap: 25px;
+}
+
+
+
+.nav_link:hover {
+  color: #d9d9d9;
+}
+
+
+/* ugyanaz */
+.buttonlogin{
+  font-weight: 500;
+  padding: 4px 22px;
+  border: 1.6px solid #fff;
+  background: transparent;
+  border-radius : 50px;
+  cursor: pointer;
+  font-size: 1em;
+  color: #fff;
+  transition: 0.5s;
+  
+}
+.buttonlogin:hover {
+  background: white;
+  color: #162938;
+}
+
+
+.button:active{
+  transform: scale(0.98);
+}
+/* ugyanaz */
+.container{
+  width:100%;
+  height: 100vh;
+
+}
+.slides{
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  /* display: flex;
+  flex-direction: row; */
+  /* align-items: center;*/
+  /*justify-content: center; */
+  
+
+  color: white;
+  
+}
+.chat-grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  column-gap: 16px;
+  row-gap: 40px;
+  
+  }
+.slides img{
+  width:100%;
+}
+.slide1{
+  background: linear-gradient(454deg, #d8d8d8, #f7f7f8)
+}
+.slide2{
+  background-image: url(agriculture.jpeg);
+  background-size: cover;
+  background-position: center;
+}
+
+
+
+
+
+.headertext{
+  /* position: absolute; */
+  /* Add shadow effect */
+  display: grid;
+  place-items: center;
+  padding-top: 10%;
+  padding-bottom: 3%;
+  font-size: 2vw;
+ 
+}
+.extra-text-chat{
+  flex:1;
+  margin-left: 2%;
+  font-size: calc(1rem + 1vw);  
+  background-color: #d8ada7; 
+  padding: 10px; 
+  border-radius: 14px; 
+  
+}
+
+.extra-text-chat-maintenance{
+  flex:1;
+  margin-left: 2%;
+  font-size: calc(1rem + 1vw);  
+  background-color: #a7c2d8; 
+  padding: 10px; 
+  border-radius: 14px; 
+  
+}
+
+.smartchat_text {
+  font-size: 1.5vw; /* Font size relative to viewport width */
+}
+
+.grid-container-agri22 {
+  display: grid;
+  grid-template-columns: 1fr; /* Single column layout */
+  gap: 20px; /* Gap between the divs */
+  margin-left: 3%;
+}
+
+.agri-text{
+  display: inline-block;
+  width: 100%;
+  font-size: 1.5vw;
+  color: #454545;
+
+
+}
+.chatpics{
+  display: inline-block;
+}
+.extra-text-agri {
+
+  width: 42%;
+  top: 40%;
+  left: 3%;
+  background-color: rgba(187, 225, 202, 0.75); 
+  padding: 10px; /* Add padding around the text */
+  border-radius: 14px; /* Optional: Add border radius for rounded corners */
+  /* Add shadow effect */
+  
+}
+
+
+
+/* Minimum font size for very small screens */
+@media screen and (max-width: 400px) {
+  .extra-text-chat {
+    font-size: 1.5rem; /* Adjust font size for very small screens */
+  }
+}
+
+/* Maximum font size for very large screens */
+@media screen and (min-width: 1600px) {
+  .extra-text-chat {
+    font-size: 3rem; /* Adjust font size for very large screens */
+  }
+}
+
+.extra-text-bottom {
+  
+  font-size: calc(1rem + 1vw); /* Responsive font size */
+  top: 67%;
+  text-align: left;
+  background-color: rgba(187, 225, 202, 0.75);
+  padding: 10px; /* Add padding around the text */
+  border-radius: 14px; /* Optional: Add border radius for rounded corners */
+  /* Add shadow effect */
+  left: 3%;
+ 
+  width: 42%;
+  
+}
+
+.additional-content {
+  background-color: rgb(245, 243, 243);
+  width: 100%;
+  text-align: center;
+  position:relative;
+  height: 100vh;
+  
+  
+}
+.additional-content2 {
+  text-align: center;
+  position:relative;
+  height: 100vh;
+  width:100%;
+  background-image: url(agriculture.jpeg);
+  background-size: cover;
+  background-position: center;
+  
+  
+}
+.extra-content {
+  display: inline-block;
+  margin: 0 auto;
+ 
+}
+.extra-content2 {
+  display: inline-block;
+  margin: 0 auto;
+  text-align: left;
+}
+
+
+.extra-image {
+  width: 100%;
+  max-width: 30%;
+  height: auto;
+  margin: 10px;
+  object-fit: contain; /* Ensure the image fits within the container */
+}
+
+@media screen and (max-width: 600px) {
+  .extra-image {
+    max-width: 80%; /* Adjust max-width for smaller screens */
+  }
+}
+
+@media screen and (min-width: 1600px) {
+  .extra-image {
+    max-width: 20%; /* Adjust max-width for larger screens */
+  }
+}
+
+
+
+
+
+
+
+

@@ -1,0 +1,648 @@
+<!-- https://www.youtube.com/watch?v=etsPyHLON7g&t=990s -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Website with Login & Registration Form</title>
+    <link rel="stylesheet" href="static/styledashboard.css">
+    <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.0.0/css/line.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='body.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+       .image-container {
+            width: 300px; /* Set a specific width */
+            display: grid; /* Use flexbox for centering image */
+            justify-content: center; /* Center horizontally */
+            place-items: center; /* Center vertically */
+            overflow: hidden; /* Ensure image does not overflow */
+        }
+        .image-container img {
+            max-width: 100%; /* Maximum width of the image is the container width */
+            max-height: 90%; /* Maximum height of the image is the container height */
+            height: auto; /* Maintain aspect ratio */
+        }
+        .right-section2 {
+      width: 150px;
+      display: flex;
+      align-items: center;
+      justify-content: right;
+      margin-right: 20px;
+      margin-left: 20px;
+      flex-shrink: 0;
+    }
+    /* Minimum font size for very small screens */
+      @media screen and (max-width: 400px) {
+        .p {
+          font-size: 1.5rem; /* Adjust font size for very small screens */
+        }
+      }
+
+      /* Maximum font size for very large screens */
+      @media screen and (min-width: 1600px) {
+        .p {
+          font-size: 3rem; /* Adjust font size for very large screens */
+        }
+      }
+    
+    </style>
+
+  </head>
+  <body>
+
+    
+    <div class="header0">
+      <div class="left-section">
+        <img src="static/RedRainLogo2.png" alt="" class="hamburger">
+      </div>
+      <div class="middle-section">
+        
+       
+        <a href="#contact" class="nav_link buttonsubscription" id="form-open">Custom Date Metrics</a>
+          
+        
+          
+          
+       
+        
+        
+      </div>
+      <div class="right-section2">
+        <div class="circle-container">
+          <div class="circle" id="circleDropdown">
+            <div class="content">
+              {{First_character}} <!-- Your character or content here -->
+            </div>
+          </div>
+          <div class="circle-dropdown-content" id="circleDropdownContent">
+            <a href="#service1" id="circleDashboardLink">ChatBot Metrics & Insights</a>
+            <a href="#service1" id="circleDashboardLink2">Advanced AI Predictive Solutions</a>
+            <a href="#logout" id="logout" action="{{ url_for('logout') }}" method="post">Logout</a>
+          </div>
+        </div>
+        
+        <!-- <a href="#home" class="buttonlogout" id="form-open">Logout</a> -->
+        
+      </div>
+       
+      
+     
+    </div> 
+    <!-- <div id="flash-messages-container">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+              <div class="flash-messages">
+                  {% for category, message in messages %}
+                      <div class="flash-message {{ category }}">
+                          {{ message }}
+                      </div>
+                  {% endfor %}
+              </div>
+          {% endif %}
+      {% endwith %}
+    </div> -->
+    <!-- Home -->
+    <section class="home">
+      <div class="form_container active">
+        <i class="uil uil-times form_close"></i>
+        
+<!-- Form of Orders -->
+        <div class="form signup_form">
+          <form id="submitForm" action="/topicMonitoring" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+           
+            <h2>Custom Date Metrics</h2>
+            
+            <div class="input_group">
+              <p class="input_group_label">Please specify the start date:</p>
+              <div class="input_box">
+                <input type="text" name="year" placeholder="Year (2024)" required />
+              </div>
+              <div class="input_box">
+                <input type="text" name="month" placeholder="Month (01)" required />
+              </div>
+              <div class="input_box">
+                <input type="text" name="day" placeholder="Day (01)" required />
+              </div>
+              <div class="input_box">
+                <input type="text" name="hour" placeholder="Hour (22)" required />
+              </div>
+              <div class="input_box">
+                <input type="text" name="minutes" placeholder="Minute (00)" required />
+              </div>
+              <div class="input_box">
+                <input type="text" name="seconds" placeholder="Second (00)" required />
+              </div>
+            </div>
+
+            
+            <div class="input_group">
+              <p class="input_group_label">Please specify the end date:</p>
+              <div class="input_box">
+                <input type="text" name="year_end" placeholder="Year (2024)" required />
+              </div>
+              <div class="input_box">
+                <input type="text" name="month_end" placeholder="Month (02)" required />
+              </div>
+              <div class="input_box">
+                <input type="text" name="day_end" placeholder="Day (01)" required />
+              </div>
+              <div class="input_box">
+                <input type="text" name="hour_end" placeholder="Hour (22)" required />
+              </div>
+              <div class="input_box">
+                <input type="text" name="minutes_end" placeholder="Minute (00)" required />
+              </div>
+              <div class="input_box">
+                <input type="text" name="seconds_end" placeholder="Second (01)" required />
+              </div>
+            </div>
+            <div class="row">
+              <p class="input_group_label">Please specify the periods you want to track:</p>
+              <div class="dropdown-container">
+                  <div class="dropdown">
+                      <select name="frequency" id="frequency">
+                          <option value="yearly">Yearly</option>
+                          <option value="monthly">Monthly</option>
+                          <option value="weekly">Weekly</option>
+                          <option value="daily">Daily</option>
+                      </select>
+                  </div>
+              </div>
+            </div>
+
+            
+
+            <div>
+              
+              <input class="button" type="submit" value="Submit">
+            </div>
+          
+          </form>
+        </div>
+      </div>
+      <div style="
+        position: absolute;
+        top: 100px;
+        left: 15%;
+        right: 15%;
+        max-width: 70%;
+        width: calc(100vw - 30%);">
+        <div>
+          <div style="
+          display: flex;
+          flex-direction: row;  justify-content: center; ">
+            <p style="font-size:1.5rem; font-weight: 400; color: rgb(241, 239, 239); ;
+             border-radius: 15px; ">Week-to-Date Quick Overview </p>
+          </div>
+          <div style="
+          
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          margin-top: 4vh;
+          height: 10%
+         ">
+            <div style="background-color: rgba(255, 255, 255, 0.9); width: 15%; border-radius: 6px; overflow: hidden">
+              <p style="margin-top: 6px; font-size: 12px"><i class="fa-solid fa-user" style="color: #5b5b5b; margin-right: 2px; margin-left: 15px;"></i> users </p>
+              <p id="usernumber" style="font-size: 25px; margin-top: 6px; color:rgb(31, 7, 116); text-align: center;">{{usernumber}}</p>
+              <p id="percentage" style="text-align: center; font-size: 15px; color:rgb(38, 152, 57)"><i class="fa-solid fa-arrow-up" "></i> 25% </p>
+              <p style="text-align: center; font-size: 10px; margin-bottom: 12px;">vs previous week</p>
+            </div>
+            <div style="background-color: rgba(255, 255, 255, 0.9); width: 15%; border-radius: 6px;">
+              <p style="margin-top: 6px; font-size: 13px"><i class="fa-solid fa-clipboard-question" style="color: #5b5b5b; margin-right: 2px; margin-left: 15px;"></i> querry</p>
+              <p style="font-size: 25px; margin-top: 6px; color:rgb(31, 7, 116); text-align: center;">{{average_userquerry}}</p>
+              <p style="text-align: center; font-size: 15px; color:rgb(38, 152, 57)"> on average </p>
+              <p style="text-align: center; font-size: 10px; margin-bottom: 12px;">per user</p>
+            </div>
+            <div onclick="window.open('/chats_in_requested_period?year_end={{today_year}}&month_end={{ today_month }}&day_end={{ today_day }}&hour_end={{ today_hour }}&minutes_end={{ today_minute }}&seconds_end={{ today_second }}&year={{ previous_monday_year }}&month={{ previous_monday_month }}&day={{ previous_monday_day }}&hour={{ previous_monday_hour }}&minutes={{ previous_monday_minute }}&seconds={{ previous_monday_second }}', '_blank');" style="background-color: rgba(255, 255, 255, 0.9); width: 15%; border-radius: 6px; cursor: pointer;">
+              <p style="margin-top: 6px; font-size: 13px"><i class="fa-solid fa-comments" style="color: #5b5b5b; margin-right: 2px; 
+              margin-left: 15px;"></i> chats</p>
+              <p style="font-size: 25px; margin-top: 6px; color:rgb(31, 7, 116); text-align: center;">click</p>
+              <p style="text-align: center; font-size: 15px; color:rgb(38, 152, 57)"> to read </p>
+              <p style="text-align: center; font-size: 10px; margin-bottom: 12px;">this week's chats</p>
+            </div>
+            <div style="background-color: rgba(255, 255, 255, 0.9); width: 18%; border-radius: 6px;">
+              <p style="margin-top: 6px; font-size: 13px"><i class="fa-solid fa-location-dot" style="color: #5b5b5b; margin-right: 2px; 
+              margin-left: 15px;"></i> top 3 locations</p>
+              <p style=" margin-left: 35px; font-size: 10px; margin-bottom: 12px; color:rgb(38, 152, 57)">by user density</p>
+              <p style="font-size: 15px; margin-top: 6px; color:rgb(31, 7, 116); text-align: center;">1. {{number1location}}</p>
+              <p style="font-size: 15px; margin-top: 6px; color:rgb(31, 7, 116); text-align: center;">2. {{number2location}}</p>
+              <p style="font-size: 15px; margin-top: 6px; color:rgb(31, 7, 116); text-align: center;">3. {{number3location}}</p>
+             
+            </div>
+          
+            <div class="image-container" style="background-color: rgba(255, 255, 255, 0.9); width: 30%; 
+            overflow: hidden;border-radius: 6px;">
+              <p style="margin-top: 6px; font-size: 13px"><i class="fa-solid fa-globe" style="color: #5b5b5b; margin-right: 2px; margin-left: 15px;"></i> user density map </p>
+              <iframe src="/map" style="border: none"></iframe>
+             
+            </div>
+           
+          </div>
+          <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-top: 4vh;">
+           
+            <div style="background-color:  rgba(255, 255, 255, 0.9); width: 34.5vw; border-radius: 6px;">
+              <p style="font-size: 13px; text-align: center; margin-top:6px">product category frequency /{{previous_monday_year}}-{{previous_monday_month}}-{{previous_monday_day}} to {{today_year}}-{{today_month}}-{{today_day}}/ </p>
+              <canvas id="myChart"></canvas>
+            </div>
+            <div style="background-color: rgba(255, 255, 255, 0.9); width: 34.5vw; border-radius: 6px;">
+              <p style="font-size: 13px; text-align: center; margin-top:6px">manufacturer frequency /{{previous_monday_year}}-{{previous_monday_month}}-{{previous_monday_day}} to {{today_year}}-{{today_month}}-{{today_day}}/ </p>
+              <canvas id="myChart2"></canvas>
+            </div>
+          
+          </div>
+        </div>
+        
+      </div>
+    </section>
+    <!-- <iframe id="chatIframe" src="https://chatbothungarianbv.azurewebsites.net" frameborder="0"></iframe> -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js" integrity="sha512-UXumZrZNiOwnTcZSHLOfcTs0aos2MzBWHXOHOuB0J/R44QB0dwY5JgfbvljXcklVf65Gc4El6RjZ+lnwd2az2g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js" integrity="sha512-wUYbRPLV5zs6IqvWd88HIqZU/b8TBx+I8LEioQ/UC0t5EMCLApqhIAnUg7EsAzdbhhdgW07TqYDdH3QEXRcPOQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <script>
+     
+      
+    document.addEventListener("DOMContentLoaded", function() {
+      const formOpenBtn = document.querySelector("#form-open"),
+      logoutButton = document.querySelector("#logout"),
+      home = document.querySelector(".home"),
+      formContainer = document.querySelector(".form_container"),
+      formCloseBtn = document.querySelector(".form_close"),
+      signupBtn = document.querySelector("#signup"),
+    
+     
+     
+     
+      circleDropdownContent = document.getElementById('circleDropdownContent');
+      circleDropdown = document.getElementById('circleDropdown');
+      circleDashboardLink= document.getElementById('circleDashboardLink');
+      circleDashboardLink2= document.getElementById('circleDashboardLink2');
+
+
+      formOpenBtn.addEventListener("click", () => home.classList.add("show"));
+      formCloseBtn.addEventListener("click", () => home.classList.remove("show"));
+
+
+
+      function showDropdown(dropdown, button) {
+        dropdown.style.display = 'block';
+        button.classList.add('active');
+    }
+
+    function hideDropdown(dropdown, button) {
+        dropdown.style.display = 'none';
+        button.classList.remove('active');
+    }
+
+    
+
+    // For V character dropdown
+    circleDropdown.addEventListener('mouseenter', function() {
+        showDropdown(circleDropdownContent, circleDropdown);
+    });
+
+    circleDropdown.addEventListener('mouseleave', function() {
+        setTimeout(function() {
+            if (!circleDropdownContent.matches(':hover') && !circleDropdown.matches(':hover')) {
+                hideDropdown(circleDropdownContent, circleDropdown);
+            }
+        }, 200); // Delay to ensure dropdown doesn't vanish immediately
+    });
+
+    circleDropdownContent.addEventListener('mouseleave', function() {
+        setTimeout(function() {
+            if (!circleDropdown.matches(':hover')) {
+                hideDropdown(circleDropdownContent, circleDropdown);
+            }
+        }, 200); // Delay to ensure dropdown doesn't vanish immediately
+    });
+
+    circleDropdownContent.addEventListener('mouseenter', function() {
+        showDropdown(circleDropdownContent, circleDropdown);
+    });
+
+      logoutButton.addEventListener("click", function () {
+          // Navigate to the "/logout" route
+          window.location.href = "/logout";
+
+          const adjustIFrameSize = (height, width) => {
+              const iframe = document.getElementById('chatIframe');
+              iframe.style.height = height + 'px';
+              iframe.style.width = width + 'px';
+          };
+      });
+      
+
+      var usernumber = {{  usernumber }};
+      var usernumber_previous_week = {{ usernumber_previousweek }};
+
+      // Update the usernumber element
+      document.getElementById('usernumber').textContent = usernumber;
+
+      // Calculate the percentage difference
+      const percentageDifference = ((usernumber - usernumber_previous_week) / usernumber_previous_week) * 100;
+
+      // Update the percentage element
+      const percentageElement = document.getElementById('percentage');
+      if (usernumber > usernumber_previous_week) {
+          percentageElement.style.color = 'rgb(38, 152, 57)'; // Green color
+          percentageElement.innerHTML = `<i class="fa-solid fa-arrow-up"></i> ${percentageDifference.toFixed(2)}%`;
+      } else {
+          percentageElement.style.color = 'rgb(255, 0, 0)'; // Red color
+          percentageElement.innerHTML = `<i class="fa-solid fa-arrow-down"></i> ${percentageDifference.toFixed(2)}%`;
+      }
+
+      // CHARTJS
+      
+
+      const moveChart = {
+  id: 'moveChart',
+  afterEvent(chart, args) {
+    const { canvas, chartArea: { left, right, top, height } } = chart;
+    canvas.addEventListener('mousemove', (event) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      if ((x >= left - 15 && x <= left + 15 && y >= height / 2 + top - 15 && y <= height / 2 + top + 15) ||
+        (x >= right - 15 && x <= right + 15 && y >= height / 2 + top - 15 && y <= height / 2 + top + 15)) {
+        canvas.style.cursor = 'pointer';
+      } else {
+        canvas.style.cursor = 'default';
+      }
+    });
+  },
+  afterDraw(chart, args, pluginOptions) {
+    const { ctx, chartArea: { left, right, top, height } } = chart;
+
+    class CircleChevron {
+      draw(ctx, x, pixel) {
+        const angle = Math.PI / 180;
+        ctx.beginPath();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(102, 102, 0.5)';
+        ctx.fillStyle = 'white';
+        ctx.arc(x, height / 2 + top, 12, angle * 0, angle * 360, false);
+        ctx.stroke();
+        ctx.fill();
+        ctx.closePath();
+
+        ctx.beginPath();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(255, 99, 132, 1)';
+        ctx.moveTo(x + pixel, height / 2 + top - 7.5);
+        ctx.lineTo(x - pixel, height / 2 + top);
+        ctx.lineTo(x + pixel, height / 2 + top + 7.5);
+        ctx.stroke();
+        ctx.closePath();
+      }
+    }
+
+    let drawCircleLeft = new CircleChevron();
+    drawCircleLeft.draw(ctx, left, 5);
+
+    let drawCircleRight = new CircleChevron();
+    drawCircleRight.draw(ctx, right, -5);
+
+    if (chart.legend) {
+      chart.legend.options.display = false;
+      chart.legend.draw();
+    }
+  }
+};
+
+const mainChartData00 = {{ mainChartData0 | tojson }};
+
+function transformData(data) {
+  const mappedData = data.map(item => ({
+    x: item.label,
+    y: item.mainChartData[0].y
+  }));
+
+  mappedData.sort((a, b) => b.y - a.y);
+
+  return mappedData;
+}
+
+const mainChartData = transformData(mainChartData00);
+
+function getRandomColor() {
+  const r = Math.floor(Math.random() * 255);
+  const g = Math.floor(Math.random() * 255);
+  const b = Math.floor(Math.random() * 255);
+  return `rgba(${r}, ${g}, ${b}, 0.2)`;
+}
+
+const backgroundColors = mainChartData.map(() => getRandomColor());
+const borderColors = backgroundColors.map(color => color.replace('0.2', '1'));
+
+var ctx = document.getElementById('myChart').getContext('2d');
+var myChart = new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: mainChartData.map(item => item.x),
+    datasets: [{
+      label: 'asd',
+      data: mainChartData.map(item => item.y),
+      backgroundColor: backgroundColors,
+      borderColor: borderColors,
+      borderWidth: 1
+    }]
+  },
+  options: {
+    layout: {
+      padding: {
+        right: 18
+      }
+    },
+    scales: {
+      x: {
+        min: 0,
+        max: 6
+      },
+      y: {
+        beginAtZero: true,
+        ticks:{
+          stepSize:1,
+          callback: function(value){
+            return Number.isInteger(value) ? value : '';
+          }
+        }
+      }
+    }
+  },
+  plugins: [moveChart]
+});
+
+function moveScroll(event) {
+  const { chartArea: { left, right, top, height }, options, data } = myChart;
+  const rect = myChart.canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  if (x >= left - 15 && x <= left + 15 && y >= height / 2 + top - 15 && y <= height / 2 + top + 15) {
+    options.scales.x.min = options.scales.x.min - 7;
+    options.scales.x.max = options.scales.x.max - 7;
+    if (options.scales.x.min <= 0) {
+      options.scales.x.min = 0;
+      options.scales.x.max = 6;
+    }
+  } else if (x >= right - 15 && x <= right + 15 && y >= height / 2 + top - 15 && y <= height / 2 + top + 15) {
+    options.scales.x.min = options.scales.x.min + 7;
+    options.scales.x.max = options.scales.x.max + 7;
+    const maxDataY = Math.max(...mainChartData.map(item => item.y));
+    options.scales.y.max = maxDataY;
+    if (options.scales.x.max >= data.datasets[0].data.length) {
+      options.scales.x.min = data.datasets[0].data.length - 7;
+      options.scales.x.max = data.datasets[0].data.length;
+    }
+  }
+  myChart.update();
+}
+
+function handleResize() {
+  myChart.canvas.removeEventListener('click', moveScroll);
+  setTimeout(() => {
+    myChart.canvas.addEventListener('click', moveScroll);
+  }, 500);
+}
+
+window.addEventListener('load', () => {
+        if (myChart) {
+          myChart.resize(); // Ensure initial render is correct
+          myChart.update(); // Re-render after resizing
+        }
+      });
+      window.addEventListener('resize', handleResize);
+      window.addEventListener('scroll', handleResize);
+
+      myChart.canvas.addEventListener('click', moveScroll);
+
+
+    //Chart II
+    const manufacturerData00 = {{ manufacturer|tojson }};
+
+function transformData2(data) {
+  const mappedData = data.map(item => ({
+    x: item.x.substring(0, 15),  // Truncate x to 15 characters
+    y: item.y
+  }));
+  mappedData.sort((a, b) => b.y - a.y);
+  return mappedData;
+}
+
+const manufacturerData = transformData2(manufacturerData00);
+
+const backgroundColorsManufacturer = manufacturerData.map(() => getRandomColor());
+const borderColorsManufacturer = backgroundColorsManufacturer.map(color => color.replace('0.2', '1'));
+
+var ctxManufacturer = document.getElementById('myChart2').getContext('2d');
+var myChartManufacturer = new Chart(ctxManufacturer, {
+  type: 'bar',
+  data: {
+    labels: manufacturerData.map(item => item.x),
+    datasets: [{
+      label: 'asd',
+      data: manufacturerData.map(item => item.y),
+      backgroundColor: backgroundColorsManufacturer,
+      borderColor: borderColorsManufacturer,
+      borderWidth: 1
+    }]
+  },
+  options: {
+    layout: {
+      padding: {
+        right: 18
+      }
+    },
+    scales: {
+      x: {
+        min: 0,
+        max: 6
+      },
+      y: {
+        beginAtZero: true,
+        ticks:{
+          stepSize:1,
+          callback: function(value){
+            return Number.isInteger(value) ? value : '';
+          }
+        }
+      }
+    }
+  },
+  plugins: [moveChart]
+});
+
+function moveScrollManufacturer(event) {
+  const { chartArea: { left, right, top, height }, options, data } = myChartManufacturer;
+  const rect = myChartManufacturer.canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  if (x >= left - 15 && x <= left + 15 && y >= height / 2 + top - 15 && y <= height / 2 + top + 15) {
+    options.scales.x.min = options.scales.x.min - 7;
+    options.scales.x.max = options.scales.x.max - 7;
+    if (options.scales.x.min <= 0) {
+      options.scales.x.min = 0;
+      options.scales.x.max = 6;
+    }
+  } else if (x >= right - 15 && x <= right + 15 && y >= height / 2 + top - 15 && y <= height / 2 + top + 15) {
+    options.scales.x.min = options.scales.x.min + 7;
+    options.scales.x.max = options.scales.x.max + 7;
+    const maxDataY = Math.max(...manufacturerData.map(item => item.y));
+    options.scales.y.max = maxDataY;
+    if (options.scales.x.max >= data.datasets[0].data.length) {
+      options.scales.x.min = data.datasets[0].data.length - 7;
+      options.scales.x.max = data.datasets[0].data.length;
+    }
+  }
+  myChartManufacturer.update();
+}
+
+
+function handleResizeManufacturer() {
+  myChartManufacturer.canvas.removeEventListener('click', moveScroll);
+        setTimeout(() => {
+          myChartManufacturer.canvas.addEventListener('click', moveScroll);
+        }, 500);
+        adjustPadding(myChartManufacturer, mainChartData);
+      }
+      window.addEventListener('load', () => {
+        if (myChartManufacturer) {
+          myChartManufacturer.resize(); // Ensure initial render is correct
+          myChartManufacturer.update(); // Re-render after resizing
+        }
+      });
+      window.addEventListener('resize', handleResizeManufacturer);
+      window.addEventListener('scroll', handleResizeManufacturer);
+
+      myChartManufacturer.canvas.addEventListener('click', moveScroll);
+
+  
+
+
+
+    circleDashboardLink.addEventListener("click", function() {
+        // Navigate to the "/dashboard" route
+        window.location.href = "/dashboard";
+    });
+
+    circleDashboardLink2.addEventListener("click", function() {
+        // Navigate to the "/dashboard" route
+        window.location.href = "/predictive_dashboard";
+    });
+
+    
+
+  });
+    
+
+    </script>
+  </body>
+</html>

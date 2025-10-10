@@ -1,0 +1,746 @@
+
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap");
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+
+}
+/* ugyanaz */
+a{
+  text-decoration: none;
+}
+/* ugyanaz */
+h2 {
+
+  margin-bottom: 20px;
+  color: #5b5b5b;
+}
+
+
+p {
+  color: #5b5b5b;
+}
+
+
+body {
+  position: relative;
+  min-height: 100vh; /* Ensure the body takes up the full viewport height */
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+
+h1 {
+  color: #6e6e6e; /* Change this to the desired color */
+  font-size: calc(2vw + 1px); /* Adjust the font size as needed */
+  padding-top: 2.8em; /* Adjust the padding as needed */
+  
+  text-align: center; /* Center the text horizontally */
+}
+
+/* SLIDOK */
+
+.slogan {
+  position: absolute;
+  left: 5%;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: calc(3vw + 20px);
+  z-index: 1001;
+  margin: 0;
+  text-align: left;
+  max-width: 80%;
+  box-sizing: border-box;
+  padding: 0 20px;
+  color: #ccd4e2;
+  font-weight: 400;
+  letter-spacing: 2px;
+  line-height: 1.5;
+  white-space: nowrap;
+  
+}
+
+
+
+.slogan span {
+  display: inline-block;
+  background: linear-gradient(to right, rgb(194, 203, 238), #f4f7fd);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  opacity: 0; /* Start invisible */
+  animation: fadeIn 1s forwards; /* Fade in animation */
+}
+
+.slogan .word {
+  animation-delay: 0.4s;
+}
+
+.slogan .word1 {
+  animation-delay: 1.4s;
+}
+
+.slogan .second-line {
+  display: inline-block;
+  margin-top: 0px; /* Adjust as needed */
+  margin-left: 20%;
+}
+
+.slogan .word2 {
+  animation-delay: 2.4s;
+}
+
+.slogan .word3 {
+  animation-delay: 3.4s;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+@media screen and (max-width: 400px) {
+  .slogan {
+    font-size: 1.5rem;
+  }
+}
+
+@media screen and (min-width: 1600px) {
+  .slogan {
+    font-size: calc(3vw + 30px);
+  }
+}
+
+
+
+.parent-container {
+  position: relative;
+  /* Add other styles for the parent container if needed */
+}
+
+#chatIframe {
+  position: absolute;
+  bottom: 0px; /* Adjust the distance from the bottom as needed */
+  right: 10px; /* Adjust the distance from the right as needed */
+  width: 100%; /* Set the desired width of the iframe */
+  height: 550px; /* Set the initial height of the iframe */
+}
+/* ugyanaz */
+.image-container {
+  position: absolute; /* Ensure the container has a defined position */
+  z-index: 1; /* Ensure the image is above other elements */
+}
+
+
+.header {
+  position: fixed;
+  height: 80px;
+  width: 100%;
+  z-index: 1005;
+  padding: 0 20px;
+  background-color: rgba(0, 0, 0, 0.3); /* Initial transparent background */
+  display: flex;
+  align-items: center;
+  transition: background-color 0.3s ease; /* Smooth transition */
+}
+
+.header.scrolled {
+  background-color: rgba(0, 0, 0, 1); /* Full background color when scrolled */
+}
+
+
+
+
+
+.container{
+  width:100%;
+  min-height: 100vh;
+
+}
+.slides{
+  margin:0;
+  padding: 0;
+  box-sizing:border-box;
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  /* display: flex;
+  flex-direction: row; */
+  /* align-items: center;*/
+  /*justify-content: center; */
+  overflow:hidden;
+  
+
+  color: white;
+  
+}
+.chat-grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  column-gap: 16px;
+  row-gap: 40px;
+  
+  }
+  
+.slides img{
+  width:100%;
+}
+.slide1{
+  background: linear-gradient(454deg, #d8d8d8, #f7f7f8)
+}
+.slide2{
+  background-image: url(agriculture.jpeg);
+  background-size: cover;
+  background-position: center;
+}
+
+
+
+
+
+.headertext{
+  /* position: absolute; */
+  /* Add shadow effect */
+  display: grid;
+  place-items: center;
+  padding-top: 10%;
+  padding-bottom: 3%;
+  font-size: 2vw;
+ 
+}
+.extra-text-chat{
+  height: 100%;
+  flex:1;
+  margin-left: 2%;
+  font-size: calc(1rem + 1vw);  
+  background-color: #d8ada7; 
+  padding: 10px; 
+  border-radius: 14px;
+  overflow: hidden; 
+  
+}
+
+.extra-text-chat-maintenance{
+  flex:1;
+  margin-left: 2%;
+  font-size: calc(1rem + 1vw);  
+  background-color: #a7c2d8; 
+  padding: 10px; 
+  border-radius: 14px; 
+  
+}
+
+.smartchat_text {
+  font-size: 1.5vw; /* Font size relative to viewport width */
+}
+
+.grid-container-agri22 {
+  display: grid;
+  grid-template-columns: 1fr; /* Single column layout */
+  gap: 20px; /* Gap between the divs */
+  margin-left: 3%;
+}
+
+.agri-text{
+  display: inline-block;
+  width: 100%;
+  font-size: 1.5vw;
+  color: #454545;
+
+
+}
+.chatpics{
+  display: inline-block;
+}
+.extra-text-agri {
+
+  width: 42%;
+  top: 40%;
+  left: 3%;
+  background-color: rgba(187, 225, 202, 0.75); 
+  padding: 10px; /* Add padding around the text */
+  border-radius: 14px; /* Optional: Add border radius for rounded corners */
+  /* Add shadow effect */
+  
+}
+
+
+
+/* Minimum font size for very small screens */
+@media screen and (max-width: 400px) {
+  .extra-text-chat {
+    font-size: 1.5rem; /* Adjust font size for very small screens */
+  }
+}
+
+/* Maximum font size for very large screens */
+@media screen and (min-width: 1600px) {
+  .extra-text-chat {
+    font-size: 3rem; /* Adjust font size for very large screens */
+  }
+}
+
+.extra-text-bottom {
+  
+  font-size: calc(1rem + 1vw); /* Responsive font size */
+  top: 67%;
+  text-align: left;
+  background-color: rgba(187, 225, 202, 0.75);
+  padding: 10px; /* Add padding around the text */
+  border-radius: 14px; /* Optional: Add border radius for rounded corners */
+  /* Add shadow effect */
+  left: 3%;
+  margin-bottom: 1%;
+  width: 42%;
+  
+}
+
+.additional-content {
+  background-color: rgb(245, 243, 243);
+  width: 100%;
+  text-align: center;
+  position:relative;
+  height: 100vh;
+  
+  
+}
+.additional-content2 {
+  text-align: center;
+  position:relative;
+  height: 100vh;
+  width:100%;
+  background-image: url(agriculture.jpeg);
+  background-size: cover;
+  background-position: center;
+  
+  
+}
+.extra-content {
+  display: inline-block;
+  margin: 0 auto;
+ 
+}
+.extra-content2 {
+  display: inline-block;
+  margin: 0 auto;
+  text-align: left;
+}
+
+
+.extra-image {
+  width: 100%;
+  max-width: 30%;
+  height: auto;
+  margin: 10px;
+  object-fit: contain; /* Ensure the image fits within the container */
+}
+
+@media screen and (max-width: 600px) {
+  .extra-image {
+    max-width: 80%; /* Adjust max-width for smaller screens */
+  }
+}
+
+@media screen and (min-width: 1600px) {
+  .extra-image {
+    max-width: 20%; /* Adjust max-width for larger screens */
+  }
+}
+
+
+@keyframes zoom {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.16);
+  }
+}
+
+/*************** LOGIN - SIGNUP FORMS ***********************/
+
+.home {
+  position: relative;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden; /* Prevents any overflow from visible content */
+  display: flex;
+  /* align-items: center;
+  justify-content: center; */
+}
+
+.home .background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('RedRain.jpg'); /* Ensure this path is correct */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  animation: zoom 7s ease-in-out forwards; /* Zooms in over 7 seconds and stops */
+  z-index: -1; /* Ensures the background is behind other content */
+}
+
+
+
+.home::before{
+  content: "";
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  background-color: rgba(0,0,0,0.6);
+  z-index: 100;
+  opacity:0;
+  pointer-events: none;
+  transition:all 0.5s ease-out;
+}
+.home.show::before{
+  opacity:1;
+  pointer-events:auto;
+}
+.form_container{
+  position: absolute;
+  max-width: 400px;
+  width: 100%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1.2);
+  z-index:1001;
+  background: #fff;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: rgba(0,0,0,0.1);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.4s ease-out;
+  margin-top: 10px;
+  
+}
+
+
+@media (max-width: 768px) {
+  .form_container {
+    max-width: 90%;
+    padding: 20px;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  .input_box input {
+    font-size: 14px;
+    padding: 8px 30px 0;
+  }
+
+  .input_box i {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .form_container {
+    max-width: 100%;
+    padding: 15px;
+    border-radius: 0;
+  }
+
+  .form_container h2 {
+    font-size: 20px;
+  }
+
+  .input_box input {
+    font-size: 12px;
+    padding: 7px 25px 0;
+  }
+
+  .input_box i {
+    font-size: 14px;
+  }
+
+  .form_container .button {
+    padding: 8px 0;
+  }
+
+  .login_signup {
+    font-size: 10px;
+  }
+}
+.form_container h2 {
+  font-size: 22px;
+  color: #0b0217;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .form_container h2 {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .form_container h2 {
+    font-size: 18px;
+  }
+
+  .login_signup {
+    font-size: 10px;
+  }
+}
+
+.logo-image {
+  width: 180px; /* Adjust width as needed */
+  height: auto; /* Maintain aspect ratio */
+  vertical-align: middle; /* Align the image with the text */
+}
+
+.home.show .form_container{
+  opacity: 0.9;
+  pointer-events: auto;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.signup_form{
+  display: none;
+}
+.form_container.active .signup_form{
+  display:block;
+}
+.form_container.active .login_form{
+  display:none;
+}
+.form_close{
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  color: #0b0217;
+  font-size: 22px;
+  opacity:0.7;
+  cursor:pointer;
+}
+.form_container h2{
+  font-size: 22px;
+  color: #0b0217;
+  text-align: center;
+}
+.input_box{
+  position: relative;
+  margin-top: 30px;
+  width: 100%;
+  height: 40px;
+}
+.input_box input{
+  height: 100%;
+  width: 100%;
+  border: none;
+  outline: none;
+  padding: 10px 30px 0;
+  color: #333;
+  transition: all 0.2s ease;
+  border-bottom: 1.5px solid #aaaaaa;
+  margin-bottom: -15px;
+}
+
+
+.input_box i{
+  position:absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size:20px;
+  color:#707070;
+}
+.input_box i.email,
+.input_box i.password{
+  left: 0;
+
+}
+
+.input_box input:focus{
+  border-color:#283255;
+}
+.input_box input:focus ~ i.email,
+.input_box input:focus ~ i.password{
+  color:#283255;
+}
+.input_box i.pw_hide{
+  right: 0;
+  font-size: 18px;
+  cursor: pointer;
+
+}
+.option_field{
+  display: flex;
+  align-items:center;
+  justify-content: space-between;
+
+}
+.form_container a{
+  color: #283255;
+  font-size: 12px;
+}
+.form_container a:hover{
+  text-decoration: underline;
+}
+.checkbox{
+  display: flex;
+  column-gap: 8px;
+  white-space: nowrap;
+ 
+}
+.checkbox label{
+  font-size: 12px;
+  cursor:pointer;
+  color: #0b0217;
+  user-select: none;
+}
+.checkbox input{
+  accent-color:#283255;
+}
+.form_container .button{
+  background: #283255;
+  margin-top: 30px;
+  width: 100%;
+  padding: 10px 0;
+  border-radius: 10px;
+}
+.login_signup{
+  font-size: 12px;
+  text-align: center;
+  margin-top: 15px;
+}
+
+
+.nav {
+  max-width: 100%;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center; /* Center vertically */
+}
+
+.nav,
+.nav_item {
+  display: flex;
+  
+  align-items: center;
+  justify-content: space-between;
+}
+
+
+.nav_logo,
+.nav_link,
+.button{
+  color: #fff;
+  cursor: pointer;
+}
+/* ugyanaz */
+.nav_logo{
+  font-size: 25px;
+}
+/* ugyanaz */
+.nav_item{
+  column-gap: 20px;
+  white-space: nowrap;
+  font-size: clamp(0.8rem, 2vw, 1rem);
+}
+
+.nav_link {
+  position: relative;
+  font-size: 1.1em; /* Original font size */
+  color: white;
+  text-decoration: none;
+  font-weight: 400;
+  margin-left: 20px;
+  transition: color 0.5s, font-size 0.5s; /* Added font-size to the transition */
+}
+
+.nav_link:hover {
+  color: #d9d9d9;
+  font-size: 1.3em; /* Increased font size on hover */
+}
+
+
+/* ugyanaz */
+.buttonlogin{
+  font-weight: 500;
+  padding: 4px 22px;
+  border: 1.4px solid #fff;
+  background: transparent;
+  border-radius : 50px;
+  cursor: pointer;
+  font-size: 0.9em;
+  color: #fff;
+  transition: 0.5s;
+  
+}
+.buttonlogin:hover {
+  background: white;
+  color: #162938;
+}
+
+
+.button:active{
+  transform: scale(0.98);
+}
+
+
+/*************** FLASH MESSAGES ***********************/
+
+
+.flash-messages {
+    list-style: none;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+.flash-messages li {
+    padding: 8px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+}
+
+.success {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.error {
+    background-color: #f44336;
+    color: white;
+}
+
+/* Updated styles for flash messages */
+.flash-messages {
+  list-style: none;
+  padding: 10px;
+  margin: 10px 0;
+  position: fixed;
+  top: 80px; /* Adjust as needed based on your header height */
+  left: 20px;
+  z-index: 999;
+  
+}
+
+.flash-message {
+  color: white !important; /* Use !important to increase specificity */
+  padding: 8px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  background: none !important; /* Remove any existing background */
+  transition: opacity 0.5s ease-in-out;
+  position: relative;
+  left: 0; /* Adjust the left position as needed */
+ 
+}
+
+.flash-message.hide {
+  opacity: 0;
+  pointer-events: none;
+  height: 0;
+  padding: 0;
+  margin: 0;
+}

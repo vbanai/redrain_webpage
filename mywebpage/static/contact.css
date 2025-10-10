@@ -1,0 +1,141 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.slide3 {
+  background: linear-gradient(454deg, #c8c7c7, #f7f7f8)
+}
+
+.slide3 form {
+  width: 510px;
+  background: rgba(0, 0, 0, 0.7); 
+  padding: 40px;
+  border-radius: 10px;
+}
+
+.slide3 .input-group {
+  margin-bottom: 30px;
+  position: relative;
+
+}
+
+.slide3 input,
+.slide3 textarea {
+  width: 100%;
+  padding: 10px;
+  outline: 0;
+  border: 1px solid #fff;
+  color: #fff;
+  background: transparent;
+  font-size: 15px;
+  border-radius: 5px;
+  position: relative;
+  z-index: 1; /* Ensure input fields are clickable */
+}
+/* Default styles for the "Your Message" textarea and other form elements */
+.slide3 textarea,
+.slide3 input,
+.slide3 label,
+.slide3 button {
+  font-size: 16px; /* Base font size for large screens */
+}
+
+/* Specific style for the "Your Message" textarea */
+.slide3 textarea {
+  height: 250px; /* Base height for large screens */
+}
+
+/* Media query for small to medium screens (e.g., tablets, small laptops) */
+@media (max-width: 1600px) {
+  .slide3 textarea {
+    height: 120px; /* Height for screens up to 1440px wide */
+  }
+  .slide3 textarea,
+  .slide3 input,
+  .slide3 label,
+  .slide3 button {
+    font-size: 13px; /* Adjust font size for medium screens */
+  }
+}
+
+/* Media query for extra small screens (e.g., mobile phones) */
+@media (max-width: 1000px) { 
+  .slide3 textarea {
+    height: 60px; /* Further reduced height for screens up to 700px wide */
+  }
+  .slide3 textarea,
+  .slide3 input,
+  .slide3 label,
+  .slide3 button {
+    font-size: 10px; /* Further reduced font size for small screens */
+  }
+}
+
+.slide3 label {
+  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 10px;
+  color: #fff;
+  cursor: text;
+  transition: 0.2s;
+}
+
+.slide3 button {
+  padding: 10px 0;
+  color: #fff;
+  outline: none;
+  background: transparent;
+  border: 1px solid #fff;
+  width: 100%;
+  cursor: pointer;
+}
+
+.slide3 input:focus ~ label,
+.slide3 input:valid ~ label,
+.slide3 textarea:focus ~ label,
+.slide3 textarea:valid ~ label {
+  top: -35px;
+  font-size: 14px;
+}
+
+.row{
+  display:flex;
+  align-items: center;
+  justify-content: space-between;
+ 
+}
+.row .input-group{
+  flex-basis: 48%;
+}
+.backgroundcontact{
+  background-image: url(rear-view-businessman-talking-phone-city.jpg);
+  background-size: cover;
+  background-position: center;
+  
+}
+.contact-grid{
+  display:grid;
+  justify-content: center;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 16px;
+  height: auto;
+  
+  }
+extra-text-chat-contact{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 10px;
+  box-sizing: border-box;
+ 
+  
+}
+.contact-grid .form-container {
+
+  display: flex;
+  justify-content: center; /* Center the form horizontally within the grid cell */
+}

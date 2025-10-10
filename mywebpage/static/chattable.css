@@ -1,0 +1,285 @@
+
+
+* {
+box-sizing: border-box; /* Ensures padding and border are included in the element's total width and height */
+}
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: white;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* Full viewport height */
+  overflow: hidden; /* Prevents body from scrolling */
+}
+
+.header {
+position: relative;
+background-image: url("../static/RedRain.jpg");
+height: 80px;
+
+z-index: 100;
+padding: 0 20px;
+background-color: rgba(0, 0, 0, 0.5);
+overflow: hidden;
+display: flex;
+flex-direction: row;
+align-items: center; /* Vertically center items */
+
+/* Distribute items evenly */
+}
+.table-container {
+max-height: 89vh; /* Adjust as needed, 80% of viewport height */
+overflow-y: auto; /* Enable vertical scrolling */
+margin-right:0px; /* Optional: Add padding for better appearance */
+border: 1px solid #ddd; /* Optional: Add border to distinguish container */
+
+}
+/* .table-container {
+  max-height: 100%; 
+ 
+} */
+
+table-wrapper {
+  flex-grow: 1; /* Let this container take up remaining vertical space */
+  overflow: auto; /* Enables vertical scrolling */
+  margin-bottom: 50px; /* Makes space for the horizontal scrollbar */
+}
+
+
+
+
+
+h1 {
+  text-align: center;
+  color: #424141; /* Red color for the title */
+  font-size: 25px;
+}
+
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  table-layout: fixed; 
+}
+.hamburger{
+  height: 50px;
+  
+
+}
+th, td {
+  border: 1px solid #ddd;
+  padding: 12px 15px;
+  text-align: left;
+}
+
+th {
+  background: linear-gradient(to right, rgb(240, 208, 208), #d0aaa8);
+  color: white;
+}
+
+@media screen and (min-width: 1050px) and (max-width: 1500px) {
+
+th:nth-child(1), td:nth-child(1) {
+  max-width: 150px;   /* Set the maximum width of the column */
+  width: 100px;       /* Set a fixed width for the column */
+  overflow: hidden;   /* Prevent text overflow */
+  text-overflow: ellipsis; /* Truncate the text with an ellipsis */
+}
+
+/* Control the width of the second column (both header and data) */
+th:nth-child(2), td:nth-child(2) {
+  max-width: 140px;   /* Set the maximum width of the column */
+  width: 140px;       /* Set a fixed width for the column */
+  overflow: hidden;   /* Prevent text overflow */
+  text-overflow: ellipsis; /* Truncate the text with an ellipsis */
+}
+
+/* Control the width of the third column (both header and data) */
+th:nth-child(3), td:nth-child(3) {
+  max-width: 500px;   /* Set the maximum width of the column */
+  width: 500px;       /* Set a fixed width for the column */
+  overflow: hidden;   /* Prevent text overflow */
+  text-overflow: ellipsis; /* Truncate the text with an ellipsis */
+}
+
+th:nth-child(4), td:nth-child(4) {
+  max-width: 100px;   /* Set the maximum width of the column */
+  width: 100px;       /* Set a fixed width for the column */
+  overflow: hidden;   /* Prevent text overflow */
+  text-overflow: ellipsis; /* Truncate the text with an ellipsis */
+}
+
+th:nth-child(5), td:nth-child(5) {
+  max-width: 100px;   /* Set the maximum width of the column */
+  width: 100px;       /* Set a fixed width for the column */
+  overflow: hidden;   /* Prevent text overflow */
+  text-overflow: ellipsis; /* Truncate the text with an ellipsis */
+}
+
+th:nth-child(6), td:nth-child(6) {
+  max-width: 100px;   /* Set the maximum width of the column */
+  width: 100px;       /* Set a fixed width for the column */
+  overflow: hidden;   /* Prevent text overflow */
+  text-overflow: ellipsis; /* Truncate the text with an ellipsis */
+}
+}
+
+
+@media screen and (min-width: 800px) and (max-width: 1050px) {
+
+  th:nth-child(1), td:nth-child(1) {
+    max-width: 150px;   /* Set the maximum width of the column */
+    width: 100px;       /* Set a fixed width for the column */
+    overflow: hidden;   /* Prevent text overflow */
+    text-overflow: ellipsis; /* Truncate the text with an ellipsis */
+  }
+  
+  /* Control the width of the second column (both header and data) */
+  th:nth-child(2), td:nth-child(2) {
+    max-width: 140px;   /* Set the maximum width of the column */
+    width: 140px;       /* Set a fixed width for the column */
+    overflow: hidden;   /* Prevent text overflow */
+    text-overflow: ellipsis; /* Truncate the text with an ellipsis */
+  }
+  
+  /* Control the width of the third column (both header and data) */
+  th:nth-child(3), td:nth-child(3) {
+    max-width: 300px;   /* Set the maximum width of the column */
+    width: 200px;       /* Set a fixed width for the column */
+    overflow: hidden;   /* Prevent text overflow */
+    text-overflow: ellipsis; /* Truncate the text with an ellipsis */
+  }
+  
+  th:nth-child(4), td:nth-child(4) {
+    max-width: 100px;   /* Set the maximum width of the column */
+    width: 100px;       /* Set a fixed width for the column */
+    overflow: hidden;   /* Prevent text overflow */
+    text-overflow: ellipsis; /* Truncate the text with an ellipsis */
+  }
+  
+  th:nth-child(5), td:nth-child(5) {
+    max-width: 100px;   /* Set the maximum width of the column */
+    width: 100px;       /* Set a fixed width for the column */
+    overflow: hidden;   /* Prevent text overflow */
+    text-overflow: ellipsis; /* Truncate the text with an ellipsis */
+  }
+  
+  th:nth-child(6), td:nth-child(6) {
+    max-width: 100px;   /* Set the maximum width of the column */
+    width: 100px;       /* Set a fixed width for the column */
+    overflow: hidden;   /* Prevent text overflow */
+    text-overflow: ellipsis; /* Truncate the text with an ellipsis */
+  }
+  }
+
+  /* Media Query for screen widths below 600px */
+@media (max-width: 800px) {
+  /* Hide all columns except "message" and "location" */
+  th:nth-child(1), td:nth-child(1),
+  th:nth-child(2), td:nth-child(2),
+  th:nth-child(4), td:nth-child(4),
+  th:nth-child(5), td:nth-child(5) {
+    display: none;
+  }
+  
+
+  /* Make the "location" column width fixed to 100px */
+  th:nth-child(6), td:nth-child(6) {
+    width: 100px;
+    max-width: 100px;
+  }
+
+  /* Make the "message" column take the remaining space */
+  th:nth-child(3), td:nth-child(3) {
+    width: calc(100% - 100px);  /* The width of the message column is the remaining space */
+  }
+}
+
+.bg-color-even {
+    background-color: #e9dddb; /* Light red for even rows */
+}
+
+.bg-color-odd {
+    background-color: #fbf9f9; /* Slightly darker red for odd rows */
+}
+
+/* Additional styles for hover effect, if needed */
+.bg-color-even:hover, .bg-color-odd:hover {
+    background-color: #eeebeb; /* Stronger red for hover effect */
+    cursor: pointer;
+}
+
+
+td {
+  color: #333;
+}
+
+
+
+#myTable {
+  width: 100%;
+  border-collapse: collapse; /* Ensure no gaps between cells */
+}
+
+#myTable thead {
+  position: sticky; /* Make the header sticky */
+  top: 0; /* Stick to the top */
+  background-color: #fff; /* Background color to prevent transparency */
+  z-index: 1; /* Ensure it stays above the table rows */
+}
+
+#myTable th, #myTable td {
+  padding: 8px 12px; /* Padding for cells */
+  border: 1px solid #ccc; /* Border for cells */
+  text-align: left; /* Align text to the left */
+}
+
+#myTable th {
+  background-color: #f8f8f8; /* Light background for the header */
+  font-weight: bold; /* Bold font for the header */
+}
+
+
+
+.nav {
+  flex-direction: row;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav_logo {
+  font-size: 25px;
+  color: #fff;
+}
+
+.nav_item {
+  display: flex;
+  align-items: center;
+  column-gap: 25px;
+}
+
+.nav_link,
+.button {
+  color: #fff;
+}
+
+.nav_link:hover {
+  color: #201f1f;
+}
+
+.button {
+  padding: 6px 24px;
+  border: 2px solid #fff;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.button:active {
+  transform: scale(0.98);
+}
