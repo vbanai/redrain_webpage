@@ -3,17 +3,69 @@ from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 import requests
 import os
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import func, select, sessionmaker
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import scoped_session
 from contextlib import contextmanager
 from mywebpage import Base, session_scope
 from mywebpage.datatransformation_detaileduserdata import get_or_create_detailed_df
 import pytz
-from mywebpage import run_cpu_task, stream_chunks_from_redis, fetch_partitions_for_table_chunks, fetch_partition_rows_in_chunks_gen, store_chunk_in_redis, find_gaps_in_range, async_session_scope, list_blob_names_for_range, load_blob_in_chunks
+from mywebpage import run_cpu_task, stream_chunks_from_redis, fetch_partitions_for_table_chunks, fetch_partition_rows_in_chunks_gen, store_chunk_in_redis, find_gaps_in_range, async_session_scope, list_blob_names_for_range, load_blob_in_chunks, ChatHistory
 
 
-async def fetch_chat_messages(start_dt, end_dt, client_id, timezone_str, frequency, redis, table_name="chat_messages"):
+
+
+async def fetch_topic_classification_counts(start_dt, end_dt, client_id):
+    """
+    Count chat messages grouped by topic_classification for a client
+    within the requested datetime range, and include the total count.
+    """
+    async with async_session_scope() as session:
+        # Query grouped counts by topic
+        query_grouped = (
+            select(
+                ChatHistory.topic_classification,
+                func.count(ChatHistory.id).label("count")
+            )
+            .where(
+                ChatHistory.client_id == client_id,
+                ChatHistory.created_at >= start_dt,
+                ChatHistory.created_at <= end_dt,
+            )
+            .group_by(ChatHistory.topic_classification)
+        )
+
+        # Query total count
+        query_total = (
+            select(func.count(ChatHistory.id))
+            .where(
+                ChatHistory.client_id == client_id,
+                ChatHistory.created_at >= start_dt,
+                ChatHistory.created_at <= end_dt,
+            )
+        )
+
+        result_grouped = await session.execute(query_grouped)
+        result_total = await session.execute(query_total)
+
+        rows = result_grouped.all()
+        total_count = result_total.scalar_one()
+
+    # Prepare list and include the “Összes” total as a synthetic entry
+    topic_counts = [
+        {"topic_classification": row.topic_classification or "Ismeretlen", "count": row.count}
+        for row in rows
+    ]
+
+    # Append the total count for convenience
+    topic_counts.append({"topic_classification": "Összes", "count": total_count})
+
+    return topic_counts
+
+
+
+
+async def fetch_chat_messages(start_dt, end_dt, client_id, timezone_str, frequency, redis, topic: str | None = None, table_name="chat_messages"):
     """
     Fetch chat messages in a memory-efficient, streaming + caching way.
     """
@@ -23,7 +75,7 @@ async def fetch_chat_messages(start_dt, end_dt, client_id, timezone_str, frequen
 
     # Stream cached chunks from Redis
     async for df_chunk, (chunk_start, chunk_end) in stream_chunks_from_redis(client_id, start_dt, end_dt, redis):
-        rows, cols = await run_cpu_task(fetch_chat_messages_cpu, df_chunk, start_dt, end_dt, timezone_str)
+        rows, cols = await run_cpu_task(fetch_chat_messages_cpu, df_chunk, start_dt, end_dt, timezone_str, topic)
         chat_rows.extend(rows)
         if columns is None:
             columns = cols
@@ -48,49 +100,56 @@ async def fetch_chat_messages(start_dt, end_dt, client_id, timezone_str, frequen
                 blob_chunks = await run_cpu_task(process_blob)
 
                 for df_chunk in blob_chunks:
-                    df_filtered = df_chunk[
-                        (df_chunk["created_at"] >= gap_start) &
-                        (df_chunk["created_at"] <= gap_end)
-                    ]
-                    if df_filtered.empty:
-                        continue
+                    # df_filtered = df_chunk[
+                    #     (df_chunk["created_at"] >= gap_start) &
+                    #     (df_chunk["created_at"] <= gap_end)
+                    # ]
+                    # if df_filtered.empty:
+                    #     continue
 
                     # Process CPU-heavy transformations
-                    rows, cols = await run_cpu_task(fetch_chat_messages_cpu, df_filtered, gap_start, gap_end, timezone_str)
+                    rows, cols = await run_cpu_task(fetch_chat_messages_cpu, df_chunk, gap_start, gap_end, timezone_str, topic)
+                    if not rows:
+                        continue
+                    
                     chat_rows.extend(rows)
                     if columns is None:
                         columns = cols
 
                     # Cache chunk in Redis
-                    await store_chunk_in_redis(client_id, gap_start, gap_end, df_filtered, redis)
+                    await store_chunk_in_redis(client_id, gap_start, gap_end, df_chunk, redis)
                     chunk_index += 1
 
             # 3b. DB partitions
             partitions = await fetch_partitions_for_table_chunks(session, table_name, gap_start, gap_end)
             for part in partitions:
                 async for df_chunk in fetch_partition_rows_in_chunks_gen(session, client_id, part, gap_start, gap_end):
-                    df_filtered = df_chunk[
-                        (df_chunk["created_at"] >= gap_start) &
-                        (df_chunk["created_at"] <= gap_end)
-                    ]
-                    if df_filtered.empty:
-                        continue
+                    # df_filtered = df_chunk[
+                    #     (df_chunk["created_at"] >= gap_start) &
+                    #     (df_chunk["created_at"] <= gap_end)
+                    # ]
+                    # if df_filtered.empty:
+                    #     continue
+               
 
                     # Process CPU-heavy transformations
-                    rows, cols = await run_cpu_task(fetch_chat_messages_cpu, df_filtered, gap_start, gap_end, timezone_str)
+                    rows, cols = await run_cpu_task(fetch_chat_messages_cpu, df_chunk, gap_start, gap_end, timezone_str, topic)
+                    if not rows:
+                        continue
+                    
                     chat_rows.extend(rows)
                     if columns is None:
                         columns = cols
 
                     # Cache chunk in Redis
-                    await store_chunk_in_redis(client_id, gap_start, gap_end, df_filtered, redis)
+                    await store_chunk_in_redis(client_id, gap_start, gap_end, df_chunk, redis)
                     chunk_index += 1
 
     return chat_rows, columns or []
 
 
 
-def fetch_chat_messages_cpu(df_chunk, start_dt, end_dt, timezone_str):
+def fetch_chat_messages_cpu(df_chunk, start_dt, end_dt, timezone_str, topic: str | None = None):
     df_chunk["created_at"] = pd.to_datetime(df_chunk["created_at"], utc=True)
 
     # Filter to requested interval
@@ -98,6 +157,17 @@ def fetch_chat_messages_cpu(df_chunk, start_dt, end_dt, timezone_str):
     df_filtered = df_chunk.loc[mask].copy()
     if df_filtered.empty:
         return [], []
+    
+    # --- Topic filtering  ---
+    if topic and "topic_classification" in df_filtered.columns:
+        df_filtered["topic_classification"] = df_filtered["topic_classification"].fillna("")
+        df_filtered = df_filtered[
+            df_filtered["topic_classification"].str.lower() == topic.lower()
+        ]
+    if df_filtered.empty:
+        return [], []
+    
+
 
     # Sort
     df_filtered.sort_values(by=["created_at", "user_id"], inplace=True)

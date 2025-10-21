@@ -26,6 +26,8 @@ from functools import reduce
 from copy import deepcopy
 
 
+# Helper for datatransformation_for_chartjs
+
 def merge_two_lists(list1, list2, breakdown="weekly"):
     """
     Merge two structured lists (A, B) depending on daily, weekly, monthly, or yearly breakdown.
@@ -144,6 +146,7 @@ def merge_two_lists(list1, list2, breakdown="weekly"):
     return merged_list
 
 
+# Helpers for datatransformation_for_chartjs_CPU 
 
 def merge_new_date_into_consolidated_list(consolidated_list, new_date):
     """
@@ -233,7 +236,7 @@ def merge_consolidated(main_items, consolidated_list):
 
 
 
-async def datatransformation_for_chartjs(client_id, year, month, day, hour, minutes, seconds, year_end, month_end, day_end, hour_end, minutes_end, seconds_end,frequency, table_name, redis):
+async def datatransformation_for_chartjs(client_id, year, month, day, hour, minutes, seconds, year_end, month_end, day_end, hour_end, minutes_end, seconds_end,frequency, table_name, redis, topic: str | None = None):
     utc = pytz.UTC
     start_dt = utc.localize(datetime(int(year), int(month), int(day), int(hour), int(minutes), int(seconds)))
     end_dt = utc.localize(datetime(int(year_end), int(month_end), int(day_end), int(hour_end), int(minutes_end), int(seconds_end)))
@@ -243,7 +246,7 @@ async def datatransformation_for_chartjs(client_id, year, month, day, hour, minu
 
     # 1. Stream cached chart chunks
     async for df_chunk, (chunk_start, chunk_end) in stream_chunks_from_redis(client_id, start_dt, end_dt, redis):
-        transformed = await run_cpu_task(datatransformation_for_chartjs_cpu, df_chunk, frequency)
+        transformed = await run_cpu_task(datatransformation_for_chartjs_cpu, df_chunk, start_dt, end_dt, frequency)
         all_transformed.extend(transformed)
         covered_ranges.append((chunk_start, chunk_end))
 
@@ -277,7 +280,7 @@ async def datatransformation_for_chartjs(client_id, year, month, day, hour, minu
                     if df_filtered.empty:
                         continue
 
-                    transformed = await run_cpu_task(datatransformation_for_chartjs_cpu, df_filtered, start_dt, end_dt, frequency)
+                    transformed = await run_cpu_task(datatransformation_for_chartjs_cpu, df_filtered, start_dt, end_dt, frequency, topic)
                     all_transformed.extend(transformed)
 
                     await store_chunk_in_redis(client_id, gap_start, gap_end, df_filtered, redis)
@@ -293,7 +296,7 @@ async def datatransformation_for_chartjs(client_id, year, month, day, hour, minu
                     if df_filtered.empty:
                         continue
 
-                    transformed = await run_cpu_task(datatransformation_for_chartjs_cpu, df_filtered, start_dt, end_dt, frequency)
+                    transformed = await run_cpu_task(datatransformation_for_chartjs_cpu, df_filtered, start_dt, end_dt, frequency, topic)
                     all_transformed.extend(transformed)
 
                     await store_chunk_in_redis(client_id, gap_start, gap_end, df_filtered, redis)
@@ -314,11 +317,20 @@ async def datatransformation_for_chartjs(client_id, year, month, day, hour, minu
 
 
 
-def datatransformation_for_chartjs_cpu(df_pandas, start_dt, end_dt, frequency):
+def datatransformation_for_chartjs_cpu(df_pandas, start_dt, end_dt, frequency, topic: str | None = None):
   
   if df_pandas.empty:
      return []
   utc = pytz.UTC
+
+  # --- Topic filtering  ---
+  if topic and "topic_classification" in df_pandas.columns and topic.lower!="összes":
+      df_pandas["topic_classification"] = df_pandas["topic_classification"].fillna("")
+      df_pandas = df_pandas[
+          df_pandas["topic_classification"].str.lower() == topic.lower()
+      ]
+
+    
 
  
   

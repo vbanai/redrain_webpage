@@ -19,6 +19,9 @@ from contextlib import asynccontextmanager
 from mywebpage import redis_listener, send_admin_heartbeat
 from concurrent.futures import ProcessPoolExecutor
 from redis.asyncio import from_url as redis_from_url
+import torch
+from transformers import AutoTokenizer
+from azure.storage.blob import BlobServiceClient
 
 
 # --------------------- Redis Async ---------------------
@@ -34,6 +37,61 @@ redis_url = f"rediss://default:{redis_password}@{redis_host}:{redis_port}"
 
 
 
+# ---------------------- Helper for Classification model laoding---
+
+
+
+
+
+
+
+async def load_topic_classifier_model(
+    fastapi_app,
+    container_name="topicclassifiermodel",
+    local_model_path="/tmp/topic_classifier_hu"
+):
+    """
+    Downloads the topic classification model from Azure Blob Storage (if not already present),
+    and loads the tokenizer and TorchScript model into FastAPI's app.state.
+    """
+    async def _load():
+        os.makedirs(local_model_path, exist_ok=True)
+        connection_string = os.environ["CONNECTION_STRING"]
+
+        # Files stored in Azure Blob
+        required_files = [
+            "topic_classifier_traced.pt",
+            "config.json",
+            "tokenizer_config.json",
+            "tokenizer.json",
+            "special_tokens_map.json",
+            "vocab.txt",
+        ]
+
+        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        container_client = blob_service_client.get_container_client(container_name)
+
+        # --- Download files if not already cached locally ---
+        for filename in required_files:
+            local_file = os.path.join(local_model_path, filename)
+            if not os.path.exists(local_file):
+                blob_client = container_client.download_blob(filename)
+                with open(local_file, "wb") as f:
+                    f.write(blob_client.readall())
+
+        # --- Load tokenizer and TorchScript model (in thread to avoid blocking event loop) ---
+       
+        fastapi_app.state.topic_tokenizer = await asyncio.to_thread(
+            AutoTokenizer.from_pretrained, local_model_path
+        )
+        fastapi_app.state.topic_classifier_model = await asyncio.to_thread(
+            torch.jit.load, os.path.join(local_model_path, "topic_classifier_traced.pt")
+        )
+
+        fastapi_app.state.topic_classifier_model.eval()
+       
+
+    await _load()
 
 # --------------------- Lifespan ---------------------
 
@@ -76,6 +134,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Redis connection failed at startup: {e}")
         app.state.redis_client = None
+
+    # === Load topic classifier in background ===
+    asyncio.create_task(load_topic_classifier_model(app))
 
     # Supervisor task
     async def supervisor(coro_fn, name: str, restart_delay: float = 5.0):

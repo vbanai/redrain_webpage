@@ -128,6 +128,7 @@ class ChatHistory(Base):
     message = Column(UnicodeText)  # Use UnicodeText for large text fields
     response = Column(UnicodeText)  # Use UnicodeText for large text fields
     topic = Column(UnicodeText)  # Store topic as Unicode (255 characters should be sufficient)
+    topic_classification = Column(UnicodeText)
     latitude = Column(Float)  # Latitude for geolocation
     longitude = Column(Float)  # Longitude for geolocation
     location = Column(Unicode(255))  # Store location as Unicode (255 characters)

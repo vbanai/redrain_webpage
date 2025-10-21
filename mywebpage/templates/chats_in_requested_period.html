@@ -10,23 +10,50 @@
     <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.0.0/css/line.css" />
 
  
-    <link rel="stylesheet" href="{{ url_for('static', filename='chattable.css') }}">
+    <link rel="stylesheet" href="/static/chattable.css">
+
   
     
   </head>
     
 
 <body>
-  <div class="header">
- 
-    <div style="flex:1">
-      <img src="static/RedRainLogo8.png" alt="" class="hamburger">
+  <div class="header" style="position: relative; display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 1rem;">
+  
+    <!-- Logo -->
+    <div style="flex: 0 0 auto;">
+      <img src="static/RedRainLogo8.png" alt="Logo" style="height: 50px;">
     </div>
-   
-    <div style="flex:1">
-      <h1 data-lang="header1" style="color:white; font-size:clamp(15px, 1.7vw, 20px);">Chat Messages </h1>
-      <p data-lang="header2" style=" color:white; text-align: center; font-size:clamp(9px, 1vw, 16px);">/ {{start_date}} to {{end_date}} /</p>
+
+    <!-- Centered topic text -->
+    <div id="navItem2" style="position: absolute; left: 50%; transform: translateX(-50%); text-align: center; display: flex; align-items: center; gap: 1.5rem;">
+      <a href="#chattopic" class="buttonsubscription" id="buttonSubscription" style="color:white; font-size:clamp(12px, 1.5vw, 18px); margin:0;" data-lang="chattopic">Chat Témakörök</a>
+      <div class="dropdown">
+        <div class="resource-dropdown-content" id="resourcedropdownContent">
+          <a href="#" data-lang="inquiry" onclick="navigateToTopic('Termékérdeklődés')">Érdeklődés termékről</a>
+          <a href="#" data-lang="intention" onclick="navigateToTopic('Vásárlási szándék')">Vásárlási szándék</a>
+          <a href="#" data-lang="price" onclick="navigateToTopic('Ár és promóció')">Ár és promóció</a>
+          <a href="#" data-lang="complaint" onclick="navigateToTopic('Panaszok és problémák')">Panaszok és problémák</a>
+          <a href="#" data-lang="service" onclick="navigateToTopic('Szolgáltatás')">Szolgáltatás</a>
+          <a href="#" data-lang="other" onclick="navigateToTopic('Egyéb')">Egyéb</a>
+          <a href="#" data-lang="all" onclick="navigateToTopic('Összes')">Összes</a>
+        </div>
+      </div>
+      <a href="#statistics" class="buttonsubscription" data-lang="statistics" id="statsLink" style="color:white; font-size:clamp(12px, 1.5vw, 18px);" data-lang="statistics">Metrikák</a>
     </div>
+
+    <!-- Headers on the right -->
+    <div style="flex: 0 0 auto; text-align: right;" class="date-container-wide">
+      <h1 data-lang="header1" style="color:white; font-size:clamp(12px, 1.7vw, 20px); margin:0;">Chat Messages</h1>
+      <p data-lang="header2" style="color:white; font-size:clamp(9px, 1vw, 16px); margin:0; margin-top:0.3em;">/ {{start_date}} to {{end_date}} /</p>
+    </div>
+
+    <div style="flex: 0 0 auto; text-align: right; display:none;" class="date-container-narrow">
+      <h1 data-lang="header1" style="color:white; font-size:clamp(12px, 1.7vw, 20px); margin:0;">Chat Messages</h1>
+      <p data-lang="header3" style="color:white; font-size:clamp(9px, 1vw, 16px); margin:0; margin-top:0.3em;">/ {{start_date}} /</p>
+      <p data-lang="header4" style="color:white; font-size:clamp(9px, 1vw, 16px); margin:0; margin-top:0.3em;">/ {{end_date}} /</p>
+    </div>
+
   </div> 
     
     <div class="table-container">
@@ -59,6 +86,198 @@
     </div>
     
     <script>
+      const topicCounts = {{ topic_counts | tojson }};
+      const topicKeyMap = {
+        "Termékérdeklődés": "inquiry",
+        "Vásárlási szándék": "intention",
+        "Ár és promóció": "price",
+        "Panaszok és problémák": "complaint",
+        "Szolgáltatás": "service",
+        "Egyéb": "other",
+        "Összes": "all"
+      };
+
+
+      const topicFromServer = "{{ topic }}";
+
+
+      function updateTopicHeader(language) {
+        const topicTranslations = {
+          hu: {
+            all: "Összes üzenet",
+            inquiry: "Chat termékekről",
+            intention: "Vásárlási szándék",
+            price: "Chat árakról és promóciókról",
+            complaint: "Panaszok és problémák",
+            service: "Beszélgetés szolgáltatásokról",
+            other: "Egyéb üzenetek"
+          },
+          en: {
+            all: "All messages",
+            inquiry: "Product inquiries",
+            intention: "Intention to purchase",
+            price: "Chats about price and promotion",
+            complaint: "Complaints and issues",
+            service: "Service-related chats",
+            other: "Other messages"
+          }
+        };
+
+        const topicKey = topicKeyMap[topicFromServer];
+        if (!topicKey) return; // if no topic, skip
+
+        const header1Elements = document.querySelectorAll(
+          ".date-container-wide h1, .date-container-narrow h1"
+        );
+        const headerText = topicTranslations[language][topicKey];
+        if (!headerText) return;
+
+        header1Elements.forEach(el => {
+          el.textContent = headerText;
+        });
+      }
+
+
+      function navigateToTopic(topic) {
+          const params = new URLSearchParams(window.location.search);
+
+          // Parse the backend-provided dates into JS Date objects
+          const startDate = new Date("{{ start_date.isoformat() }}");
+          const endDate = new Date("{{ end_date.isoformat() }}");
+
+          if (topic === "Összes") {
+              const baseUrl = `/chats_in_requested_period`;
+
+              // Extract components dynamically from start and end
+              params.set("year", startDate.getFullYear());
+              params.set("month", String(startDate.getMonth() + 1).padStart(2, "0"));
+              params.set("day", String(startDate.getDate()).padStart(2, "0"));
+              params.set("hour", String(startDate.getHours()).padStart(2, "0"));
+              params.set("minutes", String(startDate.getMinutes()).padStart(2, "0"));
+              params.set("seconds", String(startDate.getSeconds()).padStart(2, "0"));
+
+              params.set("year_end", endDate.getFullYear());
+              params.set("month_end", String(endDate.getMonth() + 1).padStart(2, "0"));
+              params.set("day_end", String(endDate.getDate()).padStart(2, "0"));
+              params.set("hour_end", String(endDate.getHours()).padStart(2, "0"));
+              params.set("minutes_end", String(endDate.getMinutes()).padStart(2, "0"));
+              params.set("seconds_end", String(endDate.getSeconds()).padStart(2, "0"));
+
+              params.set("language", "{{ language }}");
+              params.set("frequency", "{{ frequency }}");
+
+              window.location.href = `${baseUrl}?${params.toString()}`;
+              return;
+          }
+
+          const baseUrl = `/chats_in_requested_period/topic`;
+
+          params.set("topic", topic);
+          params.set("start_date", "{{ start_date.isoformat() }}");
+          params.set("end_date", "{{ end_date.isoformat() }}");
+          params.set("language", "{{ language }}");
+          params.set("frequency", "{{ frequency }}");
+
+          window.location.href = `${baseUrl}?${params.toString()}`;
+      }
+
+      function updateDropdownCounts(topicCounts, language) {
+          // Find all dropdown links
+          const dropdownLinks = document.querySelectorAll('.resource-dropdown-content a');
+          
+          // Reset them first (remove any previous counts)
+          dropdownLinks.forEach(link => {
+            const key = link.dataset.lang;
+            link.textContent = translations[language][key];
+          });
+
+          // Loop over each topic count and append "(X chat)" or "(X chats)"
+          topicCounts.forEach(item => {
+            const key = topicKeyMap[item.topic_classification];
+            if (!key) return; // skip unknowns
+            const link = document.querySelector(`.resource-dropdown-content a[data-lang="${key}"]`);
+            if (link) {
+              const countText = language === 'hu'
+                ? ` (${item.count} chat)`
+                : ` (${item.count} chats)`;
+              link.textContent += countText;
+            }
+          });
+        }
+
+      const dropdownWrapper = document.querySelector('.dropdown');
+      var buttonSubscription = document.getElementById('buttonSubscription');
+      var resourcedropdownContent = document.getElementById('resourcedropdownContent');
+
+      function showDropdown(dropdown, button) {
+        dropdown.style.display = 'block';
+        button.classList.add('active');
+    }
+
+    function hideDropdown(dropdown, button) {
+        dropdown.style.display = 'none';
+        button.classList.remove('active');
+    }
+
+      if (dropdownWrapper) {
+        dropdownWrapper.addEventListener('mouseenter', function() {
+          showDropdown(resourcedropdownContent, buttonSubscription);
+        });
+
+        dropdownWrapper.addEventListener('mouseleave', function() {
+          setTimeout(function() {
+            if (
+              !resourcedropdownContent.matches(':hover') &&
+              !dropdownWrapper.matches(':hover')
+            ) {
+              hideDropdown(resourcedropdownContent, buttonSubscription);
+            }
+          }, 100);
+        });
+      }
+
+      // --- Metrics link click handler ---
+      const statsLink = document.getElementById('statsLink');
+      if (statsLink) {
+        statsLink.addEventListener('click', function(event) {
+          event.preventDefault();
+
+          // Parse the backend-provided dates into JS Date objects
+          const startDate = new Date("{{ start_date.isoformat() }}");
+          const endDate = new Date("{{ end_date.isoformat() }}");
+
+          const params = new URLSearchParams();
+
+          // Start date parts
+          params.set("year", startDate.getFullYear());
+          params.set("month", String(startDate.getMonth() + 1).padStart(2, "0"));
+          params.set("day", String(startDate.getDate()).padStart(2, "0"));
+          params.set("hour", String(startDate.getHours()).padStart(2, "0"));
+          params.set("minutes", String(startDate.getMinutes()).padStart(2, "0"));
+          params.set("seconds", String(startDate.getSeconds()).padStart(2, "0"));
+
+          // End date parts
+          params.set("year_end", endDate.getFullYear());
+          params.set("month_end", String(endDate.getMonth() + 1).padStart(2, "0"));
+          params.set("day_end", String(endDate.getDate()).padStart(2, "0"));
+          params.set("hour_end", String(endDate.getHours()).padStart(2, "0"));
+          params.set("minutes_end", String(endDate.getMinutes()).padStart(2, "0"));
+          params.set("seconds_end", String(endDate.getSeconds()).padStart(2, "0"));
+
+          // Other parameters from backend
+          params.set("language", "{{ language }}");
+          params.set("frequency", "{{ frequency }}");
+          params.set("topic", topic);
+
+          // Build the target URL and open it in a new tab
+          const url = `/productbreakdown_topics?${params.toString()}`;
+          window.open(url, '_blank');
+        });
+      }
+
+
+       
+
       // Get the table element
       const table = document.getElementById('myTable');
       const rows = Array.from(table.getElementsByTagName('tr')).slice(1); // Get all rows except the header
@@ -166,6 +385,14 @@
       const translations = {
             en: {
                 created_at: "Arrival date",
+                chattopic: "Chat Topics",
+                inquiry: "Interest in the product",
+                intention: "Intention to purchase",
+                price: "Price and promotion",
+                complaint: "Complaints and issues",
+                service: "Service",
+                other: "Other",
+                all: "All",
                 user_id: "User ID",
                 message: "Message",
                 latitude: "Latitude",
@@ -173,11 +400,22 @@
                 location: "Location",
                 header1:"Chat Messages",
                 header2:"/ {{start_date}} to {{end_date}} /",
+                header3:"/ {{start_date}} to  ",
+                header4:"/ {{end_date}} /",
                 user_label: "USER",
-                assistant_label: "ASSISTANT"
+                assistant_label: "ASSISTANT",
+                statistics: metrics
             },
             hu: {
                 created_at: "Beérkezés",
+                chattopic: "Chat Témakörök",
+                inquiry: "Érdeklődés termékről",
+                intention: "Vásárlási szándék",
+                price: "Ár és promóció",
+                complaint: "Panaszok és problémák",
+                service: "Szolgáltatás",
+                other:"Egyéb",
+                all:"Összes",
                 user_id: "Azonosító",
                 message: "Üzenet",
                 latitude: "Szélesség",
@@ -185,14 +423,17 @@
                 location: "Hely",
                 header1:"Üzenetek",
                 header2:"/ {{start_date}} - {{end_date}} /",
+                header3:"/ {{start_date}} -  ",
+                header4:"/ {{end_date}} /",
                 user_label: "ÜGYFÉL",
-                assistant_label: "ASSZISZTENS"
+                assistant_label: "ASSZISZTENS",
+                statistics: metrikák
             }
             };
 
               // Set language on page load
       
-
+    
       // Set language on page load
       window.onload = function() {
           if (typeof translations !== 'undefined') {
@@ -202,6 +443,7 @@
               const language = backendLang && backendLang !== "" ? backendLang : (storedLang || 'hu');
 
               setLanguage(language);
+              updateTopicHeader(language);
           }
       };
 
@@ -233,7 +475,26 @@
         document.querySelectorAll('[data-role="assistant"]').forEach(el => {
             el.textContent = translations[language].assistant_label;
         });
+        if (typeof topicCounts !== 'undefined') {
+          updateDropdownCounts(topicCounts, language);
+        }
       }
+
+      function toggleDateContainers() {
+  const wide = document.querySelector('.date-container-wide');
+  const narrow = document.querySelector('.date-container-narrow');
+  if (window.innerWidth > 600) {
+    wide.style.display = 'block';
+    narrow.style.display = 'none';
+  } else {
+    wide.style.display = 'none';
+    narrow.style.display = 'block';
+  }
+}
+
+// Run on load and resize
+window.addEventListener('load', toggleDateContainers);
+window.addEventListener('resize', toggleDateContainers);
 
 
 

@@ -27,6 +27,10 @@ import asyncio
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+import pytz
+from datetime import datetime
+from copy import deepcopy
+from functools import reduce
 
 
 def generate_detailed_key(client_id: str, start_dt: datetime, end_dt: datetime):
@@ -60,6 +64,123 @@ def store_detailed_df_in_redis(redis_key: str, df: pd.DataFrame, ttl_seconds=900
 
 
 
+def merge_two_lists(list1, list2, breakdown="weekly"):
+    """
+    Merge two structured lists (A, B) depending on daily, weekly, monthly, or yearly breakdown.
+    Merges per label if both lists contain data from the same period.
+    """
+    def parse_date(x):
+        if isinstance(x, list):
+            x = x[0]
+        return datetime.strptime(x, "%Y-%m-%d %H:%M:%S")
+
+    def get_first_last_date(lst):
+        all_dates = []
+        for sub in lst:
+            if isinstance(sub, list):
+                for el in sub:
+                    if isinstance(el, dict) and 'mainChartData' in el:
+                        all_dates.append(parse_date(el['mainChartData'][0]['x']))
+        if not all_dates:
+            return None, None
+        return min(all_dates), max(all_dates)
+
+    # --- Determine chronological order ---
+    start1, end1 = get_first_last_date(list1)
+    start2, end2 = get_first_last_date(list2)
+    if start1 is None or start2 is None:
+        return deepcopy(list1) + deepcopy(list2)
+    if start2 < start1:
+        list1, list2 = list2, list1
+        start1, end1, start2, end2 = start2, end2, start1, end1
+
+    # --- Find last and first data blocks ---
+    def find_last_block(lst):
+        for sub in reversed(lst):
+            if isinstance(sub, list) and sub and isinstance(sub[0], dict):
+                return sub
+        return []
+
+    def find_first_block(lst):
+        for sub in lst:
+            if isinstance(sub, list) and sub and isinstance(sub[0], dict):
+                return sub
+        return []
+
+    last_block = find_last_block(list1)
+    first_block = find_first_block(list2)
+    if not last_block or not first_block:
+        return deepcopy(list1) + deepcopy(list2)
+
+    # --- Compare periods ---
+    last_date = parse_date(last_block[0]['mainChartData'][0]['x'])
+    first_date = parse_date(first_block[0]['mainChartData'][0]['x'])
+
+    if breakdown == "daily":
+        same_period = (last_date.date() == first_date.date())
+    elif breakdown == "weekly":
+        same_period = (last_date.isocalendar()[:2] == first_date.isocalendar()[:2])
+    elif breakdown == "monthly":
+        same_period = (last_date.year == first_date.year and last_date.month == first_date.month)
+    elif breakdown == "yearly":
+        same_period = (last_date.year == first_date.year)
+    else:
+        raise ValueError("breakdown must be 'daily', 'weekly', 'monthly', or 'yearly'")
+
+    if not same_period:
+        return deepcopy(list1) + deepcopy(list2)
+
+    # --- Merge by label ---
+    merged_block = []
+    labels_last = {d['label']: d for d in last_block}
+    labels_first = {d['label']: d for d in first_block}
+    all_labels = set(labels_last) | set(labels_first)
+    later_date_str = max(last_date, first_date).strftime("%Y-%m-%d %H:%M:%S")
+
+    def merge_dicts(d1, d2):
+        merged = deepcopy(d1)
+        merged['mainChartData'][0]['x'] = later_date_str
+        merged['mainChartData'][0]['y'] = d1['mainChartData'][0]['y'] + d2['mainChartData'][0]['y']
+
+        def merge_secondary(x1, y1, x2, y2):
+            merged_x = list(dict.fromkeys(x1 + x2))
+            merged_y = [[0]*len(merged_x)]
+            for i, lbl in enumerate(merged_x):
+                val1 = y1[0][x1.index(lbl)] if lbl in x1 else 0
+                val2 = y2[0][x2.index(lbl)] if lbl in x2 else 0
+                merged_y[0][i] = val1 + val2
+            return merged_x, merged_y
+
+        merged['x_secondary'], merged['secondaryChartData'] = merge_secondary(
+            d1['x_secondary'], d1['secondaryChartData'],
+            d2['x_secondary'], d2['secondaryChartData']
+        )
+        merged['x_secondary_b'], merged['secondaryChartData_b'] = merge_secondary(
+            d1['x_secondary_b'], d1['secondaryChartData_b'],
+            d2['x_secondary_b'], d2['secondaryChartData_b']
+        )
+        merged['x_secondary_c'], merged['secondaryChartData_c'] = merge_secondary(
+            d1['x_secondary_c'], d1['secondaryChartData_c'],
+            d2['x_secondary_c'], d2['secondaryChartData_c']
+        )
+        return merged
+
+    for lbl in all_labels:
+        if lbl in labels_last and lbl in labels_first:
+            merged_block.append(merge_dicts(labels_last[lbl], labels_first[lbl]))
+        elif lbl in labels_last:
+            d = deepcopy(labels_last[lbl])
+            d['mainChartData'][0]['x'] = later_date_str
+            merged_block.append(d)
+        else:
+            d = deepcopy(labels_first[lbl])
+            d['mainChartData'][0]['x'] = later_date_str
+            merged_block.append(d)
+
+    # --- Build final combined list ---
+    merged_list = deepcopy(list1[:-1]) + [merged_block] + deepcopy(list2[1:])
+    return merged_list
+
 
 
 
@@ -86,11 +207,14 @@ def load_blob_in_chunks(client_id: str, blob_name: str, chunk_size: int = 10_000
     stream.seek(0)
 
     # Instead of loading full DataFrame, stream in chunks
-    reader = pd.read_json(stream, lines=True, chunksize=chunk_size)
-    for df_chunk in reader:
-        df_chunk = df_chunk[df_chunk['client_id'] == client_id]
-        if not df_chunk.empty:
-            yield df_chunk
+    with BytesIO() as stream:
+        blob_data.readinto(stream)
+        stream.seek(0)
+        reader = pd.read_json(stream, lines=True, chunksize=chunk_size)
+        for df_chunk in reader:
+            df_chunk = df_chunk[df_chunk['client_id'] == client_id]
+            if not df_chunk.empty:
+                yield df_chunk
 
 
 
@@ -264,17 +388,18 @@ async def stream_chunks_from_redis(client_id: str, req_start: datetime, req_end:
     """
     Async generator that yields DataFrame chunks stored in Redis
     if they overlap with [req_start, req_end].
+    Uses SCAN-based iteration (non-blocking, memory-efficient).
     """
     pattern = f"detailed:{client_id}:*"
-    keys = await redis.keys(pattern)
 
-    for k in keys:
+    async for k in redis.scan_iter(match=pattern):  # non-blocking scan
         chunk_start, chunk_end = parse_chunk_key(k)
         if overlaps(req_start, req_end, chunk_start, chunk_end):
             encoded = await redis.get(k)
             if encoded:
                 df = await run_cpu_task(decompress_df, encoded)
                 yield df, (chunk_start, chunk_end)
+
 
 
 
@@ -291,7 +416,7 @@ def find_gaps_in_range(start_dt: datetime, end_dt: datetime, covered_ranges: lis
 
     for (s, e) in covered_ranges:
         if s > current:
-            gaps.append((current, min(e, s)))
+            gaps.append((current, s))
         current = max(current, e)
     if current < end_dt:
         gaps.append((current, end_dt))
@@ -515,31 +640,322 @@ async def get_or_create_detailed_df(
 
 
 
+# Helper: determine previous period by frequency
+def get_previous_period(start_dt, frequency):
+    if frequency == "daily":
+        return start_dt - timedelta(days=1), start_dt - timedelta(seconds=1)
+    elif frequency == "weekly":
+        return start_dt - timedelta(weeks=1), start_dt - timedelta(seconds=1)
+    elif frequency == "monthly":
+        prev_month_end = start_dt - timedelta(seconds=1)
+        prev_month_start = (prev_month_end.replace(day=1) - timedelta(days=1)).replace(day=1)
+        return prev_month_start, prev_month_end
+    elif frequency == "yearly":
+        prev_year_start = datetime(start_dt.year - 1, 1, 1)  # January 1st of the previous year
+        prev_year_end = datetime(start_dt.year - 1, 12, 31, 23, 59, 59)  # December 31st, 11:59:59 PM of the previous year
+        return prev_year_start, prev_year_end
+    else:
+        return start_dt - timedelta(days=1), start_dt - timedelta(seconds=1)
 
 
-async def datatransformation_for_chartjs_detailed(client_id, year, month, day, hour, minutes, seconds, year_end, month_end, day_end, hour_end, minutes_end, seconds_end,frequency, table_name, redis):
+
+
+async def datatransformation_for_chartjs_detailed(
+    client_id,
+    year, month, day, hour, minutes, seconds,
+    year_end, month_end, day_end, hour_end, minutes_end, seconds_end,
+    frequency,
+    table_name,
+    redis, topic: str | None = None
+):
+    """
+    Detailed async version of chart data transformation with additional datasets and
+    usernumber change recalculation (including fetching the previous period).
+    """
+
     utc = pytz.UTC
-    start_date = utc.localize(datetime(int(year), int(month), int(day), int(hour), int(minutes), int(seconds)))
-    end_date = utc.localize(datetime(int(year_end), int(month_end), int(day_end), int(hour_end), int(minutes_end), int(seconds_end)))
+    start_dt = utc.localize(datetime(int(year), int(month), int(day), int(hour), int(minutes), int(seconds)))
+    end_dt = utc.localize(datetime(int(year_end), int(month_end), int(day_end), int(hour_end), int(minutes_end), int(seconds_end)))
 
-    
-    # Fetch dataframe (already async + handles CPU heavy parts internally)
-    df_pandas = await get_or_create_detailed_df(client_id,
-                                start_date,
-                                end_date,
-                                frequency,
-                                table_name,
-                                redis)
-    if df_pandas.empty:
-        return [], []
+    all_final_data = []
+    all_data_for_final_copy = []
+    all_timestamps = []
+    all_start_end = []
+    all_usernumbers = []
+    all_querry_avg = []
+    all_changes_usernum = []
+    all_locations = []
+    covered_ranges = []
 
-    # Push Pandas filtering/grouping into process pool
-    return await run_cpu_task(datatransformation_for_chartjs_detailed_cpu, df_pandas, start_date, end_date, client_id, year, month, day, hour, minutes, seconds, year_end, month_end, day_end, hour_end, minutes_end, seconds_end,frequency, table_name)
+    # ----------------------------------------
+    # STREAM FROM REDIS CACHE
+    # ----------------------------------------
+    async for df_chunk, (chunk_start, chunk_end) in stream_chunks_from_redis(client_id, start_dt, end_dt, redis):
+        (
+            final_transformed_data,
+            data_for_final_transformation_copy,
+            timestamp,
+            start_end_date_byfrequency,
+            usernumber,
+            querry_on_average,
+            changesinusernumber,
+            locations
+        ) = await run_cpu_task(
+            datatransformation_for_chartjs_detailed_cpu,
+            df_chunk, start_dt, end_dt, client_id, year, month, day, hour,
+            minutes, seconds, year_end, month_end, day_end, hour_end,
+            minutes_end, seconds_end, frequency, table_name, topic
+        )
+
+        all_final_data.extend(final_transformed_data)
+        all_data_for_final_copy.extend(data_for_final_transformation_copy)
+        all_timestamps.extend(timestamp)
+        all_start_end.extend(start_end_date_byfrequency)
+        all_usernumbers.extend(usernumber)
+        all_querry_avg.extend(querry_on_average)
+        all_changes_usernum.extend(changesinusernumber)
+        all_locations.extend(locations)
+
+        covered_ranges.append((chunk_start, chunk_end))
+
+    # ----------------------------------------
+    # FIND MISSING INTERVALS
+    # ----------------------------------------
+    missing_intervals = find_gaps_in_range(start_dt, end_dt, covered_ranges)
+
+    if not missing_intervals:
+        # If we have everything from cache
+        return _merge_detailed_results(all_final_data,
+                                       all_data_for_final_copy,
+                                       all_timestamps,
+                                       all_start_end,
+                                       all_usernumbers,
+                                       all_querry_avg,
+                                       all_changes_usernum,
+                                       all_locations,
+                                       frequency)
+
+    # ----------------------------------------
+    # PROCESS MISSING RANGES (from blobs + DB)
+    # ----------------------------------------
+    async with async_session_scope() as session:
+        for gap_start, gap_end in missing_intervals:
+            # Blobs
+            blob_names = await list_blob_names_for_range(client_id, gap_start, gap_end)
+            for blob_name in blob_names:
+                def process_blob():
+                    return list(load_blob_in_chunks(client_id, blob_name, chunk_size=10_000))
+                blob_chunks = await run_cpu_task(process_blob)
+
+                for df_chunk in blob_chunks:
+                    df_filtered = df_chunk[
+                        (df_chunk["created_at"] >= gap_start) &
+                        (df_chunk["created_at"] <= gap_end)
+                    ]
+                    if df_filtered.empty:
+                        continue
+
+                    result = await run_cpu_task(
+                        datatransformation_for_chartjs_detailed_cpu,
+                        df_filtered, start_dt, end_dt, client_id, year, month, day, hour,
+                        minutes, seconds, year_end, month_end, day_end, hour_end,
+                        minutes_end, seconds_end, frequency, table_name, topic
+                    )
+
+                    (
+                        final_transformed_data,
+                        data_for_final_transformation_copy,
+                        timestamp,
+                        start_end_date_byfrequency,
+                        usernumber,
+                        querry_on_average,
+                        changesinusernumber,
+                        locations
+                    ) = result
+
+                    all_final_data.extend(final_transformed_data)
+                    all_data_for_final_copy.extend(data_for_final_transformation_copy)
+                    all_timestamps.extend(timestamp)
+                    all_start_end.extend(start_end_date_byfrequency)
+                    all_usernumbers.extend(usernumber)
+                    all_querry_avg.extend(querry_on_average)
+                    all_changes_usernum.extend(changesinusernumber)
+                    all_locations.extend(locations)
+
+                    await store_chunk_in_redis(client_id, gap_start, gap_end, df_filtered, redis)
+
+            # DB partitions
+            partitions = await fetch_partitions_for_table_chunks(session, table_name, gap_start, gap_end)
+            for part in partitions:
+                async for df_chunk in fetch_partition_rows_in_chunks_gen(session, client_id, part, gap_start, gap_end):
+                    df_filtered = df_chunk[
+                        (df_chunk["created_at"] >= gap_start) &
+                        (df_chunk["created_at"] <= gap_end)
+                    ]
+                    if df_filtered.empty:
+                        continue
+
+                    result = await run_cpu_task(
+                        datatransformation_for_chartjs_detailed_cpu,
+                        df_filtered, start_dt, end_dt, client_id, year, month, day, hour,
+                        minutes, seconds, year_end, month_end, day_end, hour_end,
+                        minutes_end, seconds_end, frequency, table_name, topic
+                    )
+
+                    (
+                        final_transformed_data,
+                        data_for_final_transformation_copy,
+                        timestamp,
+                        start_end_date_byfrequency,
+                        usernumber,
+                        querry_on_average,
+                        changesinusernumber,
+                        locations
+                    ) = result
+
+                    all_final_data.extend(final_transformed_data)
+                    all_data_for_final_copy.extend(data_for_final_transformation_copy)
+                    all_timestamps.extend(timestamp)
+                    all_start_end.extend(start_end_date_byfrequency)
+                    all_usernumbers.extend(usernumber)
+                    all_querry_avg.extend(querry_on_average)
+                    all_changes_usernum.extend(changesinusernumber)
+                    all_locations.extend(locations)
+
+                    await store_chunk_in_redis(client_id, gap_start, gap_end, df_filtered, redis)
+
+    # ----------------------------------------
+    # FETCH PREVIOUS PERIOD — ONLY USER_ID COUNTS
+    # ----------------------------------------
+   
+    prev_start, prev_end = get_previous_period(start_dt, frequency)
+    prev_usercount = 0
+    collected_user_ids = set()
+    covered_prev = []
+
+    async def extract_user_ids(df_chunk):
+        """Helper to safely extract unique user_ids from a dataframe chunk."""
+        if "user_id" not in df_chunk.columns:
+            return set()
+        return set(df_chunk["user_id"].dropna().unique())
+
+    # ---- (1) Try from Redis first
+    async for df_chunk, (chunk_start, chunk_end) in stream_chunks_from_redis(client_id, prev_start, prev_end, redis):
+        user_ids = await run_cpu_task(extract_user_ids, df_chunk)
+        collected_user_ids |= user_ids
+        covered_prev.append((chunk_start, chunk_end))
+
+    # ---- (2) If some gaps exist, fill from blobs and DB
+    missing_prev = find_gaps_in_range(prev_start, prev_end, covered_prev)
+
+    if missing_prev:
+        async with async_session_scope() as session:
+            for gap_start, gap_end in missing_prev:
+
+                # BLOBS
+                blob_names = await list_blob_names_for_range(client_id, gap_start, gap_end)
+                for blob_name in blob_names:
+                    def process_blob():
+                        return list(load_blob_in_chunks(client_id, blob_name, chunk_size=10_000))
+                    blob_chunks = await run_cpu_task(process_blob)
+
+                    for df_chunk in blob_chunks:
+                        df_filtered = df_chunk[
+                            (df_chunk["created_at"] >= gap_start) &
+                            (df_chunk["created_at"] <= gap_end)
+                        ]
+                        if df_filtered.empty:
+                            continue
+
+                        user_ids = await run_cpu_task(extract_user_ids, df_filtered)
+                        collected_user_ids |= user_ids
+                        await store_chunk_in_redis(client_id, gap_start, gap_end, df_filtered, redis)
+
+                # DB PARTITIONS
+                partitions = await fetch_partitions_for_table_chunks(session, table_name, gap_start, gap_end)
+                for part in partitions:
+                    async for df_chunk in fetch_partition_rows_in_chunks_gen(session, client_id, part, gap_start, gap_end):
+                        df_filtered = df_chunk[
+                            (df_chunk["created_at"] >= gap_start) &
+                            (df_chunk["created_at"] <= gap_end)
+                        ]
+                        if df_filtered.empty:
+                            continue
+
+                        user_ids = await run_cpu_task(extract_user_ids, df_filtered)
+                        collected_user_ids |= user_ids
+                        await store_chunk_in_redis(client_id, gap_start, gap_end, df_filtered, redis)
+
+    # ---- (3) Compute total previous user count
+    prev_usercount = len(collected_user_ids)
+
+    # ---- (4) Compute percentage change for the first current period
+    if all_usernumbers:
+        first_current = all_usernumbers[0]
+        last_previous = prev_usercount  # 0 if nothing found
+
+        if last_previous == 0:
+            pct_change = 0
+        else:
+            pct_change = ((first_current - last_previous) / last_previous) * 100
+
+        all_changes_usernum[0] = f"{pct_change:.1f}%"
+
+
+    # ----------------------------------------
+    # FINAL MERGE OF ALL LISTS
+    # ----------------------------------------
+    return _merge_detailed_results(all_final_data,
+                                   all_data_for_final_copy,
+                                   all_timestamps,
+                                   all_start_end,
+                                   all_usernumbers,
+                                   all_querry_avg,
+                                   all_changes_usernum,
+                                   all_locations,
+                                   frequency)
+
+
+# Helper to merge lists in parallel
+def _merge_detailed_results(
+    all_final_data,
+    all_data_for_final_copy,
+    all_timestamps,
+    all_start_end,
+    all_usernumbers,
+    all_querry_avg,
+    all_changes_usernum,
+    all_locations,
+    frequency
+):
+    def merge_main():
+        return reduce(lambda acc, lst: merge_two_lists(acc, lst, breakdown=frequency), deepcopy(all_final_data))
+
+    final_merged = merge_main()
+    return (
+        final_merged,
+        all_data_for_final_copy,
+        all_timestamps,
+        all_start_end,
+        all_usernumbers,
+        all_querry_avg,
+        all_changes_usernum,
+        all_locations,
+    )
 
 
 
-def datatransformation_for_chartjs_detailed_cpu(df_pandas, start_dt, end_dt, client_id, year, month, day, hour, minutes, seconds, year_end, month_end, day_end, hour_end, minutes_end, seconds_end,frequency, table_name):
+def datatransformation_for_chartjs_detailed_cpu(df_pandas, start_dt, end_dt, client_id, year, month, day, hour, minutes, seconds, year_end, month_end, day_end, hour_end, minutes_end, seconds_end,frequency, table_name, topic):
   utc = pytz.UTC
+
+
+   # --- Topic filtering  ---
+  if topic and "topic_classification" in df_pandas.columns and topic.lower!="összes":
+      df_pandas["topic_classification"] = df_pandas["topic_classification"].fillna("")
+      df_pandas = df_pandas[
+          df_pandas["topic_classification"].str.lower() == topic.lower()
+      ]
+
 
 
 
@@ -1224,278 +1640,209 @@ def datatransformation_for_chartjs_detailed_cpu(df_pandas, start_dt, end_dt, cli
 
   # database_url = os.environ.get('DATABASE_URL')   
   data_to_transform=[]
-  for df_pandas in sub_dataframes: # sub_dataframes contains each period a week, month etc.
-    list_for_4items=[]
-    for index, row in df_pandas.iterrows():
-      for p in row['topic']:
-        if len(p)==4:
-          list_for_4items.append(p)
+  for df_pandas in sub_dataframes:  # each period: week, month, etc.
+    # --- 4-item topics ---
 
-    grouped_dict = {}
-
+    list_for_4items = [p for row in df_pandas['topic'] for p in row if len(p) == 4]
+ 
+    # Group by first element using defaultdict
+    grouped_dict = defaultdict(list)
     for sublist in list_for_4items:
-        key = sublist[0]
-        if key in grouped_dict.keys():
-            grouped_dict[key].append(sublist)
-        else:
-            grouped_dict[key] = [sublist]
+        grouped_dict[sublist[0]].append(sublist)
 
-
-    # Convert the dictionary values to a list
     grouped_list = list(grouped_dict.values())
 
-   
-
-    #collection will hold the 4 item productlines
+    # Build collection with counts per level
     collection = []
-
-
     for x in grouped_list:
-        summary = [defaultdict(int) for _ in range(len(grouped_list[0][0]))]
+        summary = [defaultdict(int) for _ in range(len(x[0]))]  # one defaultdict per level
         for sublist in x:
             for i, item in enumerate(sublist):
                 summary[i][item] += 1
 
-        final_result = []
-        for s in summary:
-            result = []
-            for key, value in s.items():
-                result.append({key: value})
-            final_result.append(result)
+        # Convert to list-of-dicts per level (for chartjs)
+        final_result = [[{k: v} for k, v in s.items()] for s in summary]
         collection.append(final_result)
-
     
-    list_for_3items=[]
-    for index, row in df_pandas.iterrows():
-      for p in row['topic']:
-        if len(p)==3:
-          list_for_3items.append(p)
+   
 
-
-    list_for_2items=[]
-    for index, row in df_pandas.iterrows():
-      for p in row['topic']:
-        if len(p)==2:
-          list_for_2items.append(p)
-
-    list_for_1items=[]
-    for index, row in df_pandas.iterrows():
-      for p in row['topic']:
-        if len(p)==1:
-          list_for_1items.append(p)
-    
+    # --- 3-, 2-, 1-item topics ---
+    list_for_3items = [p for row in df_pandas['topic'] for p in row if len(p) == 3]
+    list_for_2items = [p for row in df_pandas['topic'] for p in row if len(p) == 2]
+    list_for_1items = [p for row in df_pandas['topic'] for p in row if len(p) == 1]
+  
+        
 
     #####################################################################
     #          MANAGING 3 ITEM LIST FOR THE data_to_transform LIST      #
     #####################################################################
 
     new_3_items=[]
-  
-    
-    # y:[['zongora', 'akusztikus zongora', 'yamaha'],['zongora', 'akusztikus zongora', 'petrof']]
 
-    for p in list_for_3items:  # MÉG NESTED LISTÁVAL CSINÁLOM, LEHETNE NÉLKÜLE
-      # for p in y:
-        # IDENTIFY NEW 3 ITEM PRODUCT LINE, nincs benne az eddigi 4 itemes listába
-      q=[]
-      for k in range(len(collection)):
-        if p[0] not in collection[k][0][0].keys():
-          q.append("no")
-        else:
-          q.append("yes")
-            # INCREMENT EXISTING DICTIONARIES IN THE COLLECTION LIST 1.ROOT ITEMS
-          collection[k][0][0][list(collection[k][0][0].keys())[0]]+=1
-          # INCREMENT EXISTING DICTIONARIES IN THE COLLECTION LIST 2. ITEMS
-          temp=[]
-          for counter2 in range(len(collection[k][1])):
-            if p[1] in collection[k][1][counter2].keys():
-              collection[k][1][counter2][list(collection[k][1][counter2].keys())[0]]+=1
+    for p in list_for_3items:
+        is_new_collection = True
 
-          # IDENTIFY AND ADD NEW DICTIONARY IN THE COLLECTION LIST 2. ITEMS
-              temp.append("yes")
-            else:
-              temp.append("no")
-          if all(element == 'no' for element in temp):
-            collection[k][1].append({p[1]:1})
+        for k, coll in enumerate(collection):
+            root_key = list(coll[0][0].keys())[0]
 
-          # INCREMENT EXISTING DICTIONARIES IN THE COLLECTION LIST 3. ITEMS
-          temp=[]
-          for counter2 in range(len(collection[k][2])):
-            if p[2] in collection[k][2][counter2].keys():
-              collection[k][2][counter2][list(collection[k][2][counter2].keys())[0]]+=1
+            # Level 1: check root
+            if p[0] == root_key:
+                is_new_collection = False
+                coll[0][0][root_key] += 1
 
-          # IDENTIFY AND ADD NEW DICTIONARY IN THE COLLECTION LIST 3. ITEMS
-              temp.append("yes")
-            else:
-              temp.append("no")
-          if all(element == 'no' for element in temp):
-            collection[k][2].append({p[2]:1})
+                # Build lookup for level 2
+                level2_lookup = {list(d.keys())[0]: d for d in coll[1]}
+                if p[1] in level2_lookup:
+                    level2_lookup[p[1]][p[1]] += 1
+                else:
+                    coll[1].append({p[1]: 1})
 
+                # Build lookup for level 3
+                level3_lookup = {list(d.keys())[0]: d for d in coll[2]}
+                if p[2] in level3_lookup:
+                    level3_lookup[p[2]][p[2]] += 1
+                else:
+                    coll[2].append({p[2]: 1})
 
+        if is_new_collection:
+            new_3_items.append(p)
 
-    # ------------- Adding the new 3 item collection to the main collection
-
-      if all(element == 'no' for element in q):
-        new_3_items.append(p)
-
-    grouped_dict_new_3_items = {}
-
+    # Group new 3-item rows by root key using defaultdict
+    grouped_dict_new_3_items = defaultdict(list)
     for sublist in new_3_items:
         key = sublist[0]
-        if key in grouped_dict_new_3_items.keys():
-            grouped_dict_new_3_items[key].append(sublist)
-        else:
-            grouped_dict_new_3_items[key] = [sublist]
+        grouped_dict_new_3_items[key].append(sublist)
 
-
-    # Convert the dictionary values to a list
+    # Convert the dictionary values to a list (same as your original grouped_list_new_3_item)
     grouped_list_new_3_item = list(grouped_dict_new_3_items.values())
 
+    # Build collection_new_3_item
     collection_new_3_item = []
 
-
     for x in grouped_list_new_3_item:
-        summary = [defaultdict(int) for _ in range(len(grouped_list_new_3_item[0][0]))]
+        # Initialize counters for each level in the 3-item sublists
+        summary = [defaultdict(int) for _ in range(len(x[0]))]
+
+        # Count occurrences at each level
         for sublist in x:
             for i, item in enumerate(sublist):
                 summary[i][item] += 1
 
-        final_result = []
-        for s in summary:
-            result = []
-            for key, value in s.items():
-                result.append({key: value})
-            final_result.append(result)
+        # Convert summary to the same nested list-of-dicts format
+        final_result = [[{key: value} for key, value in s.items()] for s in summary]
 
         collection_new_3_item.append(final_result)
 
+    # Merge into main collection
     for i in collection_new_3_item:
-      collection.append(i)
+        collection.append(i)
 
     ######################################
     #         TWO ITEMED LIST            #
     ######################################
-    new_2_items=[]   # [['gitár', 'elektromos'], ['effektpedál', 'effektpedál']]
-    for p in list_for_2items:  # MÉG NESTED LISTÁVAL CSINÁLOM, LEHETNE NÉLKÜLE
-      # for p in y:
-        # IDENTIFY NEW 3 ITEM PRODUCT LINE, nincs benne az eddigi 4 itemes listába
-      q=[]
-      for k in range(len(collection)):
-        if p[0] not in collection[k][0][0].keys():
-          q.append("no")
-        else:
-          q.append("yes")
-            # INCREMENT EXISTING DICTIONARIES IN THE COLLECTION LIST 1.ROOT ITEMS
-          collection[k][0][0][list(collection[k][0][0].keys())[0]]+=1
-          # INCREMENT EXISTING DICTIONARIES IN THE COLLECTION LIST 2. ITEMS
-          temp=[]
-          for counter2 in range(len(collection[k][1])):
-            if p[1] in collection[k][1][counter2].keys():
-              collection[k][1][counter2][list(collection[k][1][counter2].keys())[0]]+=1
 
-          # IDENTIFY AND ADD NEW DICTIONARY IN THE COLLECTION LIST 2. ITEMS
-              temp.append("yes")
-            else:
-              temp.append("no")
-          if all(element == 'no' for element in temp):
-            collection[k][1].append({p[1]:1})
-    
-    # ------------- Adding the new 2 item collection to the main collection
 
-      if all(element == 'no' for element in q):
-        new_2_items.append(p)
+    # Identify new 2-item collections
+    new_2_items = []
 
-    grouped_dict_new_2_items = {}
+    for p in list_for_2items:
+        is_new_collection = True
 
+        for coll in collection:
+            root_key = list(coll[0][0].keys())[0]
+
+            # Level 1: check root
+            if p[0] == root_key:
+                is_new_collection = False
+                coll[0][0][root_key] += 1
+
+                # Build lookup for level 2
+                level2_lookup = {list(d.keys())[0]: d for d in coll[1]}
+                if p[1] in level2_lookup:
+                    level2_lookup[p[1]][p[1]] += 1
+                else:
+                    coll[1].append({p[1]: 1})
+
+        if is_new_collection:
+            new_2_items.append(p)
+
+    # Group new 2-item rows by root key using defaultdict
+    grouped_dict_new_2_items = defaultdict(list)
     for sublist in new_2_items:
         key = sublist[0]
-        if key in grouped_dict_new_2_items.keys():
-            grouped_dict_new_2_items[key].append(sublist)
-        else:
-            grouped_dict_new_2_items[key] = [sublist]
-
+        grouped_dict_new_2_items[key].append(sublist)
 
     # Convert the dictionary values to a list
     grouped_list_new_2_item = list(grouped_dict_new_2_items.values())
 
+    # Build collection_new_2_item
     collection_new_2_item = []
 
-
     for x in grouped_list_new_2_item:
-        summary = [defaultdict(int) for _ in range(len(grouped_list_new_2_item[0][0]))]
+        summary = [defaultdict(int) for _ in range(len(x[0]))]
+
         for sublist in x:
             for i, item in enumerate(sublist):
                 summary[i][item] += 1
 
-        final_result = []
-        for s in summary:
-            result = []
-            for key, value in s.items():
-                result.append({key: value})
-            final_result.append(result)
-
+        final_result = [[{key: value} for key, value in s.items()] for s in summary]
         collection_new_2_item.append(final_result)
 
+    # Merge into main collection
     for i in collection_new_2_item:
-      collection.append(i)
+        collection.append(i)
 
 
 
     ######################################
-    #         ONE ITEM LIST            #
+    #         ONE ITEM LIST              #
     ######################################
-    new_1_items=[]
-    # y: [['erősítő'], ['erősítő']]
-    for p in list_for_1items:  # MÉG NESTED LISTÁVAL CSINÁLOM, LEHETNE NÉLKÜLE
-      # for p in y:
-        # IDENTIFY NEW 3 ITEM PRODUCT LINE, nincs benne az eddigi 4 itemes listába
-      q=[]
-      for k in range(len(collection)):
-        if p[0] not in collection[k][0][0].keys():
-          q.append("no")
-        else:
-          q.append("yes")
-            # INCREMENT EXISTING DICTIONARIES IN THE COLLECTION LIST 1.ROOT ITEMS
-          collection[k][0][0][list(collection[k][0][0].keys())[0]]+=1
 
+    
+    # Identify new 1-item collections
+    new_1_items = []
 
-      if all(element == 'no' for element in q):
-        new_1_items.append(p)
+    for p in list_for_1items:
+        is_new_collection = True
 
-    grouped_dict_new_1_items = {}
+        for coll in collection:
+            root_key = list(coll[0][0].keys())[0]
 
+            # Level 1: check root
+            if p[0] == root_key:
+                is_new_collection = False
+                coll[0][0][root_key] += 1
 
+        if is_new_collection:
+            new_1_items.append(p)
+
+    # Group new 1-item rows by root key using defaultdict
+    grouped_dict_new_1_items = defaultdict(list)
     for sublist in new_1_items:
         key = sublist[0]
-        if key in grouped_dict_new_1_items.keys():
-            grouped_dict_new_1_items[key].append(sublist)
-        else:
-            grouped_dict_new_1_items[key] = [sublist]
+        grouped_dict_new_1_items[key].append(sublist)
 
     # Convert the dictionary values to a list
     grouped_list_new_1_item = list(grouped_dict_new_1_items.values())
 
+    # Build collection_new_1_item
     collection_new_1_item = []
 
-
     for x in grouped_list_new_1_item:
-        summary = [defaultdict(int) for _ in range(len(grouped_list_new_1_item[0][0]))]
+        summary = [defaultdict(int) for _ in range(len(x[0]))]
+
         for sublist in x:
             for i, item in enumerate(sublist):
                 summary[i][item] += 1
 
-        final_result = []
-        for s in summary:
-            result = []
-            for key, value in s.items():
-                result.append({key: value})
-            final_result.append(result)
-
+        final_result = [[{key: value} for key, value in s.items()] for s in summary]
         collection_new_1_item.append(final_result)
 
+    # Merge into main collection
     for i in collection_new_1_item:
-      collection.append(i)
+        collection.append(i)
 
+    # Append to data_to_transform
     data_to_transform.append(collection)
     # if len(sub_dataframes)>1:
     #   data_to_transform.append(collection)
@@ -1523,7 +1870,7 @@ def datatransformation_for_chartjs_detailed_cpu(df_pandas, start_dt, end_dt, cli
   depth_of_data=calculate_depth(data_to_transform)
  
   final_transformed_data = []
-  if depth_of_data==3:
+  if len(data_to_transform)==1:
     if len(data_to_transform)==1 and len(data_to_transform[0])==0:
         product_data="There was no chat activity in this period"
         final_transformed_data.append(product_data)
@@ -1531,7 +1878,7 @@ def datatransformation_for_chartjs_detailed_cpu(df_pandas, start_dt, end_dt, cli
       for item in data_to_transform:
         product_data = {}
         product_data['label'] = list(item[0][0].keys())[0]
-        main_chart_data = [{'x': timestamp[timestamp_index], 'y': list(entry.values())[0]} for entry in item[0]]
+        main_chart_data = [{'x': timestamp[0], 'y': list(entry.values())[0]} for entry in item[0]]
         product_data['mainChartData'] = main_chart_data
         if len(item)>1:
           secondaryChartData = [list(entry.values())[0] for entry in item[1]]
@@ -1550,29 +1897,29 @@ def datatransformation_for_chartjs_detailed_cpu(df_pandas, start_dt, end_dt, cli
 
         if len(item)==1:
           secondaryChartData = [list(entry.values())[0] for entry in item[0]]
-          product_data['x_secondary'] = ["Típusról nem folyt beszélgetés"]
+          product_data['x_secondary'] = ["**Típusról nem folyt beszélgetés"]
           product_data['secondaryChartData'] = [secondaryChartData]
           secondaryChartData_b = [list(entry.values())[0] for entry in item[0]]
           product_data['label_b'] = c[0]
-          product_data['x_secondary_b'] = ["Gyártóról nem folyt beszélgetés"]
+          product_data['x_secondary_b'] = ["**Gyártóról nem folyt beszélgetés"]
           product_data['secondaryChartData_b'] = [secondaryChartData_b]
           secondaryChartData_c = [list(entry.values())[0] for entry in item[0]]
           product_data['label_c'] = c[1]
-          product_data['x_secondary_c'] = ["Márkatípusról nem folyt beszélgetés"]
+          product_data['x_secondary_c'] = ["**Márkatípusról nem folyt beszélgetés"]
           product_data['secondaryChartData_c'] = [secondaryChartData_c]
         if len(item)==2:
           secondaryChartData_b = [list(entry.values())[0] for entry in item[0]]
           product_data['label_b'] = c[0]
-          product_data['x_secondary_b'] = ["Gyártóról nem folyt beszélgetés"]
+          product_data['x_secondary_b'] = ["**Gyártóról nem folyt beszélgetés"]
           product_data['secondaryChartData_b'] = [secondaryChartData_b]
           secondaryChartData_c = [list(entry.values())[0] for entry in item[0]]
           product_data['label_c'] = c[1]
-          product_data['x_secondary_c'] = ["Márkatípusról nem folyt beszélgetés"]
+          product_data['x_secondary_c'] = ["**Márkatípusról nem folyt beszélgetés"]
           product_data['secondaryChartData_c'] = [secondaryChartData_c]
         if len(item)==3:
           secondaryChartData_c = [list(entry.values())[0] for entry in item[0]]
           product_data['label_c'] = c[1]
-          product_data['x_secondary_c'] = ["Márkatípusról nem folyt beszélgetés"]
+          product_data['x_secondary_c'] = ["**Márkatípusról nem folyt beszélgetés"]
           product_data['secondaryChartData_c'] = [secondaryChartData_c]
         final_transformed_data.append(product_data)
 
@@ -1595,7 +1942,7 @@ def datatransformation_for_chartjs_detailed_cpu(df_pandas, start_dt, end_dt, cli
   data_for_final_transformation=[]  
   consolidated_list = []
 
-  if depth_of_data==4:
+  if len(data_to_transform)>1:
     timestamp_index=0
     for period in data_to_transform:
       period_to_add_to_finaltransformation=[]
@@ -1621,29 +1968,29 @@ def datatransformation_for_chartjs_detailed_cpu(df_pandas, start_dt, end_dt, cli
 
         if len(item)==1:
           secondaryChartData = [list(entry.values())[0] for entry in item[0]]
-          product_data['x_secondary'] = ["Típusról nem folyt beszélgetés"]
+          product_data['x_secondary'] = ["**Típusról nem folyt beszélgetés"]
           product_data['secondaryChartData'] = [secondaryChartData]
           secondaryChartData_b = [list(entry.values())[0] for entry in item[0]]
           product_data['label_b'] = c[0]
-          product_data['x_secondary_b'] = ["Gyártóról nem folyt beszélgetés"]
+          product_data['x_secondary_b'] = ["**Gyártóról nem folyt beszélgetés"]
           product_data['secondaryChartData_b'] = [secondaryChartData_b]
           secondaryChartData_c = [list(entry.values())[0] for entry in item[0]]
           product_data['label_c'] = c[1]
-          product_data['x_secondary_c'] = ["Márkatípusról nem folyt beszélgetés"]
+          product_data['x_secondary_c'] = ["**Márkatípusról nem folyt beszélgetés"]
           product_data['secondaryChartData_c'] = [secondaryChartData_c]
         if len(item)==2:
           secondaryChartData_b = [list(entry.values())[0] for entry in item[0]]
           product_data['label_b'] = c[0]
-          product_data['x_secondary_b'] = ["Gyártóról nem folyt beszélgetés"]
+          product_data['x_secondary_b'] = ["**Gyártóról nem folyt beszélgetés"]
           product_data['secondaryChartData_b'] = [secondaryChartData_b]
           secondaryChartData_c = [list(entry.values())[0] for entry in item[0]]
           product_data['label_c'] = c[1]
-          product_data['x_secondary_c'] = ["Márkatípusról nem folyt beszélgetés"]
+          product_data['x_secondary_c'] = ["**Márkatípusról nem folyt beszélgetés"]
           product_data['secondaryChartData_c'] = [secondaryChartData_c]
         if len(item)==3:
           secondaryChartData_c = [list(entry.values())[0] for entry in item[0]]
           product_data['label_c'] = c[1]
-          product_data['x_secondary_c'] = ["Márkatípusról nem folyt beszélgetés"]
+          product_data['x_secondary_c'] = ["**Márkatípusról nem folyt beszélgetés"]
           product_data['secondaryChartData_c'] = [secondaryChartData_c]
         period_to_add_to_finaltransformation.append(product_data)
     

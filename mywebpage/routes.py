@@ -3,7 +3,7 @@
 #https://www.facebook.com/guitarsalon
 
 # FastAPI
-from fastapi import APIRouter, Query, Depends, Request, Form, HTTPException, status
+from fastapi import FastAPI, APIRouter, Query, Depends, Request, Form, HTTPException, status
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi_login import LoginManager
@@ -15,7 +15,7 @@ from mywebpage.datatransformation_v2_weekly import datatransformation_for_chartj
 from mywebpage.datatransformation_detaileduserdata import datatransformation_for_chartjs_detailed, build_coords_from_sources_async
 from mywebpage import templates, fastapi_app,s, session_scope, redis_client 
 from jwt.algorithms import RSAAlgorithm
-
+from mywebpage.chats import fetch_topic_classification_counts
 # Socket.IO (your ASGI version, not flask-socketio)
 from mywebpage import sio  
 from urllib.parse import parse_qs
@@ -81,6 +81,8 @@ import pytz
 
 
 from concurrent.futures import ProcessPoolExecutor
+import torch
+from transformers import AutoTokenizer
 
 
 
@@ -1194,18 +1196,27 @@ async def chats_in_requested_period(
     session_id = request.cookies.get("session_id")
     redis = request.app.state.redis_client
     if not await redis.exists(f"session:{session_id}"):  #int 1 or 0
-            # Session expired → redirect to logout
-            return RedirectResponse(url="/logout", status_code=302)
+        # Session expired → redirect to logout
+        return RedirectResponse(url="/logout", status_code=302)
 
 
     language = user.get("language", "hu")
     # Build datetime strings
-    start_str = f"{year}-{month}-{day} {hour}:{minutes}:{seconds}"
-    end_str = f"{year_end}-{month_end}-{day_end} {hour_end}:{minutes_end}:{seconds_end}"
+    # start_str = f"{year}-{month}-{day} {hour}:{minutes}:{seconds}"
+    # end_str = f"{year_end}-{month_end}-{day_end} {hour_end}:{minutes_end}:{seconds_end}"
+
+    start_str = f"{year}-{month:02d}-{day:02d} {hour:02d}:{minutes:02d}:{seconds:02d}"
+    end_str = f"{year_end}-{month_end:02d}-{day_end:02d} {hour_end:02d}:{minutes_end:02d}:{seconds_end:02d}"
 
     # Parse into naive datetimes
-    start_date = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S")
-    end_date = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S")
+    try:
+        start_date = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S")
+        end_date = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S")
+    except ValueError as e:
+        return HTMLResponse(
+            content=f"<h3>Invalid date/time parameters: {e}</h3>",
+            status_code=400
+        )
 
     # Fetch client timezone asynchronously
     async with async_session_scope() as db_session:
@@ -1225,6 +1236,17 @@ async def chats_in_requested_period(
     # Run blocking fetch in a thread
     rows, columns = await fetch_chat_messages(start_utc, end_utc, user["org_id"], client_timezone, frequency, redis)
     
+    
+    # Cached topic counts
+    topic_key = f"topic_counts:{user['org_id']}:{start_utc.isoformat()}:{end_utc.isoformat()}"
+
+    cached = await redis.get(topic_key)
+    if cached:
+        topic_counts = json.loads(cached)
+    else:
+        topic_counts = await fetch_topic_classification_counts(start_utc, end_utc, user["org_id"])
+        await redis.set(topic_key, json.dumps(topic_counts), ex=3600)
+
 
     return templates.TemplateResponse(
         "chats_in_requested_period.html",
@@ -1235,8 +1257,88 @@ async def chats_in_requested_period(
             "start_date": start_date,
             "end_date": end_date,
             "language": language,
+            "topic_counts": topic_counts,
+            "topic":"Összes",
+            "frequency": frequency
         },
     )
+
+
+@router.get("/chats_in_requested_period/topic", response_class=HTMLResponse)
+async def chats_in_requested_period_topic(
+    request: Request,
+    topic: str = Query(...),
+    start_date: str = Query(...),
+    end_date: str = Query(...),
+    language: str = Query(...),
+    frequency: str = Query(...),
+    user: dict = Depends(role_required("Manager", "Team Leader"))
+):
+    
+    session_id = request.cookies.get("session_id")
+    redis = request.app.state.redis_client
+    if not await redis.exists(f"session:{session_id}"):  #int 1 or 0
+        # Session expired → redirect to logout
+        return RedirectResponse(url="/logout", status_code=302)
+
+
+    # Fetch client timezone asynchronously
+    async with async_session_scope() as db_session:
+        result = await db_session.execute(
+            select(Client).where(Client.id == user["org_id"])
+        )
+        client = result.scalar_one_or_none()
+        client_timezone = client.timezone if client and client.timezone else "UTC"
+
+
+    try:
+        if not start_date or not end_date:
+            raise ValueError("Missing start_date or end_date in query parameters.")
+        
+        start_date = datetime.fromisoformat(start_date)
+        end_date = datetime.fromisoformat(end_date)
+
+    except Exception as e:
+        return HTMLResponse(
+            content=f"<h3>Invalid or missing date parameters: {e}</h3>", status_code=400
+        )
+    
+    # Localize dates and convert to UTC
+    local_tz = pytz.timezone(client_timezone)
+    start_localized = local_tz.localize(start_date)
+    end_localized = local_tz.localize(end_date)
+    start_utc = start_localized.astimezone(pytz.UTC)
+    end_utc = end_localized.astimezone(pytz.UTC)
+
+    # Run blocking fetch in a thread
+    rows, columns = await fetch_chat_messages(start_utc, end_utc, user["org_id"], client_timezone, frequency, redis, topic)
+    
+    # Cached topic counts
+    topic_key = f"topic_counts:{user['org_id']}:{start_utc.isoformat()}:{end_utc.isoformat()}"
+
+    cached = await redis.get(topic_key)
+    if cached:
+        topic_counts = json.loads(cached)
+    else:
+        topic_counts = await fetch_topic_classification_counts(start_utc, end_utc, user["org_id"])
+        await redis.set(topic_key, json.dumps(topic_counts), ex=3600)
+
+    return templates.TemplateResponse(
+        "chats_in_requested_period.html",
+        {
+            "request": request,
+            "columns": columns,
+            "rows": rows,
+            "start_date": start_date,
+            "end_date": end_date,
+            "language": language,
+            "topic_counts": topic_counts,
+            "topic": topic
+        },
+    )
+
+
+
 
 #------------------------
 #   CUSTOM DATA ANALYSIS
@@ -1406,6 +1508,180 @@ async def topic_monitoring(
         return JSONResponse({'error': 'An internal server error occurred'}, status_code=500)
 
 
+@router.get("/productbreakdown_topics", response_class=HTMLResponse)
+async def topic_monitoring(
+    request: Request,
+    user: dict = Depends(role_required("Manager", "Team Leader"))
+):
+    
+    session_id = request.cookies.get("session_id")
+    redis = request.app.state.redis_client
+    if not await redis.exists(f"session:{session_id}"):  #boolian false or true
+            # Session expired → redirect to logout
+            return RedirectResponse(url="/logout", status_code=302)
+
+    try:
+        # Extract form data from request
+        query_params = request.query_params
+        year = int(query_params.get("year"))
+        month = int(query_params.get("month"))
+        day = int(query_params.get("day"))
+        hour = int(query_params.get("hour"))
+        minutes = int(query_params.get("minutes"))
+        seconds = int(query_params.get("seconds"))
+
+        year_end = int(query_params.get("year_end"))
+        month_end = int(query_params.get("month_end"))
+        day_end = int(query_params.get("day_end"))
+        hour_end = int(query_params.get("hour_end"))
+        minutes_end = int(query_params.get("minutes_end"))
+        seconds_end = int(query_params.get("seconds_end"))
+
+        frequency = query_params.get("frequency")
+        topic = query_params.get("topic")
+   
+
+
+        client = None
+        try:
+            async with async_session_scope() as db_session:
+                result = await db_session.execute(
+                    select(Client)
+                    .options(selectinload(Client.subscription))
+                    .where(Client.id == user["org_id"])
+                )
+                client = result.scalar_one_or_none()
+
+        except Exception as e:
+            print(f"Database error: {e}")  # Log the error for debugging
+
+
+        client_timezone_str = client.timezone if client and client.timezone else "UTC"
+        client_tz = pytz.timezone(client_timezone_str)
+
+        # Create naive local datetime objects
+        start_naive = datetime(year, month, day, hour, minutes, seconds)
+        end_naive = datetime(year_end, month_end, day_end, hour_end, minutes_end, seconds_end)
+
+        start_str = f"{year}-{month:02d}-{day:02d} {hour:02d}:{minutes:02d}:{seconds:02d}"
+        end_str = f"{year_end}-{month_end:02d}-{day_end:02d} {hour_end:02d}:{minutes_end:02d}:{seconds_end:02d}"
+
+        # Parse into naive datetimes
+        try:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S")
+            end_date = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S")
+        except ValueError as e:
+            return HTMLResponse(
+                content=f"<h3>Invalid date/time parameters: {e}</h3>",
+                status_code=400
+            )
+
+        # Localize to client's timezone
+        start_local = client_tz.localize(start_naive)
+        end_local = client_tz.localize(end_naive)
+
+        # Convert to UTC for DB query
+        start_utc = start_local.astimezone(pytz.UTC)
+        end_utc = end_local.astimezone(pytz.UTC)
+
+        # Call your transformation function with UTC-aware datetimes
+        data = await datatransformation_for_chartjs(
+            user["org_id"],
+            start_utc.year, start_utc.month, start_utc.day, start_utc.hour, start_utc.minute, start_utc.second,
+            end_utc.year, end_utc.month, end_utc.day, end_utc.hour, end_utc.minute, end_utc.second,
+            frequency,
+            "chat_messages", redis, topic
+        )
+
+        if not data:
+            
+            # Language-sensitive message
+            if user.get("language") == "hu":
+                message_text = "Nem áll rendelkezésre elegendő adat ehhez a szolgáltatáshoz"
+            else:
+                message_text = "No data available for this service"
+
+            html_content = f"""
+            <html>
+                <head>
+                    <style>
+                        .message {{
+                            font-size: 24px;
+                            text-align: center;
+                            margin-top: 20%;
+                        }}
+                    </style>
+                </head>
+                <body>
+                    <div class="message">{message_text}</div>
+                </body>
+            </html>
+            """
+            return HTMLResponse(content=html_content) 
+          
+        client_name = 'Your Company'
+        subscription = None
+        service_message = "Please contact Red Rain to select a service."
+        chat_control_access = False
+        metrics_access = False
+        advanced_ai_access = False
+        user_role = user.get("role", "User")
+
+        
+            
+        if client:
+            client_name = client.client_name
+            subscription = client.subscription  # This will contain the Subscription object now
+            service_message = None  # No message needed since the client exists
+        else:
+            client_name = 'Your Company'
+            subscription = None
+            service_message = "Please contact Red Rain to select a service."
+        
+    
+        # Check access permissions based on the subscription
+        if subscription:
+            chat_control_access = has_permission(user_role, subscription, "chat_control")
+            metrics_access = has_permission(user_role, subscription, "chatbot_metrics")
+            advanced_ai_access = has_permission(user_role, subscription, "advanced_ai")
+        else:
+            # Default to no access if no subscription is found
+            chat_control_access = False
+            metrics_access = False
+            advanced_ai_access = False
+
+      
+        return templates.TemplateResponse(
+            "charts_for_topics.html",
+            {
+                "request": request,
+                "data": data,
+                "year": year, "month": month, "day": day,
+                "hour": hour, "minutes": minutes, "seconds": seconds,
+                "year_end": year_end, "month_end": month_end, "day_end": day_end,
+                "hour_end": hour_end, "minutes_end": minutes_end, "seconds_end": seconds_end,
+                "frequency": frequency,
+                "subscription": subscription,
+                "service_message": service_message,
+                "chat_control_access": chat_control_access,
+                "metrics_access": metrics_access,
+                "advanced_ai_access": advanced_ai_access,
+                "user_role": user_role,
+                "language": user.get("language"),
+                "topic":topic,
+                "start_date": start_date,
+                "end_date": end_date,
+            }
+        )
+    except Exception as e:
+        # Log the exception to the console
+        print(f"An error occurred in the topicMonitoring route: {str(e)}")
+        # Optionally, you can return an error response to the client
+        return JSONResponse({'error': 'An internal server error occurred'}, status_code=500)
+
+
+
+
 
 
 #------------------------
@@ -1452,6 +1728,7 @@ async def detailed_user_data(
         minutes_end = parse_int(query_params, "minutes_end")
         seconds_end = parse_int(query_params, "seconds_end")
         frequency = query_params.get("frequency", "daily")
+        topic = query_params.get("topic", "Összes")
 
         # Fetch client asynchronously
         async with async_session_scope() as db_session:
@@ -1481,7 +1758,7 @@ async def detailed_user_data(
             start_utc.year, start_utc.month, start_utc.day, start_utc.hour, start_utc.minute, start_utc.second,
             end_utc.year, end_utc.month, end_utc.day, end_utc.hour, end_utc.minute, end_utc.second,
             frequency,
-            'chat_messages', redis
+            'chat_messages', redis, topic)
         )
 
         if final_transformed_data==[] and data_for_final_transformation_copy==[] and timestamp==[] and start_end_date_byfrequency==[] and usernumber==[] and querry_on_average==[] and changesinusernumber==[] and locations==[]:
@@ -2082,6 +2359,117 @@ def normalize_timestamp(ts: str) -> str:
         return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
 
 
+
+def classify_topic(input_text: str) -> str:
+    tokenizer = fastapi_app.state.topic_tokenizer
+    model = fastapi_app.state.topic_classifier_model
+
+    inputs = tokenizer(
+        input_text,
+        truncation=True,
+        padding=True,
+        return_tensors="pt",
+        max_length=128
+    )
+
+    with torch.no_grad():
+        outputs = model(**inputs)
+        probs = torch.softmax(outputs.logits, dim=-1)
+        pred = torch.argmax(probs, dim=-1).item()
+
+    # Map back to label string
+    reverse_label_mapping = {0: "Termékérdeklődés",
+                             1: "Vásárlási szándék",
+                             2: "Ár és promóció",
+                             3: "Panaszok és problémák",
+                             4: "Szolgáltatás",
+                             5: "Egyéb"}
+    return reverse_label_mapping[pred]
+
+
+
+
+async def classify_and_save(payload: dict, redis_client):
+    """
+    Wait for chatbot DB insert, then classify topic and update topic_classification field.
+    """
+    try:
+        message = payload["message"]
+        user_id = message["user_id"]
+        org_id = message["org_id"]
+        standalone_prediction = message["standalone_prediction"]
+        user_message = message["user_message"]
+        non_standalone_input = message["input_for_not_standalone_topic_classification"]
+        bot_message = message["bot_message"]
+        saved_flag_key = message.get("saved_flag_key")
+
+        # --- Wait until chatbot side finishes DB insert ---
+        if saved_flag_key:
+            print(f"Waiting for Redis save flag: {saved_flag_key}")
+            for _ in range(60):  # wait up to 30 seconds
+                exists = await redis_client.exists(saved_flag_key)
+                if exists:
+                    print(f"Redis save flag detected: {saved_flag_key}")
+                    break
+                await asyncio.sleep(0.5)
+            else:
+                print(f"Timeout waiting for DB save flag for {saved_flag_key}")
+                return
+        else:
+            print("No saved_flag_key provided in payload; proceeding anyway.")
+
+        # --- Choose input for topic classification ---
+        classification_input = (
+            user_message if standalone_prediction == 0 else non_standalone_input
+        )
+
+        # --- Run model inference (non-blocking) ---
+        try:
+            topic = await run_cpu_task(classify_topic, classification_input)
+            print(f"Predicted topic: {topic}")
+        except Exception as e:
+            print("Topic classification failed")
+            topic = "unknown"
+
+        # --- Update the database record ---
+        async with async_session_scope() as session:
+            try:
+                stmt = (
+                    update(ChatHistory)
+                    .where(
+                        ChatHistory.user_id == user_id,
+                        ChatHistory.client_id == org_id,
+                        ChatHistory.message == user_message,
+                        ChatHistory.response == bot_message,
+                    )
+                    .values(topic_classification=topic)
+                    .execution_options(synchronize_session="fetch")
+                )
+                result = await session.execute(stmt)
+                await session.commit()
+
+                if result.rowcount == 0:
+                    print(
+                        f"No chat record found for "
+                        f"user_id={user_id}, org_id={org_id}, message={user_message[:50]}"
+                    )
+                else:
+                    print(f"✅ Topic classification saved for {result.rowcount} record(s).")
+
+            except SQLAlchemyError as e:
+                await session.rollback()
+                print(f"Database update failed: {e}")
+                raise
+
+    except Exception as e:
+        print(f"classify_and_save() failed: {e}")
+
+
+
+
+
+
+
 INACTIVITY_TIMEOUT_SECONDS = 30
 
 
@@ -2162,6 +2550,11 @@ async def redis_listener():
                         except Exception as db_err:
                             print(f"[DB ERROR - Automatic] General DB error: {db_err}")
 
+                        # --- Run classification & saving in background ---
+                        asyncio.create_task(
+                        classify_and_save(data, redis_client)
+)
+                    
                     # === MANUAL MODE ===
                     elif mode == "manual":
                         try:
@@ -2200,6 +2593,10 @@ async def redis_listener():
                         except Exception as e:
                             print(f"[DB ERROR - Manual] General DB error: {e}")
 
+                        # --- Run classification & saving in background ---
+                        asyncio.create_task(
+                        classify_and_save(data, redis_client)
+                        )
                 except Exception as e:
                     print(f"Error processing message from Redis: {e}")
 
