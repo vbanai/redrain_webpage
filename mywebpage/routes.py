@@ -1759,7 +1759,7 @@ async def detailed_user_data(
             end_utc.year, end_utc.month, end_utc.day, end_utc.hour, end_utc.minute, end_utc.second,
             frequency,
             'chat_messages', redis, topic)
-        )
+        
 
         if final_transformed_data==[] and data_for_final_transformation_copy==[] and timestamp==[] and start_end_date_byfrequency==[] and usernumber==[] and querry_on_average==[] and changesinusernumber==[] and locations==[]:
             if user.get("language") == "hu":
