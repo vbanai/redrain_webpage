@@ -10,6 +10,7 @@ from fastapi_csrf_protect import CsrfProtect
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.exc import OperationalError
+from sqlalchemy import text
 import asyncio
 import socketio
 import redis.asyncio as aioredis  # Async Redis client
@@ -310,13 +311,19 @@ AsyncSessionLocal = sessionmaker(
 
 Base = declarative_base()
 
-# Async session context manager
+# --- Context manager with tenant awareness ---
 @asynccontextmanager
-async def async_session_scope():
+async def async_session_scope(org_id: int | None = None):
+    """Create an async SQLAlchemy session, scoped to a tenant if provided."""
     async with AsyncSessionLocal() as session:
         try:
+            if org_id is not None:
+                # This tells PostgreSQL which tenant the session belongs to
+                await session.execute(text(f"SET app.current_tenant_id = {org_id}"))
+
             yield session
             await session.commit()
+
         except Exception as e:
             await session.rollback()
             print(f"[AsyncSession] Rollback due to error: {e}")

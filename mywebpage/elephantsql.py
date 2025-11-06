@@ -137,6 +137,10 @@ class ChatHistory(Base):
     dynamic_txt=Column(UnicodeText)
     client_details_placeholder = Column(UnicodeText)  # Use UnicodeText for client details placeholder
     context = Column(UnicodeText)  # Use UnicodeText for context, stored as JSON
+    mode = Column(Unicode(10)) 
+    agent = Column(Unicode(255))
+
+    
 
     # Define relationships
     client = relationship("Client", back_populates="chat_messages")
@@ -161,7 +165,7 @@ class Role(Base):
 class User(Base):
     __tablename__ = 'users'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)   #!!!!! ADMINS
     client_id = Column(Integer, ForeignKey('clients.id', ondelete='CASCADE'), nullable=False)
     email = Column(Unicode(50), unique=True, nullable=False)
     name = Column(Unicode(100), nullable=True)
@@ -197,7 +201,7 @@ class UserModeOverride(Base):
     __tablename__ = 'user_mode_overrides'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Unicode(36), nullable=False)
+    user_id = Column(Unicode(36), nullable=False)   #   !!! POPUP USERS
     client_id = Column(Integer, ForeignKey('clients.id', ondelete='CASCADE'), nullable=False)
     mode = Column(Unicode(20), nullable=False, default='manual')  # Use Unicode and limit length
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -211,7 +215,7 @@ class Connections(Base):
 
     # Columns
     socket_id = Column(String(255), primary_key=True)  # Use String with length limit
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)  # ADMIN !!!!
     org_id = Column(Integer, ForeignKey('clients.id'), nullable=False)
     manualmode_triggered = Column(Boolean, default=False, nullable=False)
     disconnected_at = Column(DateTime(timezone=True), nullable=True)

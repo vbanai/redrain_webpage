@@ -524,9 +524,10 @@ def fetch_chat_messages_weekly_cpu(df, start_date, end_date, timezone_str):
             if idx == 4:
                 user_msg = html.escape(row[4] or "")
                 assistant_msg = html.escape(row[5] or "")
+                agent_name = html.escape(row.get("agent", "ASSISTANT") or "ASSISTANT")
                 merged_message = (
                     f"<span class='user-label' data-role='user'>USER</span>: {user_msg} | "
-                    f"<span class='assistant-label' data-role='assistant'>ASSISTANT</span>: {assistant_msg}"
+                    f"<span class='assistant-label' data-role='assistant'>{agent_name}</span>: {assistant_msg}"
                 )
                 new_row.append(merged_message)
             elif idx == 5:

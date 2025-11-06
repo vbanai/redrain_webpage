@@ -313,6 +313,11 @@ height: 100%; /* Or similar rule to ensure it fills the container */
   margin-left: 20px;
 }
 
+.material-symbols-rounded {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+  user-select: none;
+}
 
 
 
@@ -362,6 +367,21 @@ height: 100%; /* Or similar rule to ensure it fills the container */
   word-wrap: break-word; /* Allow long words to break and wrap onto the next line */
   white-space: normal; /* Allow text to wrap and use multiple lines */
   overflow-wrap: break-word; /* Break long words if they overflow */
+  display: flex;
+  flex-direction: column;
+
+}
+
+/* Image inside the same bubble, directly under the text */
+.admin-message .chat-image.admin {
+  max-width: 200px;
+  border-radius: 8px;
+  margin-top: 8px;                    /* Small gap below text */
+  align-self: flex-start;             /* Keep image left-aligned */
+}
+
+.admin-image-wrapper:empty {
+  display: none;
 }
 
 .timestamp, .user-id, .user-input, .admin-response, .bot-response {
@@ -569,3 +589,22 @@ padding: 5px 10px;
     animation: pulse 1s infinite;
   }
 
+.pulsing-avatar {
+  animation: avatarPulse 1.2s infinite;
+  transform: scale(1.1); /* slightly larger */
+}
+
+@keyframes avatarPulse {
+  0% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}

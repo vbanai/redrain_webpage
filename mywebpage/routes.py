@@ -2,13 +2,44 @@
 #https://www.facebook.com/JTCguitar
 #https://www.facebook.com/guitarsalon
 
+
+
+# await redis.publish(
+#     "chatbot:pending_allocations",
+#     json.dumps({
+#         "type": "pending_allocation",
+#         "tab_mode": tab_mode,
+#         "user_id": user_id,
+#         "message": user_message
+#         "timestamp": created_at,
+#         "latitude": latitude,
+#         "longitude": longitude,
+#         "location": location,
+#     })
+# )
+
+# await redis.setex(
+#     f"pending:{user_id}:{temp_message_id}",
+#     60,  # seconds to live
+#     json.dumps({
+#         "user_id": user_id,
+#         "org_id": client_id,
+#         "message": user_message,
+#         "tab_mode": tab_mode,
+#         "timestamp": created_at,
+#         "latitude": latitude,
+#         "longitude": longitude,
+#         "location": location,
+#     })
+# )
+
 # FastAPI
-from fastapi import FastAPI, APIRouter, Query, Depends, Request, Form, HTTPException, status
+from fastapi import FastAPI, APIRouter, Query, Depends, Request, Form, HTTPException, status, File, UploadFile
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi_login import LoginManager
 from fastapi_login.exceptions import InvalidCredentialsException
-
+from azure.storage.blob.aio import BlobServiceClient
 # Imports from mywebpage
 from mywebpage.datatransformation_v2 import datatransformation_for_chartjs
 from mywebpage.datatransformation_v2_weekly import datatransformation_for_chartjs_weekly
@@ -21,7 +52,7 @@ from mywebpage import sio
 from urllib.parse import parse_qs
 # Database session
 from mywebpage import async_session_scope, AsyncSessionLocal, Base
-from sqlalchemy import text
+from sqlalchemy import text, select, desc
 
 
 # Mail (replace flask_mail → fastapi-mail)
@@ -2323,18 +2354,20 @@ from datetime import datetime, timedelta
 
 
 
-###########################################################################
-#                            REDIS
-###########################################################################
-
-
-
 
 
 import threading
 import time
 import json
 from datetime import datetime, timedelta
+
+
+BLOB_CONN_STR = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+CONTAINER_NAME = os.getenv("BLOB_CONTAINER_NAME")
+
+blob_service_client = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
+container_client = blob_service_client.get_container_client(CONTAINER_NAME)
+
 
 
 def normalize_timestamp(ts: str) -> str:
@@ -2446,7 +2479,8 @@ async def classify_and_save(payload: dict, redis_client):
                     .execution_options(synchronize_session="fetch")
                 )
                 result = await session.execute(stmt)
-                await session.commit()
+              
+              
 
                 if result.rowcount == 0:
                     print(
@@ -2454,7 +2488,7 @@ async def classify_and_save(payload: dict, redis_client):
                         f"user_id={user_id}, org_id={org_id}, message={user_message[:50]}"
                     )
                 else:
-                    print(f"✅ Topic classification saved for {result.rowcount} record(s).")
+                    print(f"Topic classification saved for {result.rowcount} record(s).")
 
             except SQLAlchemyError as e:
                 await session.rollback()
@@ -2467,10 +2501,163 @@ async def classify_and_save(payload: dict, redis_client):
 
 
 
+async def fetch_last_msgs_pipeline(org_id: int, redis_client: aioredis.Redis, batch_size: int = 10000):
+    """
+    Fetch last 4 messages per user for a tenant (org_id) from DB + blobs.
+    Update Redis incrementally in batches, stop early for users who already have 4 messages.
+    """
+
+    user_msgs = {}  # in-memory per-user message collection
+
+    # --- Step 1: Fetch from DB ---
+    async with async_session_scope(org_id=org_id) as session:
+        stmt = (
+            select(ChatHistory)
+            .where(ChatHistory.client_id == org_id)
+            .order_by(desc(ChatHistory.created_at))
+        )
+        stream = await session.stream(stmt)
+        count = 0
+
+        async for row in stream:
+            msg: ChatHistory = row[0]
+            uid = msg.user_id
+
+            if uid not in user_msgs:
+                user_msgs[uid] = []
+
+            if len(user_msgs[uid]) < 4:
+                user_msgs[uid].append({
+                    "timestamp": msg.created_at.isoformat(),
+                    "user_message": msg.message,
+                    "bot_message": msg.response,
+                    "agent": msg.agent or "bot",       # 'bot' for automatic, admin name for manual
+                    "mode": msg.mode or "automatic"
+                })
+
+            count += 1
+            if count % batch_size == 0:
+                await _update_redis_batch(org_id, user_msgs, redis_client)
+                # Keep only users who still need more messages
+                user_msgs = {uid: msgs for uid, msgs in user_msgs.items() if len(msgs) < 4}
+
+            # Stop early if all users have 4 messages
+            if user_msgs and all(len(v) >= 4 for v in user_msgs.values()):
+                break
+
+        if user_msgs:
+            await _update_redis_batch(org_id, user_msgs, redis_client)
+
+    # --- Step 2: Fetch from Blobs ---
+
+    async with BlobServiceClient.from_connection_string(BLOB_CONN_STR) as blob_service:
+        container_client = blob_service.get_container_client(CONTAINER_NAME)
+
+        async for blob in container_client.list_blobs(name_starts_with="chat_messages_"):
+            blob_client = container_client.get_blob_client(blob)
+            stream = await blob_client.download_blob()
+            data = await stream.readall()
+            lines = [json.loads(line) for line in data.decode("utf-8").splitlines()]
+
+            await _process_blob_lines_incremental_early(lines, org_id, redis_client, batch_size)
+
+
+async def _update_redis_batch(org_id: int, user_msgs: dict, redis_client: aioredis.Redis):
+    """
+    Write batch of user messages to Redis, merge with existing data, keep latest 4.
+    """
+    for uid, msgs in user_msgs.items():
+        if not msgs:
+            continue
+
+        key = f"tenant:{org_id}:user:{uid}:recent_msgs"
+        existing = await redis_client.get(key)
+        existing_msgs = json.loads(existing) if existing else []
+
+        # Merge DB messages with existing Redis messages
+        merged = msgs + existing_msgs
+        merged.sort(key=lambda m: m["timestamp"], reverse=True)
+        merged = merged[:4]
+
+        await redis_client.set(key, json.dumps(merged))
+
+
+async def _process_blob_lines_incremental_early(lines, org_id: int, redis_client: aioredis.Redis, batch_size: int):
+    """
+    Process blob batch with early stopping for users who already have 4 messages in Redis.
+    """
+    lines_buffer = []
+
+    for line in reversed(lines):  # newest first
+        lines_buffer.append(line)
+        if len(lines_buffer) >= batch_size:
+            await _process_blob_lines_buffer_early(lines_buffer, org_id, redis_client)
+            lines_buffer = []
+
+    if lines_buffer:
+        await _process_blob_lines_buffer_early(lines_buffer, org_id, redis_client)
+
+
+async def _process_blob_lines_buffer_early(lines, org_id: int, redis_client: aioredis.Redis):
+    """
+    Merge blob messages with Redis, skip users who already have 4 messages.
+    """
+    batch_user_msgs = {}
+
+    # Collect messages per user
+    for msg in lines:
+        if msg["client_id"] != org_id:
+            continue
+        uid = msg["user_id"]
+
+        # Check existing Redis messages first
+        key = f"tenant:{org_id}:user:{uid}:recent_msgs"
+        existing = await redis_client.get(key)
+        existing_msgs = json.loads(existing) if existing else []
+
+        # Skip users who already have 4 messages
+        if len(existing_msgs) >= 4:
+            continue
+
+        if uid not in batch_user_msgs:
+            batch_user_msgs[uid] = []
+
+        batch_user_msgs[uid].append({
+            "timestamp": msg["created_at"],
+            "user_message": msg["message"],
+            "bot_message": msg["response"],
+            "agent": msg.get("agent", "bot"),
+            "mode": msg.get("mode", "automatic")
+        })
+
+    # Merge and save back
+    for uid, new_msgs in batch_user_msgs.items():
+        key = f"tenant:{org_id}:user:{uid}:recent_msgs"
+        existing = await redis_client.get(key)
+        existing_msgs = json.loads(existing) if existing else []
+
+        merged = new_msgs + existing_msgs
+        merged.sort(key=lambda m: m["timestamp"], reverse=True)
+        merged = merged[:4]
+
+        await redis_client.set(key, json.dumps(merged))
+
+
+
+
+###########################################################################
+#                            REDIS
+###########################################################################
+
+
+
 
 
 
 INACTIVITY_TIMEOUT_SECONDS = 30
+
+
+
 
 
 async def redis_listener():
@@ -2515,6 +2702,15 @@ async def redis_listener():
 
                     org_id = str(data.get("message", {}).get("org_id"))
                     msg = data.get("message", {})
+                    is_recurrent = msg.get("is_recurrent", {})
+
+                    if is_recurrent:
+                        # First-time setup for this tenant/user
+                        await fetch_last_msgs_pipeline(org_id, redis_client)
+
+
+
+                    user_id=msg.get("user_id")
 
                     if "timestamp" in msg:
                         msg["timestamp"] = normalize_timestamp(msg["timestamp"])
@@ -2524,11 +2720,38 @@ async def redis_listener():
 
                     print("event!!!", event)
 
+                    #  HANDLING RECURRENT USER LOGIC
+
+                    user_cache_key = f"tenant:{org_id}:user:{user_id}:recent_msgs"
+
+                    # --- Step 1: Get current history ---
+                    # Fetch last 4 messages from Redis BEFORE adding the new one
+                    recent_msgs_raw = await redis_client.lrange(user_cache_key, 0, 3)
+                    recent_history = [json.loads(m) for m in recent_msgs_raw]
+    
+
+                    if event and "data" in event:
+                        event["data"]["recent_history"] = recent_history
+
+                    # Step 2: Push the new message for next round
+                    new_msg = {
+                        "timestamp": msg.get("timestamp"),
+                        "user_message": msg.get("user_message"),
+                        "bot_message": msg.get("bot_message"),
+                    }
+                    await redis_client.lpush(user_cache_key, json.dumps(new_msg))
+                    await redis_client.ltrim(user_cache_key, 0, 3)
+
+             
+
                     # === AUTOMATIC MODE ===
                     if mode == "automatic":
 
+                        if msg.strip().lower() in ["ügyintézőt kérek.", "please connect me to a colleague."]:
+                            pass
 
-                         # -------- Emit message to all connected admins in the org --------
+                        
+                        # -------- Emit message to all connected admins in the org --------
 
                         try:
                             async with async_session_scope() as session:
@@ -2540,7 +2763,8 @@ async def redis_listener():
                                     try:
                                         await sio.emit(
                                             "new_message_FirstUser",
-                                            {"messages": [event["data"]]},
+                                            {"messages": [event["data"]]
+                                             },
                                             to=sid,
                                         )
                                     except Exception as emit_err:
@@ -2580,7 +2804,8 @@ async def redis_listener():
                                     if admin_sid:
                                         await sio.emit(
                                             "new_message_FirstUser",
-                                            {"messages": [event["data"]]},
+                                            {"messages": [event["data"]]
+                                             },
                                             to=admin_sid,
                                         )
                                         print(f"Emitted to SID {admin_sid} for user {admin_user_id}")
@@ -2645,8 +2870,43 @@ redis_url = f"rediss://default:{redis_password}@{redis_host}:{redis_port}"
 ###########################################################################
 
 
+
+@router.post("/api/upload_image")
+async def upload_image(
+    file: UploadFile = File(...),
+    org_id: str = Form(...),
+    user_id: str = Form(...)
+):
+    """
+    Uploads a file to Azure Blob Storage under:
+    imageuploads/org_id/user_id/unique_filename
+    """
+    try:
+        # Generate file extension and path
+        extension = os.path.splitext(file.filename)[1]
+        blob_name = f"imageuploads/{org_id}/{user_id}/{uuid.uuid4()}{extension}"
+
+        # Upload directly to Azure Blob Storage
+        blob_client = container_client.get_blob_client(blob_name)
+        await blob_client.upload_blob(file.file, overwrite=True, content_type=file.content_type)
+
+        # Construct public URL
+        blob_url = blob_client.url
+
+        return {
+            "image_url": blob_url,
+            "org_id": org_id,
+            "user_id": user_id,
+            "file_name": file.filename
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+
 @router.get("/chatAdminPager", response_class=HTMLResponse)
-async def serviceselector_vbanai(
+async def chat_admin_page(
     request: Request,
     user: dict = Depends(login_required),  # ensures user is logged in
 ):
@@ -2907,6 +3167,75 @@ async def should_show_internal_alert(user_id: str, org_id: str) -> bool:
 
 
 
+from sqlalchemy import select
+import json
+
+@sio.on("admin_response_to_the_chatbot")
+async def handle_admin_response(sid, data):
+    """Handle admin messages sent to chatbot and forward them to Redis with admin name and org_id."""
+
+    print(f"Admin response received from sid={sid}: {data}")
+
+    # --- Retrieve org_id and user_id from Connections ---
+    org_id = None
+    user_id = None
+    admin_name = None
+
+    try:
+        async with async_session_scope() as session:
+            existing_connection = await session.scalar(
+                select(Connections).where(Connections.socket_id == sid)
+            )
+            if not existing_connection:
+                print(f"No connection found for socket ID: {sid}")
+                return
+
+            org_id = existing_connection.org_id
+            user_id = existing_connection.user_id
+
+            # --- Fetch admin name from User table ---
+            if user_id:
+                user = await session.scalar(
+                    select(User).where(User.id == user_id)
+                )
+                if user:
+                    admin_name = user.name or "Unknown Admin"
+
+    except Exception as e:
+        print(f"Database error while retrieving org_id or admin name: {e}")
+        return
+
+    if not org_id:
+        print("org_id not found, aborting message forwarding.")
+        return
+
+    # --- Enrich message data ---
+    data["admin_name"] = admin_name
+
+    # --- Publish to Redis ---
+    try:
+        redis = fastapi_app.state.redis_client
+        await redis.publish("chatbot:messages", json.dumps(data))
+        print(f"Published admin message to Redis: org_id={org_id}, admin={admin_name}")
+    except Exception as e:
+        print(f"Redis publish error: {e}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     ##########################             ##########################
 
     ##########################             ##########################
@@ -2990,12 +3319,9 @@ async def connect(sid, environ):
         try:
             async with async_session_scope() as session:
                 # Check if cleanup is needed (no active connections, but stale entries exist)
-                remaining = await session.scalar(
-                    select(func.count()).select_from(Connections)
-                    .where(Connections.org_id == org_int, Connections.disconnected_at.is_(None))
-                )
+                active_sockets = await redis.scard(f"org:{org_int}:connections")
 
-                if remaining == 0:
+                if active_sockets == 0:
                     # Perform missing cleanup if necessary
                     print(f"[Connect] Performing missing cleanup for org {org_int}")
                     await session.execute(delete(OrgEventLog).where(OrgEventLog.org_id == org_int))
@@ -3029,28 +3355,54 @@ async def connect(sid, environ):
                 await sio.emit("force_logout", {"reason": "User not found"}, to=sid)
                 await sio.disconnect(sid)
                 return
-            # Check for existing connection
-            existing = await session.execute(
-                select(Connections)
-                .where(Connections.user_id == user_id_int)
-                .where(Connections.org_id == org_int)
-            )
-            existing_conn = existing.scalar_one_or_none()
+            
+            
+            # Regarding Redis Data Model, I use two complementary structures:
+            # 1.) Stores metadata about a single socket, Created the hash object when the user connects, deleted when they disconnect.
+            
+            # Key:   connection:{socket_id}
+            # Value: {
+            # "user_id": <int>,
+            # "org_id": <int>
+            # "manualmode_triggered": "false" | "true",
+            # "disconnected_at": <ISO timestamp or "null">
+            # }
 
-            if not existing_conn:
-                connection = Connections(
-                    socket_id=socket_id,
-                    user_id=user_id_int,
-                    org_id=org_int,
-                    manualmode_triggered=False
-                )
-                session.add(connection)
-                print(f"Connection saved: {connection}")
-            else:
-                # Update socket_id on reconnect
-                existing_conn.socket_id = socket_id
-                existing_conn.disconnected_at = None
-                print(f"Reconnection: Updated socket_id for user {user_id_int} in org {org_int}")
+            # 2.) Set per organization, Keeps track of which sockets belong to which org:
+            # Key:   org:{org_id}:connections
+            # Value: { socket_id_1, socket_id_2, ... }
+
+            # This allows you to:
+            # Quickly look up all active sockets for an org (SMEMBERS)
+            # Quickly check which org a socket belongs to (HGET connection:{sid} org_id)
+            
+            connection_key = f"connection:{socket_id}"
+            org_set_key = f"org:{org_int}:connections"
+
+
+            # I SHOULD REMOVE THE THE CLEANING IF I WANT TO ALLOW THAT USER CAN LOGIN ON MULTIPLE DEVICES AT THE SAME TIME ANS SEE THE RESULTS IN REAL TIME
+
+            # Check for existing connection
+            existing_sockets = await redis.smembers(org_set_key)
+            for s in existing_sockets:
+                s = s.decode() if isinstance(s, bytes) else s
+                u_id = await redis.hget(f"connection:{s}", "user_id")
+                if u_id and int(u_id) == user_id_int:
+                    # Remove old duplicate socket
+                    await redis.srem(org_set_key, s)
+                    await redis.delete(f"connection:{s}")
+                    print(f"Removed old connection for user {user_id_int} in org {org_int}")
+
+            # Save new connection info
+            await redis.hset(connection_key, mapping={
+                "user_id": user_id_int,
+                "org_id": org_int,
+                "manualmode_triggered": "false",
+                "disconnected_at": "null",
+            })
+            await redis.sadd(org_set_key, socket_id)
+            await redis.expire(connection_key, 3600 * 6)  # optional TTL for safety
+            print(f"Connection saved: {connection_key}")
 
             client = await session.get(Client, org_int)
             if client and client.timezone:
@@ -3066,10 +3418,17 @@ async def connect(sid, environ):
           to=socket_id
       )
 
+@sio.event
+async def heartbeat(sid):
+    redis = fastapi_app.state.redis_client
+    connection_key = f"connection:{sid}"
+    # Refresh TTL for active connection
+    await redis.expire(connection_key, 3600 * 6)
 
 
 @sio.on("history_ready")
 async def handle_history_ready(sid, data):
+    redis = fastapi_app.state.redis_client
     socket_id = data.get("socket_id")
     org = data.get("org")
     user_id = data.get("user_id")
@@ -3094,15 +3453,15 @@ async def handle_history_ready(sid, data):
 
                 if event["event_type"] == "mode_changed":
                     mode = event["data"].get("mode")
-                    await session.execute(
-                        update(Connections)
-                        .where(
-                            Connections.org_id == org,
-                            Connections.socket_id == socket_id,
-                        )
-                        .values(manualmode_triggered=(mode == "manual"))
-                    )
-                    print(f"Updated mode {mode} for org {org} socket {socket_id}")
+
+                    connection_key = f"connection:{socket_id}"
+                    # If socket exists, update manualmode_triggered in Redis
+                    exists = await redis.exists(connection_key)
+                    if exists:
+                        await redis.hset(connection_key, "manualmode_triggered", str(mode == "manual").lower())
+                        print(f"[Redis] Updated mode={mode} for org {org} socket {socket_id}")
+                    else:
+                        print(f"[Redis] No connection found for socket {socket_id}, skipping update")
 
                 enriched_events.append(event)
 
@@ -3137,110 +3496,122 @@ async def handle_disconnect(sid):
     print("SOCKET DISCONNECTED:", sid)
     redis = fastapi_app.state.redis_client
     try:
-        async with async_session_scope() as session:
-            # Check if the disconnecting socket belongs to an administrator
-            connection = await session.scalar(
-                select(Connections).where(Connections.socket_id == sid)
-            )
-            if not connection:
-                return
+        # Get connection info from Redis
+        connection_key = f"connection:{sid}"
+        connection_data = await redis.hgetall(connection_key)
 
-            if connection:
-                org_id = connection.org_id
-                user_id = connection.user_id
-                user_id = int(user_id)
-                org_id = int(org_id)
-                connection.disconnected_at = datetime.utcnow()
-                print(f"Admin {user_id} from org {org_id} disconnected with socket ID {sid}")
+        if not connection_data:
+            print(f"[Redis] No connection record found for {sid}, skipping.")
+            return
+       
 
-                async def cleanup_after_grace_period():
-                    await asyncio.sleep(15)  # Grace period
+        if connection_data:
+            # Decode Redis fields
+            org_id = int(connection_data.get(b"org_id", 0))
+            user_id = int(connection_data.get(b"user_id", 0))
+            manual_mode = connection_data.get(b"manualmode_triggered", b"false").decode() == "true"
 
-                    lock_key = f"org_cleanup_lock:{org_id}"
-                    lock_id = str(uuid.uuid4())
+            # Mark disconnected_at in Redis
+            disconnected_at = datetime.utcnow().isoformat()
+            await redis.hset(connection_key, "disconnected_at", disconnected_at)
+            print(f"Admin {user_id} from org {org_id} disconnected with socket ID {sid}")
 
-                    acquired = await acquire_redis_lock(redis, lock_key, lock_id)
-                    if not acquired:
-                        print(f"[Grace Period] Another worker is already cleaning org {org_id}")
-                        return  # Another worker is handling cleanup
-                    try:
-                        try_count = 0
-                        while try_count < 2:
-                            try:
+            async def cleanup_after_grace_period():
+                await asyncio.sleep(15)  # Grace period
+
+                lock_key = f"org_cleanup_lock:{org_id}"
+                lock_id = str(uuid.uuid4())
+
+                acquired = await acquire_redis_lock(redis, lock_key, lock_id)
+                if not acquired:
+                    print(f"[Grace Period] Another worker is already cleaning org {org_id}")
+                    return  # Another worker is handling cleanup
+                try:
+                    try_count = 0
+                    while try_count < 2:
+                        try:   
+                            conn = await redis.hget(connection_key, "disconnected_at")
+                            if not conn or conn == b"null":
+                                print(f"[Grace Period] User {user_id} reconnected, skip cleanup.")
+                                return
+
+                            # Check for other active admins (still connected)
+                            org_set_key = f"org:{org_id}:active_sockets"
+                            active_sockets = await redis.smembers(org_set_key)
+                            active_sockets = [s.decode() for s in active_sockets if s.decode() != sid]
+
+                            print(f"[Grace Period] Active sockets for org {org_id}: {len(active_sockets)}")
+
+
+                            if not active_sockets:
+                                # No active connections → reset mode and clear entries
                                 async with async_session_scope() as delayed_session:
-                                    conn = await delayed_session.scalar(
-                                        select(Connections).where(Connections.socket_id == sid)
+                                    await delayed_session.execute(
+                                        delete(OrgEventLog).where(OrgEventLog.org_id == org_id)
                                     )
-                                    remaining = await delayed_session.scalar(
-                                        select(func.count()).select_from(Connections)
-                                        .where(Connections.org_id == org_id, Connections.disconnected_at.is_(None))
+                                    await delayed_session.execute(
+                                        update(Client).where(Client.id == org_id).values(mode="automatic")
                                     )
-                                    print(f"[Grace Period] Active admins for org {org_id}: {remaining}")
+                                    await delayed_session.execute(
+                                        delete(UserModeOverride).where(UserModeOverride.client_id == org_id)
+                                    )
+                                    await delayed_session.execute(
+                                        update(User)
+                                        .where(User.client_id == org_id, User.is_deleted.is_(False))
+                                        .values(admin_internal_message_open=None)
+                                    )
 
-                                    if conn and conn.disconnected_at is None:
-                                        return  # connection reconnected
+                                    # Clear Redis tab mode keys for this org
+                                    tab_mode_keys = await redis.keys(f"org:{org_id}:tab:*:mode")
+                                    for key in tab_mode_keys:
+                                        await redis.delete(key)
+                                    
+                                    client_to_update = await delayed_session.scalar(
+                                        select(Client)
+                                        .where(
+                                            Client.id == org_id,
+                                            Client.is_active == True,
+                                            Client.last_manualmode_triggered_by.isnot(None),
+                                        )
+                                    )
+                                    if client_to_update:
+                                        client_to_update.last_manualmode_triggered_by = None
+                                        print(f"Updated client {client_to_update.id}: last_manualmode_triggered_by cleared")
+                                    
+                                    print(f"Cleared entries and reset mode for org {org_id}")
 
-                                    if remaining == 0:
-                                        # No active connections → reset mode and clear entries
-                                        await delayed_session.execute(
-                                            delete(OrgEventLog).where(OrgEventLog.org_id == org_id)
-                                        )
-                                        await delayed_session.execute(
-                                            update(Client).where(Client.id == org_id).values(mode="automatic")
-                                        )
-                                        await delayed_session.execute(
-                                            delete(UserModeOverride).where(UserModeOverride.client_id == org_id)
-                                        )
-                                        await delayed_session.execute(
-                                            update(User)
-                                            .where(User.client_id == org_id, User.is_deleted.is_(False))
-                                            .values(admin_internal_message_open=None)
-                                        )
+                            else:
 
-                                        client_to_update = await delayed_session.scalar(
-                                            select(Client)
-                                            .where(
-                                                Client.id == org_id,
-                                                Client.is_active == True,
-                                                Client.last_manualmode_triggered_by.isnot(None),
-                                            )
-                                        )
-                                        if client_to_update:
-                                            client_to_update.last_manualmode_triggered_by = None
-                                            print(f"Updated client {client_to_update.id}: last_manualmode_triggered_by cleared")
-                                        
-                                        print(f"Cleared entries and reset mode for org {org_id}")
+                              
+                                # There are still active admins → propagate manualmode if needed
+                                if manual_mode:
+                                # Pick another still-active socket from the same org
+                                    for s in active_sockets:
+                                        other_conn = await redis.hgetall(f"connection:{s}")
+                                        if other_conn:
+                                            disconnected_at = other_conn.get(b"disconnected_at")
+                                            if not disconnected_at or disconnected_at == b"null":
+                                                # Found a valid still-connected admin → give them manual mode
+                                                await redis.hset(f"connection:{s}", mapping={"manualmode_triggered": "true"})
+                                                print(f"[Grace Period] Propagated manualmode_triggered from {sid} → {s}")
+                                                break
+                                # Finally, clean up this disconnected connection
+                                await redis.srem(f"org:{org_id}:active_sockets", sid)
+                                await redis.delete(connection_key)
+                                print(f"[Grace Period] Deleted disconnected user {user_id} (socket {sid}) from Redis")
+                            break
+                        except Exception as e:
+                            try_count += 1
+                            print(f"[Grace Period] Cleanup attempt {try_count} failed for socket {sid}: {e}")
+                            if try_count < 2:
+                                print("Retrying cleanup once more...")
+                            else:
+                                print("Cleanup failed after one retry, skipping.")
+                finally:
+                    await release_redis_lock(redis, lock_key, lock_id)
+            asyncio.create_task(cleanup_after_grace_period())
 
-                                    else:
-                                        # There are still active admins → propagate manualmode if needed
-                                        if conn and conn.manualmode_triggered:
-                                            next_admin = await delayed_session.scalar(
-                                                select(Connections)
-                                                .where(
-                                                    Connections.org_id == org_id,
-                                                    Connections.disconnected_at.is_(None),
-                                                    Connections.socket_id != sid
-                                                )
-                                            )
-                                            if next_admin:
-                                                next_admin.manualmode_triggered = True
-                                                print(f"[Grace Period] Propagated manualmode_triggered to user {next_admin.user_id}")
-                                        if conn:
-                                            await delayed_session.delete(conn)
-                                            print(f"[Grace Period] Deleted disconnected user {user_id} from connections")
-                                break
-                            except Exception as e:
-                                try_count += 1
-                                print(f"[Grace Period] Cleanup attempt {try_count} failed for socket {sid}: {e}")
-                                if try_count < 2:
-                                    print("Retrying cleanup once more...")
-                                else:
-                                    print("Cleanup failed after one retry, skipping.")
-                    finally:
-                        await release_redis_lock(redis, lock_key, lock_id)
-                asyncio.create_task(cleanup_after_grace_period())
-
-          
+        
 
     except Exception as e:
         print(f"Error handling disconnect for socket ID {sid}: {e}")
@@ -3370,31 +3741,23 @@ async def handle_mode_changed(sid, data):
 
 
     
-    # Find the org associated with this socket ID
-    org_id = None
+    # --- Lookup connection info in Redis ---
+    connection_key = f"connection:{sid}"
+    connection_data = await redis.hgetall(connection_key)
+    if not connection_data:
+        print(f"[Redis] No connection found for SID {sid}")
+        return
 
-    # for org, sockets in org_to_user_map.items():
-    #     if socket_id in sockets:
-    #         org_id = org
-    #         break
-    try:
-        async with async_session_scope() as session:
-            existing_connection = await session.scalar(
-                select(Connections).where(Connections.socket_id == sid)
-            )
-            if existing_connection:
-                org_id=existing_connection.org_id
-            else:
-                org_id=None
-                print(f"No connection found for socket_id {sid}")
-                return
+    org_id = int(connection_data.get(b"org_id", 0))
+    user_id = int(connection_data.get(b"user_id", 0))
         #org_modes[org_id] = mode
-        await update_client_mode(org_id, mode)
     
+    
+     # --- Update client mode ---
+    try:
+        await update_client_mode(org_id, mode)
     except Exception as e:
-      # Handle any unexpected errors
-      print(f"An error occurred while processing the database operation: {e}")
-
+        print(f"Error updating client mode for org {org_id}: {e}")
 
 
     #emit('response_state_overall', {'org_id': org_id, 'state': mode}, to=chatbot_sid)
@@ -3426,24 +3789,18 @@ async def handle_mode_changed(sid, data):
         )
                 
        
-        #update_client_mode(org_id, mode)
-        try:
-          async with async_session_scope() as session:
-                sids = (await session.execute(
-                    select(Connections.socket_id).where(Connections.org_id == org_id)
-                )).scalars().all()
-
-                for other_sid in sids:
-                    if other_sid == sid:
-                        continue
-                    try:
-                        await sio.emit("mode_changed", {"mode": mode}, to=other_sid)
-                    except Exception as emit_err:
-                        print(f"Emit error to SID {other_sid}: {emit_err}")
-        except Exception as db_err:
-            print(f"Error fetching SIDs for org_id {org_id}: {db_err}")
+        org_set_key = f"org:{org_id}:active_sockets"
+        active_sockets = await redis.smembers(org_set_key)
+        active_sockets = [s.decode() for s in active_sockets if s.decode() != sid]
 
         
+        
+        for other_sid in active_sockets:
+          
+            try:
+                await sio.emit("mode_changed", {"mode": mode}, to=other_sid)
+            except Exception as emit_err:
+                print(f"Emit error to SID {other_sid}: {emit_err}")
 
 
     if mode =='automatic':
@@ -3466,37 +3823,36 @@ async def handle_mode_changed(sid, data):
                 log_event(org_id, e['event_type'], e['data'])
             )
         # *: “unpacking operator”. It’s used to expand an iterable (like a list, tuple, or generator) into separate positional arguments. PL: numbers = [1, 2, 3] print(*numbers) result 1 2 3
-        try:
-            async with async_session_scope() as session:
-                sids = (await session.execute(
-                    select(Connections.socket_id).where(Connections.org_id == org_id)
-                )).scalars().all()
-                # message_payload = []
-                # for event in final_data:
-                #     msg_with_ts = event['data'].copy()  # make a copy to avoid mutation
-                #     msg_with_ts['timestamp'] = event['timestamp']
-                #     message_payload.append(msg_with_ts)
-                # SAME:  ** : creates a new dict that contains all keys/values from event['data'] plus a key 'timestamp' with the new value.
-                message_payload = [
-                    {**event['data'], 'timestamp': event['timestamp']}
-                    for event in final_data
-                ]
-            
-                if sids:
-                    try:
-                        await asyncio.gather(
-                            *(sio.emit('new_message_FirstUser', {'messages': message_payload}, to=sid) 
-                            for sid in sids),
-                            return_exceptions=True  # ensures one failed emit won't cancel others
-                        )
-                    except Exception:
-                        print(f"Emit error to some SID(s) for org_id {org_id}")
-                else:
-                    print(f"No active SIDs to emit for org_id {org_id}")
+      
+        org_set_key = f"org:{org_id}:active_sockets"
+        active_sockets = await redis.smembers(org_set_key)
+        active_sockets = [s.decode() for s in active_sockets if s.decode() != sid]
 
-        except Exception as db_err:
-            print(f"Error fetching SIDs for org_id {org_id}: {db_err}")
+    
+        # message_payload = []
+        # for event in final_data:
+        #     msg_with_ts = event['data'].copy()  # make a copy to avoid mutation
+        #     msg_with_ts['timestamp'] = event['timestamp']
+        #     message_payload.append(msg_with_ts)
+        # SAME:  ** : creates a new dict that contains all keys/values from event['data'] plus a key 'timestamp' with the new value.
+        message_payload = [
+            {**event['data'], 'timestamp': event['timestamp']}
+            for event in final_data
+        ]
+    
+        if active_sockets :
+            try:
+                await asyncio.gather(
+                    *(sio.emit('new_message_FirstUser', {'messages': message_payload}, to=sid) 
+                    for sid in active_sockets ),
+                    return_exceptions=True  # ensures one failed emit won't cancel others
+                )
+            except Exception:
+                print(f"Emit error to some SID(s) for org_id {org_id}")
+        else:
+            print(f"No active SIDs to emit for org_id {org_id}")
 
+    
 
 
                                             # RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
@@ -3620,7 +3976,133 @@ async def handle_update_response_state(sid, data):
       )
   except Exception as redis_err:
       print(f"Redis publish error: {redis_err}")
+
+
+
+                                            # RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+                                            
+                                            #     RECTANGLE STATE - OVERALMANUAL   UserModeOverride    R
+
+                                            # RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
   
+
+
+@sio.on("update_response_state_overallmanual")  # the rectangles' state if it is manual or automatic
+async def handle_update_response_state_overallmanual(sid, data):
+
+  cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+  session_id = None
+  for key, value in cookies:
+      if key == b"cookie":
+          cookie_str = value.decode()
+          for c in cookie_str.split(";"):
+              if c.strip().startswith("session_id="):
+                  session_id = c.strip().split("=")[1]
+
+  redis = fastapi_app.state.redis_client
+
+  # Validate session
+  if not session_id or not await redis.exists(f"session:{session_id}"):
+      await sio.emit("force_logout", {"reason": "Session expired"}, to=sid)
+      await sio.disconnect(sid)
+      return  # Stop further processing
+  
+  
+  org_id=None
+  try:
+      async with async_session_scope() as session:
+          existing_connection = await session.scalar(
+              select(Connections).where(Connections.socket_id == sid)
+          )
+          if existing_connection is None:
+              print(f"No connection found for socket_id {sid}")
+              return
+          org_id = existing_connection.org_id
+
+
+  except Exception as e:
+    # Handle any unexpected errors
+    print(f"An error occurred while processing the database operation: {e}")
+
+  user_id = data.get('user_id')
+  state = data.get('state')
+  state = data.get('state')
+  tabindex= data.get('tabindex')
+
+  timestamp = data.get('frontend_time')  # ISO string
+  
+
+  asyncio.create_task(
+      log_event(org_id, 'response_state_changed_overallmanual', {
+          'user_id': user_id,
+          'state': state,
+          'tabindex':tabindex
+      }, timestamp)
+  )
+  # Handle database updates based on the state
+  try:
+    async with async_session_scope() as session:
+        if not state:
+            override = UserModeOverride(user_id=user_id, client_id=org_id, mode="automatic")
+            session.add(override)
+        else:
+            # Remove user from user_mode_overrides for automatic mode
+            await session.execute(
+                delete(UserModeOverride).where(
+                    (UserModeOverride.user_id == user_id)
+                    & (UserModeOverride.client_id == org_id)
+                )
+            )
+
+  except Exception as e:
+    print(f"An error occurred while updating UserModeOverride for user {user_id} in org {org_id}: {e}")
+  
+  # Broadcast the new state to all connected clients
+  #emit('response_state_update', {'user_id': user_id, 'state': state}, room=org_id, include_self=False)
+
+  try:
+      async with async_session_scope() as session:
+          sids = (
+              await session.execute(
+                  select(Connections.socket_id).where(Connections.org_id == org_id)
+              )
+          ).scalars().all()
+
+      other_sids = [s for s in sids if s != sid]
+      if other_sids:
+          await asyncio.gather(
+              *(sio.emit("response_state_update_overallmanual", {"user_id": user_id, "state": state, "tabindex": tabindex, "timestamp": timestamp}, to=s)
+                for s in other_sids),
+              return_exceptions=True
+          )
+      
+  except Exception as db_err:
+    print(f"Error fetching SIDs for org_id {org_id}: {db_err}")
+
+  
+  
+
+
+  #emit('response_state_update2', {'user_id': user_id, 'org_id': org_id, 'state': state}, to=chatbot_sid)
+  # PUBLISH TO REDIS INSTEAD OF EMIT TO SID
+  try:
+      await redis.publish(
+          "chatbot:user_state_update",
+          json.dumps(
+              {
+                  "user_id": user_id,
+                  "org_id": org_id,
+                  "state": state,
+                  "timestamp": timestamp,
+              }
+          ),
+      )
+  except Exception as redis_err:
+      print(f"Redis publish error: {redis_err}")
+
+
+
+
 
 
 
@@ -4921,6 +5403,9 @@ async def handle_message_distribution(sid, data):
 
 
 
+
+
+
 @sio.on("store_message_to_redis")  # Az összes többi usernek kiküldi a fő kivételével manualmódban
 async def handle_store_message_to_redis(sid, data):
     
@@ -4952,7 +5437,7 @@ async def handle_store_message_to_redis(sid, data):
                 select(Connections).where(Connections.socket_id == sid)
             )
             if not existing_connection:
-                print(f"No existing connection found for socket ID: {socket_id}")
+                print(f"No existing connection found for socket ID: {sid}")
                 return
             org_id = existing_connection.org_id
     except Exception as e:
@@ -5061,3 +5546,132 @@ async def handle_store_message_to_redis(sid, data):
         await log_event(org_id, 'message_distribution', log_data, timestamp)
     except Exception as e:
         print(f"Error logging message_distribution: {e}")
+
+
+@sio.on("tab_mode_changed")
+async def handle_tab_mode_change(sid, data):
+    """
+    Handles when a user switches a tab between manual/automatic mode.
+    Broadcasts the new state to other users in the same org.
+    """
+    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    session_id = None
+    for key, value in cookies:
+        if key == b"cookie":
+            cookie_str = value.decode()
+            for c in cookie_str.split(";"):
+                if c.strip().startswith("session_id="):
+                    session_id = c.strip().split("=")[1]
+                    break
+
+    redis = fastapi_app.state.redis_client
+
+    # Validate session
+    if not session_id or not await redis.exists(f"session:{session_id}"):
+        await sio.emit("force_logout", {"reason": "Session expired"}, to=sid)
+        await sio.disconnect(sid)
+        return
+
+    org_id = None
+    user_id = None
+    try:
+        async with async_session_scope() as session:
+            conn = await session.scalar(select(Connections).where(Connections.socket_id == sid))
+            if not conn:
+                print(f"[tab_mode_change] No connection found for SID {sid}")
+                return
+            org_id = conn.org_id
+            user_id = conn.user_id  # if you store user_id in Connections, optional
+    except Exception as e:
+        print(f"DB lookup error in handle_tab_mode_change: {e}")
+        return
+
+    if not org_id:
+        print(f"[tab_mode_change] Missing org_id for SID {sid}")
+        return
+
+    # Extract info from event
+    mode = data.get("mode")  # 'automatic' or 'manual'
+    tab_id = data.get("tab_id")
+    frontend_time = data.get("frontend_time")  # ISO UTC string
+
+    if not (mode and tab_id):
+        print(f"[tab_mode_change] Missing data: {data}")
+        return
+
+    # Log event
+    asyncio.create_task(
+        log_event(org_id, "tab_mode_changed", {"mode": mode, "tab_id": tab_id}, frontend_time)
+    )
+
+    # Update Redis shared state
+    await redis.set(f"org:{org_id}:tab:{tab_id}:mode", mode)
+
+    # Broadcast change to all other connected clients in the same org
+    try:
+        async with async_session_scope() as session:
+            sids = (
+                await session.scalars(
+                    select(Connections.socket_id).where(Connections.org_id == org_id)
+                )
+            ).all()
+
+        other_sids = [s for s in sids if s != sid]
+        if other_sids:
+            results = await asyncio.gather(
+                *(
+                    sio.emit(
+                        "tab_mode_changed",
+                        {"tab_id": tab_id, "mode": mode},
+                        to=s,
+                    )
+                    for s in other_sids
+                ),
+                return_exceptions=True,
+            )
+
+            for idx, r in enumerate(results):
+                if isinstance(r, Exception):
+                    print(f"Emit error to SID {other_sids[idx]}: {r}")
+
+    except Exception as err:
+        print(f"Error broadcasting tab_mode_changed for org {org_id}: {err}")
+
+
+@sio.on("resolve_pending_allocation")
+async def handle_pending_allocation(sid, data):
+    print("Received tab allocation:", data)
+    redis = fastapi_app.state.redis_client
+
+    await redis.publish(
+        "chatbot:pending_allocations",
+        json.dumps({
+            "type": "pending_allocation",
+            "tab_mode": data["tab_mode"],
+            "user_id": data["user_id"],
+            "org_id": data["org_id"],
+            "message": data["message"],
+            "timestamp": data["timestamp"],
+            "latitude": data.get("latitude"),
+            "longitude": data.get("longitude"),
+            "location": data.get("location"),
+        })
+    )
+
+    # Store backup in Redis for failover
+    await redis.setex(
+        f"pending:{data['user_id']}:{data['temp_message_id']}",
+        60,
+        json.dumps({
+            "user_id": data["user_id"],
+            "org_id": data["org_id"],
+            "message": data["message"],
+            "tab_mode": data["tab_mode"],
+            "timestamp": data["timestamp"],
+            "latitude": data.get("latitude"),
+            "longitude": data.get("longitude"),
+            "location": data.get("location"),
+        }),
+    )
+
+    print(f"Published pending_allocation for user {data['user_id']}")
