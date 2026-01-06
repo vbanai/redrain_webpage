@@ -5,7 +5,7 @@ from itsdangerous.url_safe import URLSafeTimedSerializer as Serializer
 #from mywebpage import db, app
 #from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, func
 #from sqlalchemy.orm import relationship, backref
-from mywebpage import Base, session_scope, async_session_scope
+from mywebpage.db import async_session_scope
 from sqlalchemy.future import select
 from sqlalchemy import create_engine, Column,UnicodeText, Boolean, JSON, DateTime, String, Float, Integer, NVARCHAR, ForeignKey, CheckConstraint, Unicode
 import json
@@ -25,27 +25,9 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from sqlalchemy import Index
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY
 
-def get_chatapp_sid():
-    """
-    Fetch the socket_id from the single entry in ChatAppConnection.
 
-    Returns:
-        The socket_id if a connection exists, otherwise None.
-    """
-    try:
-        with session_scope() as session:
-            # Fetch the single row from the ChatAppConnection table
-            connection = session.query(ChatAppConnection).first()
-            if connection:
-                return connection.socket_id
-            else:
-                print("No connection found in ChatAppConnection table.")
-                return None
-    except Exception as e:
-        print(f"Error retrieving chat app connection: {e}")
-        return None
 
 
 
@@ -104,7 +86,18 @@ class Client(Base):
     icon_path = Column(UnicodeText, nullable=True)       # static URL path to icon
     use_google_icon = Column(Boolean, default=True)      # fallback if no custom icon
 
-
+    languages = Column(ARRAY(String), nullable=False, default=["en"])
+    reply_bg_color=Column(String(20), nullable=True)
+    operator_icon=Column(String(20), nullable=True)
+    font_color=Column(String(20), nullable=True)
+    everything_which_is_white=Column(String(20), nullable=True)
+    user_input_message_color=Column(String(20), nullable=True)
+    popup_bg_color=Column(String(20), nullable=True)
+    footer_bg_color=Column(String(20), nullable=True)
+    footer_controls_bg=Column(String(20), nullable=True)
+    footer_input_bg_color=Column(String(20), nullable=True)
+    footer_focus_outline_color=Column(String(20), nullable=True)
+    scrollbar_color=Column(String(20), nullable=True)
 
     __table_args__ = (
         CheckConstraint("mode IN ('automatic', 'manual')", name='check_mode'),
@@ -132,11 +125,11 @@ class ChatHistory(Base):
     latitude = Column(Float)  # Latitude for geolocation
     longitude = Column(Float)  # Longitude for geolocation
     location = Column(Unicode(255))  # Store location as Unicode (255 characters)
-    wordtext_para = Column(UnicodeText)  # Use UnicodeText for word-related data
-    extracted_relevant_paragraphs = Column(UnicodeText)  # Use UnicodeText for paragraphs, stored as JSON
-    dynamic_txt=Column(UnicodeText)
-    client_details_placeholder = Column(UnicodeText)  # Use UnicodeText for client details placeholder
-    context = Column(UnicodeText)  # Use UnicodeText for context, stored as JSON
+    # wordtext_para = Column(UnicodeText)  # Use UnicodeText for word-related data
+    # extracted_relevant_paragraphs = Column(UnicodeText)  # Use UnicodeText for paragraphs, stored as JSON
+    # dynamic_txt=Column(UnicodeText)
+    # client_details_placeholder = Column(UnicodeText)  # Use UnicodeText for client details placeholder
+    # context = Column(UnicodeText)  # Use UnicodeText for context, stored as JSON
     mode = Column(Unicode(10)) 
     agent = Column(Unicode(255))
 
@@ -174,8 +167,8 @@ class User(Base):
     role_id = Column(Integer, ForeignKey('roles.id'))
     is_deleted = Column(Boolean, default=False, nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
-    admin_internal_message_open = Column(DateTime(timezone=True), nullable=True)
-    admin_internal_message_close = Column(DateTime(timezone=True), nullable=True)
+    # admin_internal_message_open = Column(DateTime(timezone=True), nullable=True)
+    # admin_internal_message_close = Column(DateTime(timezone=True), nullable=True)
 
     language = Column(String(5), default='hu', nullable=False) 
     
@@ -194,6 +187,10 @@ class User(Base):
     __table_args__ = (
         Index('ix_users_client_id_is_deleted', 'client_id', 'is_deleted'),
     )
+
+
+
+#  ------------ These are moved to REDIS: ----------------------
 
 
 
@@ -227,15 +224,9 @@ class Connections(Base):
         return f"<Connections(socket_id='{self.socket_id}', user_id={self.user_id}, org_id={self.org_id})>"
 
 
-class AdminResponses(Base):
-    __tablename__ = 'AdminResponses'
 
-    # Columns
-    user_id = Column(Unicode(36), primary_key=True)  # Unicode not needed here, assuming alphanumeric IDs
-    response = Column(UnicodeText)  # Use UnicodeText for storing responses (unlimited length)
+# ------------------------------------------------------------
 
-    def __repr__(self):
-        return f"<AdminResponses(user_id={self.user_id}, response={self.response[:100]}...)>"  # Truncate response to first 100 characters for display
 
 
 class OrgEventLog(Base):   #save all the events, messages made on the admin page
@@ -251,17 +242,6 @@ class OrgEventLog(Base):   #save all the events, messages made on the admin page
         Index('ix_org_event_logs_org_event_timestamp', 'org_id', 'event_type', 'timestamp'),
         Index('ix_org_event_logs_org_timestamp', 'org_id', 'timestamp'),
     )
-
-class ChatAppConnection(Base):
-    __tablename__ = 'ChatAppConnection'
-
-    # Columns
-    socket_id = Column(Unicode(255), primary_key=True)  # Use NVARCHAR(255) for socket_id
-    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-  # Connection timestamp (optional)
-
-    def __repr__(self):
-        return f"<ChatAppConnection(socket_id='{self.socket_id}', timestamp={self.timestamp})>"
 
 
 

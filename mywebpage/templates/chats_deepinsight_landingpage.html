@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unicons.iconscout.com/release/v2.0.1/css/unicons.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style_chart.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style_monitorform.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='header.css') }}">
   <title>Service Selector</title>
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap");
@@ -762,27 +765,18 @@ select {
             <a href="#services" class="buttonsubscription" id="buttonSubscription" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" data-lang="myservice">My Services</a>
             <div class="dropdown-content" id="dropdownContent">
               {% if chat_control_access %}
-                <a href="#service1" id="dashboardLink0" data-lang="chatcontrol">Chat Control</a>
+                <a href="#service1" id="dashboardLink0" data-lang="chatcontrol"></a>
               {% endif %}
               {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
-                <a href="#service1" id="dashboardLink" data-lang="metrics">ChatBot Metrics & Insights</a>
+                <a href="#service1" id="dashboardLink" data-lang="metrics"></a>
               {% endif %}
               {% if advanced_ai_access and user_role in ['Manager', 'Team Leader'] %}
-                <a href="{{ url_for('predictive_dashboard') }}" data-lang="prediction">Advanced AI Predictive Solutions</a>
+                <a href="{{ url_for('predictive_dashboard') }}" data-lang="prediction"></a>
               {% endif %}
               </div>
           </div>
           <!-- <a href="#services" class="nav_link buttonsubscription" id="form-open">Resource Management</a> -->
-          {% if user_role in ['Manager', 'Team Leader'] %}
-            <div id="navItem2">
-              <a href="#services" class="buttonsubscription" id="buttonSubscription" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" data-lang="resourcemanagement">Resource Management</a>
-              <div class="resource-dropdown-content" id="resourcedropdownContent">
-                <a href="#service1" id="form-Invitation" data-lang="invitation">Invitation</a>
-                <a href="#" id="form-roleManagement" data-lang="manageroles">Manage Roles</a>
-                <a href="#service1" id="form-Removal" data-lang="removeresource">Remove Resource</a>
-              </div>
-            </div>
-          {% endif %}
+          <a href="#datepicker" class="buttonsubscription btnCustomDate-popup" id="customDateLink" data-lang="datepicker" ></a>
         </li>
         
       </ul>
@@ -822,6 +816,105 @@ select {
       
     </div>
   </div>
+
+
+  <div class="centered-container" style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 10px;">
+      <h1  style="color: rgb(80, 76, 76); margin-bottom: 3px; font-size: clamp(13px, 2vw, 20px);" data-lang="deepinsight"></h1>
+      <p  style="color: rgb(80, 76, 76); font-size: clamp(10px, 1.3vw, 15px);" data-lang="breakdown"> {{year}}.{{month}}.{{day}} {{hour}}:{{minutes}}:{{seconds}} to {{year_end}}.{{month_end}}.{{day_end}} {{hour_end}}:{{minutes_end}}:{{seconds_end}} /{{frequency}} breakdown</p> 
+   
+
+    <!-- Your form or other content goes here -->
+  </div>
+
+  
+  <div class="wrapper">
+    <span class="icon-close">
+      <i class="uil uil-times form_close"></i>
+    </span>
+    <div>
+      <form id="submitForm" action="/topicMonitoring" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        
+        
+        <h2 data-lang="customdatemetrics">Custom Date Metrics</h2>
+        
+        <div class="input_group">
+          <p class="input_group_label" data-lang="pleasespecifythestartdate">Please specify the start date:</p>
+          <div class="input_box">
+            <input type="text" name="year_start" data-lang="startdateyear" placeholder="Year (2024)" required />
+          </div>
+          <div class="input_box">
+            <input type="text" name="month_start" data-lang="startdatemonth" placeholder="Month (01)" required />
+          </div>
+          <div class="input_box">
+            <input type="text" name="day_start" data-lang="startdateday" placeholder="Day (01)" required />
+          </div>
+          <div class="input_box">
+            <input type="text" name="hour" data-lang="startdatehour" placeholder="Hour (00)"  />
+          </div>
+          <div class="input_box">
+            <input type="text" name="minutes" data-lang="startdateminute" placeholder="Minute (00)"  />
+          </div>
+          <div class="input_box">
+            <input type="text" name="seconds" data-lang="startdatesecond" placeholder="Second (00)" />
+          </div>
+        </div>
+
+        
+        <div class="input_group">
+          <p class="input_group_label" data-lang="pleasespecifytheenddate">Please specify the end date:</p>
+          <div class="input_box">
+            <input type="text" name="year_end" data-lang="enddateyear" placeholder="Year (2024)" required />
+          </div>
+          <div class="input_box">
+            <input type="text" name="month_end" data-lang="enddatemonth" placeholder="Month (02)" required />
+          </div>
+          <div class="input_box">
+            <input type="text" name="day_end" data-lang="enddateday" placeholder="Day (01)" required />
+          </div>
+          <div class="input_box">
+            <input type="text" name="hour_end" data-lang="enddatehour" placeholder="Hour (00)"  />
+          </div>
+          <div class="input_box">
+            <input type="text" name="minutes_end" data-lang="enddateminute" placeholder="Minute (00)"  />
+          </div>
+          <div class="input_box">
+            <input type="text" name="seconds_end" data-lang="enddatesecond" placeholder="Second (00)"  />
+          </div>
+        </div>
+        <div class="row">
+          <p class="input_group_label" data-lang="trackedperiod">Please specify the periods you want to track:</p>
+          <div class="dropdown-container">
+              <div class="dropdown">
+                  <select name="frequency" style="font-size:10px" id="frequency">
+                      <option value="yearly" data-lang="yearly">Yearly</option>
+                      <option value="monthly" data-lang="monthly">Monthly</option>
+                      <option value="weekly" data-lang="weekly">Weekly</option>
+                      <option value="daily" data-lang="daily">Daily</option>
+                  </select>
+              </div>
+          </div>
+        </div>
+
+        
+
+        <div>
+          
+          <input class="button_form" type="submit" data-lang="submit_" value="">
+        </div>
+      
+      </form>
+    </div>
+    
+  </div>
+
+ 
+
+
+
+
+
+
   
   <section class="home" id="home">
    
@@ -831,7 +924,7 @@ select {
       <div class="form signup_form" >
         <form id="inviteForm" method="post">
           <!-- <meta name="csrf-token" content="{{ csrf_token() }}"> -->
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="user_role" value="{{ user_role }}">
           <input type="hidden" name="First_character" value="{{ First_character }}">
           <input type="hidden" name="email_prefix" value="{{ email_prefix }}">
@@ -887,7 +980,7 @@ select {
       <div class="form signup_form" >
         <form id="roleManagementForm" method="post">
           <!-- <meta name="csrf-token" content="{{ csrf_token() }}"> -->
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="user_role" value="{{ user_role }}">
           <input type="hidden" name="First_character" value="{{ First_character }}">
           <input type="hidden" name="email_prefix" value="{{ email_prefix }}">
@@ -939,7 +1032,7 @@ select {
       <div class="form signup_form" >
         <form id="userRemovalForm" method="post">
           <!-- <meta name="csrf-token" content="{{ csrf_token() }}"> -->
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="user_role" value="{{ user_role }}">
           <input type="hidden" name="First_character" value="{{ First_character }}">
           <input type="hidden" name="email_prefix" value="{{ email_prefix }}">
@@ -974,43 +1067,72 @@ select {
       <!-- Your form or other content goes here -->
     </div>
 
-    
-    <div id="flash-messages"></div>
 
     <div class="center-container">
       {% if service_message %}
           <p style="color: red; font-size: 1.5vw;">{{ service_message }}</p>
       {% else %}
-              {% if chat_control_access %}
-              <!-- Chat Control: Accessible to Manager, Team Leader, Administrator with Gold or Platinum subscriptions -->
-              <!-- {% if subscription and subscription.can_access_chat_control %} -->
-                  <a href="#service1" id="chatGridLink" class="container-chat-grid">
-                      <p class="chatbot-title" style="color: white; margin-top: 5px; font-size: clamp(10px, 1.4vw, 17px)" data-lang="chatcontrol" >Chat Control</p>
+              {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
+             
+                  <a href="#service1" id="openHierarchy" class="container-chat-grid">
+                      <p class="chatbot-title" style="color: white; margin-top: 5px; font-size: clamp(10px, 1.4vw, 17px)" data-lang="hierarchical_charts" ></p>
                       <div class="image-link">
-                          <img src="static/adminpage.png" alt="Clickable Image" />
-                      </div>
+                          <img src="static/hierarchy.jpg" alt="Clickable Image" />
+                          <form id="formHierarchy" action="{{ url_for('topic_monitoring') }}" method="post" target="_blank" style="display:none;">
+                              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+                              <input type="hidden" name="year_start" value="{{ year }}">
+                              <input type="hidden" name="month_start" value="{{ month }}">
+                              <input type="hidden" name="day_start" value="{{ day }}">
+                              <input type="hidden" name="hour" value="{{ hour }}">
+                              <input type="hidden" name="minutes" value="{{ minutes }}">
+                              <input type="hidden" name="seconds" value="{{ seconds }}">
+
+                              <input type="hidden" name="year_end" value="{{ year_end }}">
+                              <input type="hidden" name="month_end" value="{{ month_end }}">
+                              <input type="hidden" name="day_end" value="{{ day_end }}">
+                              <input type="hidden" name="hour_end" value="{{ hour_end }}">
+                              <input type="hidden" name="minutes_end" value="{{ minutes_end }}">
+                              <input type="hidden" name="seconds_end" value="{{ seconds_end }}">
+
+                              <input type="hidden" name="frequency" value="{{ frequency }}">
+                              <input type="hidden" name="First_character" value="{{ First_character }}">
+                          </form>
+
+                        </div>
                   </a>
               {% endif %}
               
-              <!-- Chatbot Metrics & Insights: Accessible to Manager and Team Leader with Basic, Gold, or Platinum subscriptions -->
+          
               {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
                   <a href="{{ url_for('dashboard_vbanai') }}" class="container-chat-grid">
-                      <p class="chatbot-title" style="color: white; margin-top: 5px; font-size: clamp(10px, 1.4vw, 17px);" data-lang="metrics" >Chatbot Metrics & Insights</p>
+                      <p class="chatbot-title" style="color: white; margin-top: 5px; font-size: clamp(10px, 1.4vw, 17px);" data-lang="user_metrics" ></p>
                       <div class="image-link">
-                          <img src="static/Data extraction-pana.png" alt="Clickable Image" />
+                          <img src="static/users.jpg.png" alt="Clickable Image" />
                       </div>
                   </a>
               {% endif %}
               
-              <!-- Advanced AI Predictive Solutions: Accessible to Manager and Team Leader with Platinum subscription -->
+
               {% if advanced_ai_access and user_role in ['Manager', 'Team Leader'] %}
                   <a href="{{ url_for('predictive_dashboard') }}"  class="container-chat-grid">
-                      <p class="chatbot-title" style="color: white; margin-top: 5px; font-size: clamp(10px, 1.4vw, 17px);" data-lang="prediction">Advanced AI Predictive Solutions</p>
+                      <p class="chatbot-title" style="color: white; margin-top: 5px; font-size: clamp(10px, 1.4vw, 17px);" data-lang="chats"></p>
                       <div class="image-link">
-                          <img src="static/robotic-process-automation-illustration.png" style="object-fit: contain" alt="Clickable Image" />
+                          <img src="static/chats.jpg" style="object-fit: contain" alt="Clickable Image" />
                       </div>
                   </a>
               {% endif %}
+
+
+              {% if advanced_ai_access and user_role in ['Manager', 'Team Leader'] %}
+                  <a href="{{ url_for('predictive_dashboard') }}"  class="container-chat-grid">
+                      <p class="chatbot-title" style="color: white; margin-top: 5px; font-size: clamp(10px, 1.4vw, 17px);" data-lang="agent_metrics"></p>
+                      <div class="image-link">
+                          <img src="static/operators.jpg" style="object-fit: contain" alt="Clickable Image" />
+                      </div>
+                  </a>
+              {% endif %}
+
           {% endif %}
       {% endif %}
     </div>
@@ -1049,6 +1171,7 @@ select {
     var formOpenInvite = document.getElementById("form-Invitation");
     var formOpenRoles = document.getElementById("form-roleManagement");
     var formLinkOpenRemoval = document.getElementById("form-Removal");
+    var btnCustomDate = document.querySelector('.btnCustomDate-popup');
     
     var dropdownContent = document.getElementById('dropdownContent');
     var resourcedropdownContent = document.getElementById('resourcedropdownContent');
@@ -1068,6 +1191,16 @@ select {
     var circleDashboardLink2= document.getElementById('circleDashboardLink2');
     var dropdownRole = document.getElementById("userDropdownRole");
     var dropdownRemoval = document.getElementById("userDropdownRemoval");
+    const wrapper = document.querySelector('.wrapper');
+    const iconClose = document.querySelector('.icon-close');
+
+
+    document.getElementById("openHierarchy")?.addEventListener("click", function (e) {
+      e.preventDefault();
+      document.getElementById("formHierarchy").submit();
+  });
+
+
 
     if (dropdownRole) {
     dropdownRole.addEventListener("click", function () {
@@ -1101,6 +1234,15 @@ select {
         });
     });
   }
+
+    btnCustomDate.addEventListener('click', () => {
+      wrapper.classList.add('active-popup');
+    });
+
+    iconClose.addEventListener('click', () => {
+      wrapper.classList.remove('active-popup');
+    });
+
 
   
     if (dropdownRemoval) {
@@ -1689,6 +1831,50 @@ chatGridLink.addEventListener("click", function() {
 
 });
 
+ // ##############################################################
+  // ###################    DATE    ###############################
+  // ##############################################################
+
+    function setupFlatpickr(yearField, monthField, dayField) {
+      flatpickr(yearField, {
+          dateFormat: "Y-m-d",
+          onChange: function(selectedDates, dateStr) {
+              const date = new Date(dateStr);
+              yearField.value = date.getFullYear();
+              monthField.value = String(date.getMonth() + 1).padStart(2, '0');
+              dayField.value = String(date.getDate()).padStart(2, '0');
+          }
+      });
+    }
+
+    // Get the input fields
+    const yearStart = document.querySelector('input[name="year_start"]');
+    const monthStart = document.querySelector('input[name="month_start"]');
+    const dayStart = document.querySelector('input[name="day_start"]');
+
+    const yearEnd = document.querySelector('input[name="year_end"]');
+    const monthEnd = document.querySelector('input[name="month_end"]');
+    const dayEnd = document.querySelector('input[name="day_end"]');
+
+    // Initialize Flatpickr on start date fields
+    setupFlatpickr(yearStart, monthStart, dayStart);
+
+    // Initialize Flatpickr on end date fields
+    setupFlatpickr(yearEnd, monthEnd, dayEnd);
+
+    document.getElementById('submitForm').addEventListener('submit', function(event) {
+        // Fields to check
+        const fieldsToCheck = ['hour', 'minutes', 'seconds', 'hour_end', 'minutes_end', 'seconds_end'];
+
+        fieldsToCheck.forEach(field => {
+            const input = document.querySelector(`input[name="${field}"]`);
+            if (input && !input.value) {
+                input.value = '00'; // Set default value
+            }
+        });
+    });
+
+
 // Translation object
 const translations = {
   en: {
@@ -1698,6 +1884,7 @@ const translations = {
       home: "Home",
       myservice: "My Services",
       chatcontrol:"Chat Control",
+      chats:"Chats",
       metrics:"ChatBot Metrics & Insights",
       prediction:"Advanced AI Predictive Solutions",
       resourcemanagement:"Resource Management",
@@ -1722,7 +1909,33 @@ const translations = {
       removeresourceh2:"Remove Resource",
       greeting: "Hello {{name}} from {{client_name}}, Welcome to your subscription!",
       greeting2: "Please select a service",
-
+      deepinsight:"Deep Insights",
+      breakdown: "{{year}}.{{month}}.{{day}}. {{hour}}:{{minutes}}:{{seconds}} to {{year_end}}.{{month_end}}.{{day_end}}. {{hour_end}}:{{minutes_end}}:{{seconds_end}} /{{frequency}} breakdown",
+      customdatemetrics: "Advanced analytics",
+      startdateyear: "Year (2024)",
+      startdatemonth: "Month (01)",
+      startdateday: "Day (01)",
+      startdatehour: "Hour (00)",
+      startdateminute: "Minute (00)",
+      startdatesecond: "Second (00)",
+      pleasespecifytheenddate: "Please specify the end date:",
+      enddateyear: "Year (2024)",
+      enddatemonth: "Month (02)",
+      enddateday: "Day (01)",
+      enddatehour: "Hour (00)",
+      enddateminute: "Minute (00)",
+      enddatesecond: "Second (00)",
+      trackedperiod: "Please specify the periods you want to track:",
+      pleasespecifythestartdate: "Please specify the start date:",
+      yearly: "Yearly",
+      monthly: "Monthly",
+      weekly: "Weekly",
+      daily: "Daily",
+      submit_: "Submit",
+      dashboard: "Dashboard",
+      hierarchical_charts:"Hierarchical charts",
+      user_metrics:"User metrics",
+      agent_metrics:"Agent Performance Metrics",
 
       
       
@@ -1733,6 +1946,7 @@ const translations = {
       home:"Kezdőlap",
       myservice: "Előfizetéseim",
       chatcontrol:"Chatfelügyelet",
+      chats:"Beszélgetések",
       metrics:"Chatbot mutatók és elemzések", 
       prediction:"Prediktív AI-megoldások",
       resourcemanagement:"Adminkezelés",
@@ -1757,7 +1971,32 @@ const translations = {
       removeresourceh2:"A felhasználó eltávolítása",
       greeting: "Helló {{name}} a(z) {{client_name}}-től, Üdvözlünk a platformon!",
       greeting2: "Kérlek válassz egy szolgáltatást!",
-
+      deepinsight:"Részletes elemzések",
+      breakdown: "{{year}}.{{month}}.{{day}}. {{hour}}:{{minutes}}:{{seconds}} - {{year_end}}.{{month_end}}.{{day_end}}. {{hour_end}}:{{minutes_end}}:{{seconds_end}} | {{frequency}} bontásban",
+      customdatemetrics: "Részletes elemzés",
+      startdateyear: "Év (2024)",
+      startdatemonth: "Hónap (01)",
+      startdateday: "Nap (01)",
+      startdatehour: "Óra (00)",
+      startdateminute: "Perc (00)",
+      startdatesecond: "Másodperc (00)",
+      pleasespecifythestartdate: "Kérlek add meg a kezdő dátumot:",
+      pleasespecifytheenddate: "Kérlek add meg a záró dátumot:",
+      enddateyear: "Év (2024)",
+      enddatemonth: "Hónap (02)",
+      enddateday: "Nap (01)",
+      enddatehour: "Óra (00)",
+      enddateminute: "Perc (00)",
+      enddatesecond: "Másodperc (00)",
+      trackedperiod: "Add meg, hogy milyen időbontást szeretnél:",
+      yearly: "Éves",
+      monthly: "Havi",
+      weekly: "Heti",
+      daily: "Napi",
+      submit_: "Beküldés",
+      hierarchical_charts:"Hierarchikus elemzések",
+      user_metrics:"User metrics",
+      agent_metrics:"Operátor teljesítmény",
       
        
         

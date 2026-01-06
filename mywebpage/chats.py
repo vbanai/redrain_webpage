@@ -3,14 +3,14 @@ from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 import requests
 import os
-from sqlalchemy.orm import func, select, sessionmaker
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import scoped_session
-from contextlib import contextmanager
-from mywebpage import Base, session_scope
-from mywebpage.datatransformation_detaileduserdata import get_or_create_detailed_df
+from sqlalchemy import func, select
+
+
+from mywebpage.concurrency import run_cpu_task
+from mywebpage.db import async_session_scope
+from mywebpage.elephantsql import ChatHistory
 import pytz
-from mywebpage import run_cpu_task, stream_chunks_from_redis, fetch_partitions_for_table_chunks, fetch_partition_rows_in_chunks_gen, store_chunk_in_redis, find_gaps_in_range, async_session_scope, list_blob_names_for_range, load_blob_in_chunks, ChatHistory
+from mywebpage.datatransformation_detaileduserdata import stream_chunks_from_redis, fetch_partitions_for_table_chunks, fetch_partition_rows_in_chunks_gen, store_chunk_in_redis, find_gaps_in_range, list_blob_names_for_range, load_blob_in_chunks
 
 
 
@@ -65,7 +65,7 @@ async def fetch_topic_classification_counts(start_dt, end_dt, client_id):
 
 
 
-async def fetch_chat_messages(start_dt, end_dt, client_id, timezone_str, frequency, redis, topic: str | None = None, table_name="chat_messages"):
+async def fetch_chat_messages(start_dt, end_dt, client_id, timezone_str, frequency, redis, cpu_pool, cpu_sem, topic: str | None = None, table_name="chat_messages"):
     """
     Fetch chat messages in a memory-efficient, streaming + caching way.
     """
@@ -73,9 +73,11 @@ async def fetch_chat_messages(start_dt, end_dt, client_id, timezone_str, frequen
     columns = None
     covered_ranges = []
 
+    redis_chunk_index = 0
+
     # Stream cached chunks from Redis
-    async for df_chunk, (chunk_start, chunk_end) in stream_chunks_from_redis(client_id, start_dt, end_dt, redis):
-        rows, cols = await run_cpu_task(fetch_chat_messages_cpu, df_chunk, start_dt, end_dt, timezone_str, topic)
+    async for df_chunk, (chunk_start, chunk_end) in stream_chunks_from_redis(client_id, start_dt, end_dt, redis, cpu_pool, cpu_sem):
+        rows, cols = await run_cpu_task(fetch_chat_messages_cpu, df_chunk, start_dt, end_dt, timezone_str, topic, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
         chat_rows.extend(rows)
         if columns is None:
             columns = cols
@@ -88,7 +90,7 @@ async def fetch_chat_messages(start_dt, end_dt, client_id, timezone_str, frequen
         return chat_rows, columns or []
 
     # Process missing intervals: blobs first, then DB partitions
-    chunk_index = 0
+   
     async with async_session_scope() as session:
         for gap_start, gap_end in missing_intervals:
 
@@ -97,7 +99,7 @@ async def fetch_chat_messages(start_dt, end_dt, client_id, timezone_str, frequen
             for blob_name in blob_names:
                 def process_blob():
                     return list(load_blob_in_chunks(client_id, blob_name, chunk_size=10_000))
-                blob_chunks = await run_cpu_task(process_blob)
+                blob_chunks = await run_cpu_task(process_blob, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
 
                 for df_chunk in blob_chunks:
                     # df_filtered = df_chunk[
@@ -108,7 +110,7 @@ async def fetch_chat_messages(start_dt, end_dt, client_id, timezone_str, frequen
                     #     continue
 
                     # Process CPU-heavy transformations
-                    rows, cols = await run_cpu_task(fetch_chat_messages_cpu, df_chunk, gap_start, gap_end, timezone_str, topic)
+                    rows, cols = await run_cpu_task(fetch_chat_messages_cpu, df_chunk, gap_start, gap_end, timezone_str, topic, cpu_pool=cpu_pool, cpu_sem=cpu_sem,)
                     if not rows:
                         continue
                     
@@ -117,8 +119,8 @@ async def fetch_chat_messages(start_dt, end_dt, client_id, timezone_str, frequen
                         columns = cols
 
                     # Cache chunk in Redis
-                    await store_chunk_in_redis(client_id, gap_start, gap_end, df_chunk, redis)
-                    chunk_index += 1
+                    await store_chunk_in_redis(client_id, gap_start, gap_end, redis_chunk_index, df_chunk, redis, cpu_pool, cpu_sem)
+                    redis_chunk_index += 1
 
             # 3b. DB partitions
             partitions = await fetch_partitions_for_table_chunks(session, table_name, gap_start, gap_end)
@@ -133,7 +135,7 @@ async def fetch_chat_messages(start_dt, end_dt, client_id, timezone_str, frequen
                
 
                     # Process CPU-heavy transformations
-                    rows, cols = await run_cpu_task(fetch_chat_messages_cpu, df_chunk, gap_start, gap_end, timezone_str, topic)
+                    rows, cols = await run_cpu_task(fetch_chat_messages_cpu, df_chunk, gap_start, gap_end, timezone_str, topic, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
                     if not rows:
                         continue
                     
@@ -142,8 +144,8 @@ async def fetch_chat_messages(start_dt, end_dt, client_id, timezone_str, frequen
                         columns = cols
 
                     # Cache chunk in Redis
-                    await store_chunk_in_redis(client_id, gap_start, gap_end, df_chunk, redis)
-                    chunk_index += 1
+                    await store_chunk_in_redis(client_id, gap_start, gap_end, redis_chunk_index, df_chunk, redis, cpu_pool, cpu_sem)
+                    redis_chunk_index += 1
 
     return chat_rows, columns or []
 

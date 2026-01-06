@@ -14,15 +14,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import scoped_session
 from contextlib import contextmanager
-from mywebpage import redis_client 
 import gzip
-from mywebpage import session_scope
 import pickle
 import base64
 import pytz 
 from io import BytesIO
 from azure.storage.blob import BlobServiceClient
-from mywebpage import run_cpu_task, async_session_scope, fetch_partition_rows, fetch_partitions_for_table, load_blobs_for_client
+from mywebpage.mainpulation_weeklyreport import fetch_partition_rows, fetch_partitions_for_table, load_blobs_for_client
 import asyncio
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,7 +29,12 @@ import pytz
 from datetime import datetime
 from copy import deepcopy
 from functools import reduce
+from mywebpage.db import async_session_scope
+# from mywebpage.fastapi_app import fastapi_app
 
+# redis_client=fastapi_app.state.redis_client
+
+from mywebpage.concurrency import run_cpu_task
 
 def generate_detailed_key(client_id: str, start_dt: datetime, end_dt: datetime):
     return f"detailed_df:{client_id}:{start_dt.isoformat()}:{end_dt.isoformat()}"
@@ -58,9 +61,9 @@ def decompress_df(encoded_str: str) -> pd.DataFrame:
     compressed = base64.b64decode(encoded_str.encode('utf-8'))
     return pickle.loads(gzip.decompress(compressed))
 
-def store_detailed_df_in_redis(redis_key: str, df: pd.DataFrame, ttl_seconds=900):
-    compressed = compress_df(df)
-    redis_client.setex(redis_key, ttl_seconds, compressed)
+# def store_detailed_df_in_redis(redis_key: str, df: pd.DataFrame, ttl_seconds=900):
+#     compressed = compress_df(df)
+#     redis_client.setex(redis_key, ttl_seconds, compressed)
 
 
 
@@ -355,36 +358,52 @@ async def store_chunk_in_redis(
     client_id: str,
     chunk_start: datetime,
     chunk_end: datetime,
+    chunk_index: int,
     df_chunk: pd.DataFrame,
     redis,
+    cpu_pool,
+    cpu_sem,
     ttl_seconds: int = 3600
 ):
     """
-    Compress and store a single chunk of DataFrame in Redis with a key
-    that encodes the chunk's date range.
+    Compress and store a single DataFrame chunk in Redis.
     """
     start_s = chunk_start.strftime("%Y%m%d%H%M")
     end_s = chunk_end.strftime("%Y%m%d%H%M")
-    key = f"detailed:{client_id}:{start_s}-{end_s}"
 
-    compressed = await run_cpu_task(compress_df, df_chunk)
+    key = f"detailed:{client_id}:{start_s}-{end_s}:{chunk_index}"
+
+    compressed = await run_cpu_task(
+        compress_df,
+        df_chunk,
+        cpu_pool=cpu_pool,
+        cpu_sem=cpu_sem
+    )
+
     await redis.setex(key, ttl_seconds, compressed)
     return key
 
 def parse_chunk_key(key: str) -> tuple[datetime, datetime]:
-    # key format: detailed:clientid:20250101-20250110
-    parts = key.split(":")
-    date_range = parts[2]
+    # detailed:client:YYYYMMDDHHMM-YYYYMMDDHHMM:index
+    _, _, date_range, _ = key.split(":", 3)
+
     start_s, end_s = date_range.split("-")
     start = datetime.strptime(start_s, "%Y%m%d%H%M")
     end = datetime.strptime(end_s, "%Y%m%d%H%M")
+
     return start, end
+
 
 def overlaps(req_start: datetime, req_end: datetime, chunk_start: datetime, chunk_end: datetime) -> bool:
     return not (req_end <= chunk_start or req_start >= chunk_end)
 
 
-async def stream_chunks_from_redis(client_id: str, req_start: datetime, req_end: datetime, redis):
+async def stream_chunks_from_redis(  client_id: str,
+            req_start: datetime,
+            req_end: datetime,
+            redis,
+            cpu_pool,
+            cpu_sem,):
     """
     Async generator that yields DataFrame chunks stored in Redis
     if they overlap with [req_start, req_end].
@@ -397,7 +416,11 @@ async def stream_chunks_from_redis(client_id: str, req_start: datetime, req_end:
         if overlaps(req_start, req_end, chunk_start, chunk_end):
             encoded = await redis.get(k)
             if encoded:
-                df = await run_cpu_task(decompress_df, encoded)
+                df = await run_cpu_task(decompress_df,
+                encoded,
+                cpu_pool=cpu_pool,
+                cpu_sem=cpu_sem,
+                )
                 yield df, (chunk_start, chunk_end)
 
 
@@ -444,6 +467,8 @@ async def build_coords_from_sources_async(
     end_dt: datetime,
     table_name: str,
     redis,
+    cpu_pool,
+    cpu_sem,
     chunk_size: int = 10_000,
     ttl_seconds: int = 3600
 ) -> list[dict]:
@@ -455,7 +480,7 @@ async def build_coords_from_sources_async(
     covered_ranges: list[tuple[datetime, datetime]] = []
 
     # --- 1. Stream chunks from Redis ---
-    async for df_chunk, (chunk_start, chunk_end) in stream_chunks_from_redis(client_id, start_dt, end_dt, redis):
+    async for df_chunk, (chunk_start, chunk_end) in stream_chunks_from_redis(client_id, start_dt, end_dt, redis, cpu_pool, cpu_sem):
         covered_ranges.append((chunk_start, chunk_end))
         for lat, lng in zip(df_chunk["latitude"], df_chunk["longitude"]):
             if pd.notna(lat) and pd.notna(lng):
@@ -473,7 +498,7 @@ async def build_coords_from_sources_async(
         for blob_name in blob_names:
             def process_blob():
                 return list(load_blob_in_chunks(client_id, blob_name, chunk_size))
-            blob_chunks = await run_cpu_task(process_blob)
+            blob_chunks = await run_cpu_task(process_blob, cpu_pool=cpu_pool, cpu_sem=cpu_sem,)
 
             for df_chunk in blob_chunks:
                 df_filtered = df_chunk[
@@ -490,9 +515,15 @@ async def build_coords_from_sources_async(
 
                 # Cache in Redis
                 await store_chunk_in_redis(
-                    client_id, gap_start, gap_end, chunk_index,
-                    df_filtered.to_dict(orient="records"),
-                    redis, ttl_seconds
+                    client_id=client_id,
+                    chunk_start=gap_start,
+                    chunk_end=gap_end,
+                    chunk_index=chunk_index,
+                    df_chunk=df_filtered,
+                    redis=redis,
+                    cpu_pool=cpu_pool,
+                    cpu_sem=cpu_sem,
+                    ttl_seconds=ttl_seconds
                 )
                 chunk_index += 1
 
@@ -513,9 +544,15 @@ async def build_coords_from_sources_async(
 
                     # Cache in Redis
                     await store_chunk_in_redis(
-                        client_id, gap_start, gap_end, chunk_index,
-                        df_chunk.to_dict(orient="records"),
-                        redis, ttl_seconds
+                        client_id=client_id,
+                        chunk_start=gap_start,
+                        chunk_end=gap_end,
+                        chunk_index=chunk_index,
+                        df_chunk=df_filtered,
+                        redis=redis,
+                        cpu_pool=cpu_pool,
+                        cpu_sem=cpu_sem,
+                        ttl_seconds=ttl_seconds
                     )
                     chunk_index += 1
 
@@ -526,6 +563,9 @@ async def build_coords_from_sources_async(
 #    END ....  Heart of Coordination retrieval for detailed page
 #---------------------------------------------------------------
 
+
+
+# ------   Ez az egész kért adatbázst betölti, nem használom
 
 async def build_df_from_sources_async(client_id: str,
                                 start_dt: datetime,
@@ -638,6 +678,7 @@ async def get_or_create_detailed_df(
                 raise Exception("Timeout: Cache not available and lock not released.")
 
 
+#  -------------------- end nem használom --------------
 
 
 # Helper: determine previous period by frequency
@@ -666,7 +707,9 @@ async def datatransformation_for_chartjs_detailed(
     year_end, month_end, day_end, hour_end, minutes_end, seconds_end,
     frequency,
     table_name,
-    redis, topic: str | None = None
+    redis, topic: str | None = None,
+    cpu_pool=None,
+    cpu_sem=None
 ):
     """
     Detailed async version of chart data transformation with additional datasets and
@@ -687,10 +730,12 @@ async def datatransformation_for_chartjs_detailed(
     all_locations = []
     covered_ranges = []
 
+    redis_chunk_index = 0
+
     # ----------------------------------------
     # STREAM FROM REDIS CACHE
     # ----------------------------------------
-    async for df_chunk, (chunk_start, chunk_end) in stream_chunks_from_redis(client_id, start_dt, end_dt, redis):
+    async for df_chunk, (chunk_start, chunk_end) in stream_chunks_from_redis(client_id, start_dt, end_dt, redis, cpu_pool, cpu_sem):
         (
             final_transformed_data,
             data_for_final_transformation_copy,
@@ -704,7 +749,7 @@ async def datatransformation_for_chartjs_detailed(
             datatransformation_for_chartjs_detailed_cpu,
             df_chunk, start_dt, end_dt, client_id, year, month, day, hour,
             minutes, seconds, year_end, month_end, day_end, hour_end,
-            minutes_end, seconds_end, frequency, table_name, topic
+            minutes_end, seconds_end, frequency, table_name, topic, cpu_pool, cpu_sem
         )
 
         all_final_data.extend(final_transformed_data)
@@ -745,7 +790,7 @@ async def datatransformation_for_chartjs_detailed(
             for blob_name in blob_names:
                 def process_blob():
                     return list(load_blob_in_chunks(client_id, blob_name, chunk_size=10_000))
-                blob_chunks = await run_cpu_task(process_blob)
+                blob_chunks = await run_cpu_task(process_blob, cpu_pool, cpu_sem)
 
                 for df_chunk in blob_chunks:
                     df_filtered = df_chunk[
@@ -759,7 +804,8 @@ async def datatransformation_for_chartjs_detailed(
                         datatransformation_for_chartjs_detailed_cpu,
                         df_filtered, start_dt, end_dt, client_id, year, month, day, hour,
                         minutes, seconds, year_end, month_end, day_end, hour_end,
-                        minutes_end, seconds_end, frequency, table_name, topic
+                        minutes_end, seconds_end, frequency, table_name, topic, cpu_pool, cpu_sem,
+                        cpu_pool, cpu_sem
                     )
 
                     (
@@ -782,7 +828,11 @@ async def datatransformation_for_chartjs_detailed(
                     all_changes_usernum.extend(changesinusernumber)
                     all_locations.extend(locations)
 
-                    await store_chunk_in_redis(client_id, gap_start, gap_end, df_filtered, redis)
+                    await store_chunk_in_redis(client_id, gap_start, gap_end, redis_chunk_index, df_filtered, redis,
+                        cpu_pool,
+                        cpu_sem)
+                    redis_chunk_index += 1
+                    
 
             # DB partitions
             partitions = await fetch_partitions_for_table_chunks(session, table_name, gap_start, gap_end)
@@ -799,7 +849,8 @@ async def datatransformation_for_chartjs_detailed(
                         datatransformation_for_chartjs_detailed_cpu,
                         df_filtered, start_dt, end_dt, client_id, year, month, day, hour,
                         minutes, seconds, year_end, month_end, day_end, hour_end,
-                        minutes_end, seconds_end, frequency, table_name, topic
+                        minutes_end, seconds_end, frequency, table_name, topic,
+                        cpu_pool, cpu_sem
                     )
 
                     (
@@ -822,7 +873,10 @@ async def datatransformation_for_chartjs_detailed(
                     all_changes_usernum.extend(changesinusernumber)
                     all_locations.extend(locations)
 
-                    await store_chunk_in_redis(client_id, gap_start, gap_end, df_filtered, redis)
+                    await store_chunk_in_redis(client_id, gap_start, gap_end,  redis_chunk_index, df_filtered, redis,
+                        cpu_pool,
+                        cpu_sem)
+                    redis_chunk_index += 1
 
     # ----------------------------------------
     # FETCH PREVIOUS PERIOD — ONLY USER_ID COUNTS
@@ -840,8 +894,8 @@ async def datatransformation_for_chartjs_detailed(
         return set(df_chunk["user_id"].dropna().unique())
 
     # ---- (1) Try from Redis first
-    async for df_chunk, (chunk_start, chunk_end) in stream_chunks_from_redis(client_id, prev_start, prev_end, redis):
-        user_ids = await run_cpu_task(extract_user_ids, df_chunk)
+    async for df_chunk, (chunk_start, chunk_end) in stream_chunks_from_redis(client_id, prev_start, prev_end, redis, cpu_pool, cpu_sem):
+        user_ids = await run_cpu_task(extract_user_ids, df_chunk, cpu_pool, cpu_sem)
         collected_user_ids |= user_ids
         covered_prev.append((chunk_start, chunk_end))
 
@@ -857,7 +911,7 @@ async def datatransformation_for_chartjs_detailed(
                 for blob_name in blob_names:
                     def process_blob():
                         return list(load_blob_in_chunks(client_id, blob_name, chunk_size=10_000))
-                    blob_chunks = await run_cpu_task(process_blob)
+                    blob_chunks = await run_cpu_task(process_blob, cpu_pool, cpu_sem)
 
                     for df_chunk in blob_chunks:
                         df_filtered = df_chunk[
@@ -867,9 +921,12 @@ async def datatransformation_for_chartjs_detailed(
                         if df_filtered.empty:
                             continue
 
-                        user_ids = await run_cpu_task(extract_user_ids, df_filtered)
+                        user_ids = await run_cpu_task(extract_user_ids, df_filtered, cpu_pool, cpu_sem)
                         collected_user_ids |= user_ids
-                        await store_chunk_in_redis(client_id, gap_start, gap_end, df_filtered, redis)
+                        await store_chunk_in_redis(client_id, gap_start, gap_end, redis_chunk_index, df_filtered, redis,
+                            cpu_pool,
+                            cpu_sem)
+                        redis_chunk_index += 1
 
                 # DB PARTITIONS
                 partitions = await fetch_partitions_for_table_chunks(session, table_name, gap_start, gap_end)
@@ -882,9 +939,11 @@ async def datatransformation_for_chartjs_detailed(
                         if df_filtered.empty:
                             continue
 
-                        user_ids = await run_cpu_task(extract_user_ids, df_filtered)
+                        user_ids = await run_cpu_task(extract_user_ids, df_filtered, cpu_pool, cpu_sem)
                         collected_user_ids |= user_ids
-                        await store_chunk_in_redis(client_id, gap_start, gap_end, df_filtered, redis)
+                        await store_chunk_in_redis(client_id, gap_start, gap_end, redis_chunk_index, df_filtered, redis,
+                            cpu_pool,
+                            cpu_sem)
 
     # ---- (3) Compute total previous user count
     prev_usercount = len(collected_user_ids)

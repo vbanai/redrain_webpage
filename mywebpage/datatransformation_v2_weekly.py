@@ -19,19 +19,24 @@ from azure.storage.blob import BlobServiceClient
 from io import BytesIO
 from mywebpage.mainpulation_weeklyreport import get_or_create_weekly_df
 import pytz
-from mywebpage import run_cpu_task
+import asyncio
+
+from mywebpage.concurrency import run_cpu_task
 
 
 
 
-async def datatransformation_for_chartjs_weekly(client_id):
+
+async def datatransformation_for_chartjs_weekly(client_id, cpu_pool, cpu_sem):
     # Fetch dataframe (already async + handles CPU heavy parts internally)
     df = await get_or_create_weekly_df(client_id, "chat_messages")
     if df.empty:
         return ""
 
     # Push Pandas filtering/grouping into process pool
-    return await run_cpu_task(datatransformation_for_chartjs_weekly_cpu, df)
+    return await run_cpu_task(datatransformation_for_chartjs_weekly_cpu, df,
+        cpu_pool=cpu_pool,
+        cpu_sem=cpu_sem)
 
 
 

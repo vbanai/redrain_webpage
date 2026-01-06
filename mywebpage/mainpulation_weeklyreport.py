@@ -6,16 +6,16 @@ from sqlalchemy import create_engine, text
 from azure.storage.blob import BlobServiceClient
 from io import BytesIO
 from datetime import time
-from mywebpage import redis_client 
 import gzip
-from mywebpage import session_scope
 import pickle
 import base64
 import pytz 
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 import html
-from mywebpage import async_session_scope, run_cpu_task
+from mywebpage.db import async_session_scope
+from mywebpage.concurrency import run_cpu_task
 import asyncio
+
 
 # SQLITE ############################################
 # # SQLite database path (adjust as needed)
@@ -41,10 +41,10 @@ def compress_df(df):
     compressed = gzip.compress(pickle.dumps(df))
     return base64.b64encode(compressed).decode('utf-8')
 
-async def store_df_in_redis(client_id: str, df: pd.DataFrame, redis, ttl_seconds=900):
+async def store_df_in_redis(client_id: str, df: pd.DataFrame, redis, cpu_pool, cpu_sem, ttl_seconds=900):
     key = f"weekly_df:{client_id}"
     # compress may be CPU-heavy → run in pool
-    compressed = await run_cpu_task(compress_df, df)
+    compressed = await run_cpu_task(compress_df, df, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
     await redis.setex(key, ttl_seconds, compressed)
 
 def decompress_df(encoded_str: str) -> pd.DataFrame:
@@ -52,14 +52,14 @@ def decompress_df(encoded_str: str) -> pd.DataFrame:
     return pickle.loads(gzip.decompress(compressed))
 
 
-def save_data_with_lock(client_id: str, df: pd.DataFrame, redis_client, ttl_seconds=900):
+def save_data_with_lock(client_id: str, df: pd.DataFrame, redis_client, cpu_pool, cpu_sem, ttl_seconds=900):
     lock_key = f"lock:weekly_df:{client_id}"
     # Try to acquire lock using NX (only set if not exists) with 30 sec expiry
     lock_acquired = redis_client.set(lock_key, "1", nx=True, ex=30)
     
     if lock_acquired:
         try:
-            store_df_in_redis(client_id, df, ttl_seconds)
+            store_df_in_redis(client_id, df, cpu_pool, cpu_sem, ttl_seconds)
         finally:
             redis_client.delete(lock_key)  # Always release the lock
     else:
@@ -144,7 +144,7 @@ async def fetch_partition_rows(client_id: int, part_table: str, start_dt, end_dt
         return pd.DataFrame(rows, columns=columns)
 
 
-async def build_weekly_df_from_sources(client_id: int, table_name: str) -> pd.DataFrame:
+async def build_weekly_df_from_sources(client_id: int, table_name: str, cpu_pool, cpu_sem) -> pd.DataFrame:
     # Compute weekly range
     today = datetime.now().replace(microsecond=0)
     days_to_subtract = today.weekday()
@@ -152,7 +152,7 @@ async def build_weekly_df_from_sources(client_id: int, table_name: str) -> pd.Da
     end_dt = today
 
     # 1️Load blob data (CPU-heavy) in process pool
-    df_blobs = await run_cpu_task(load_blobs_for_client, client_id, start_dt, end_dt)
+    df_blobs = await run_cpu_task(load_blobs_for_client, client_id, start_dt, end_dt, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
 
     # Fetch partition names async
     partitions = await fetch_partitions_for_table(table_name, start_dt, end_dt)
@@ -169,7 +169,7 @@ async def build_weekly_df_from_sources(client_id: int, table_name: str) -> pd.Da
 
 
     # Combine blobs + partitions (CPU-heavy) in process pool
-    df_archived = await run_cpu_task(pd.concat, [df_blobs] + df_parts_list, ignore_index=True)
+    df_archived = await run_cpu_task(pd.concat, [df_blobs] + df_parts_list, ignore_index=True, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
 
 
     return df_archived
@@ -179,7 +179,7 @@ async def build_weekly_df_from_sources(client_id: int, table_name: str) -> pd.Da
 
 
 
-async def get_or_create_weekly_df(client_id: str, table_name: str, redis, ttl_seconds=900) -> pd.DataFrame:
+async def get_or_create_weekly_df(client_id: str, table_name: str, redis, cpu_pool, cpu_sem, ttl_seconds=900) -> pd.DataFrame:
     redis_key = f"weekly_df:{client_id}"
 
     cached = await redis.get(redis_key)
@@ -190,7 +190,7 @@ async def get_or_create_weekly_df(client_id: str, table_name: str, redis, ttl_se
             await redis.expire(redis_key, ttl_seconds)
             print(f"Refreshed TTL for {redis_key} (was {ttl_left}s)")
         # decompression may be CPU heavy → run in process pool
-        return await run_cpu_task(decompress_df, cached)
+        return await run_cpu_task(decompress_df, cached, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
 
     print("No cache. Acquiring lock...")
     lock_key = f"lock:weekly_df:{client_id}"
@@ -201,11 +201,11 @@ async def get_or_create_weekly_df(client_id: str, table_name: str, redis, ttl_se
             cached_after_lock = await redis.get(redis_key)
             if cached_after_lock:
                 print("Cache appeared while waiting. Using that.")
-                return await run_cpu_task(decompress_df, cached_after_lock)
+                return await run_cpu_task(decompress_df, cached_after_lock, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
 
             # heavy: build df
-            df = await build_weekly_df_from_sources(client_id, table_name)
-            await store_df_in_redis(client_id, df, redis)
+            df = await build_weekly_df_from_sources(client_id, table_name, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
+            await store_df_in_redis(client_id, df, redis, cpu_pool, cpu_sem, ttl_seconds)
             return df
         finally:
             await redis.delete(lock_key)
@@ -216,7 +216,7 @@ async def get_or_create_weekly_df(client_id: str, table_name: str, redis, ttl_se
             cached_retry = await redis.get(redis_key)
             if cached_retry:
                 print("Loaded from cache after waiting")
-                return await run_cpu_task(decompress_df, cached_retry)
+                return await run_cpu_task(decompress_df, cached_retry, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
 
         raise Exception("Timeout: Cache not available and lock not released.")
 
@@ -226,14 +226,14 @@ async def get_or_create_weekly_df(client_id: str, table_name: str, redis, ttl_se
 
 
 
-async def user_querry_forquickreview(client_id):
+async def user_querry_forquickreview(client_id, redis, cpu_pool, cpu_sem):
     # Await the async DataFrame getter
-    df = await get_or_create_weekly_df(client_id, "chat_messages")
+    df = await get_or_create_weekly_df(client_id, "chat_messages", redis, cpu_pool, cpu_sem)
     if df.empty:
         return Decimal("0"), Decimal("0"), Decimal("0.0"), datetime.now(pytz.UTC), datetime.now(pytz.UTC).date()
 
     # Push heavy Pandas work into process pool
-    return await run_cpu_task(_user_querry_forquickreview_cpu, df)
+    return await run_cpu_task(_user_querry_forquickreview_cpu, df, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
 
 
 
@@ -318,14 +318,14 @@ def _user_querry_forquickreview_cpu(df: pd.DataFrame):
 
 
 
-async def locationranking(client_id):
+async def locationranking(client_id, redis, cpu_pool, cpu_sem):
     # Fetch dataframe (already async + handles CPU heavy parts internally)
-    df = await get_or_create_weekly_df(client_id, "chat_messages")
+    df = await get_or_create_weekly_df(client_id, "chat_messages", redis, cpu_pool, cpu_sem)
     if df.empty:
-        return ""
+        return []
 
     # Push Pandas filtering/grouping into process pool
-    return await run_cpu_task(_locationranking_cpu, df)
+    return await run_cpu_task(_locationranking_cpu, df, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
 
 
 def _locationranking_cpu(df: pd.DataFrame):
@@ -383,7 +383,7 @@ def _locationranking_cpu(df: pd.DataFrame):
   
 
   
-async def longitude_latitude(client_id: str, redis) -> list[dict]:
+async def longitude_latitude(client_id: str, redis, cpu_pool, cpu_sem) -> list[dict]:
     utc = pytz.UTC
     today = datetime.now(utc).replace(microsecond=0)
     today_ = today.date()
@@ -394,7 +394,7 @@ async def longitude_latitude(client_id: str, redis) -> list[dict]:
     previous_monday_with_time = datetime.combine(previous_monday, datetime.min.time()).replace(tzinfo=utc)
 
     # This DB/Redis fetch is I/O-bound → OK to call directly
-    df = await run_cpu_task(get_or_create_weekly_df, client_id, "chat_messages", redis)
+    df = await run_cpu_task(get_or_create_weekly_df, client_id, "chat_messages", redis, cpu_pool, cpu_sem)
     if df.empty:
         return []
 
@@ -417,7 +417,7 @@ async def longitude_latitude(client_id: str, redis) -> list[dict]:
         return longlat_data
 
     # Run the pandas computation in the process pool
-    longlat_data = await run_cpu_task(process_dataframe, df)
+    longlat_data = await run_cpu_task(process_dataframe, df, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
     return longlat_data
 
 
@@ -442,7 +442,8 @@ def process_longitude_latitude_detailed(rows, columns):
 # --- Wrapper (async) ---
 async def longitude_latitude_detailed(
     year, month, day, hour, minutes, seconds,
-    year_end, month_end, day_end, hour_end, minutes_end, seconds_end
+    year_end, month_end, day_end, hour_end, minutes_end, seconds_end,
+    cpu_pool, cpu_sem
 ):
     from_ = datetime(year, month, day, hour, minutes, seconds, tzinfo=pytz.UTC)
     to_ = datetime(year_end, month_end, day_end, hour_end, minutes_end, seconds_end, tzinfo=pytz.UTC)
@@ -461,18 +462,20 @@ async def longitude_latitude_detailed(
     # Run heavy part in process pool
     return await run_cpu_task(
         process_longitude_latitude_detailed,
-        rows, columns
+        rows, columns,
+        cpu_pool=cpu_pool,
+        cpu_sem=cpu_sem
     )
  
 
-async def fetch_chat_messages_weekly(start_date, end_date, client_id, timezone_str):
+async def fetch_chat_messages_weekly(start_date, end_date, client_id, timezone_str, redis, cpu_pool, cpu_sem):
     # Fetch dataframe (already async + handles CPU heavy parts internally)
-    df = await get_or_create_weekly_df(client_id, "chat_messages")
+    df = await get_or_create_weekly_df(client_id, "chat_messages", redis, cpu_pool, cpu_sem)
     if df.empty:
         return [], []
 
     # Push Pandas filtering/grouping into process pool
-    return await run_cpu_task(fetch_chat_messages_weekly_cpu, df, start_date, end_date, timezone_str)
+    return await run_cpu_task(fetch_chat_messages_weekly_cpu, df, start_date, end_date, timezone_str, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
 
 
 def fetch_chat_messages_weekly_cpu(df, start_date, end_date, timezone_str):

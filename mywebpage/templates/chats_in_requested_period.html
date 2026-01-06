@@ -55,430 +55,430 @@
     </div>
 
   </div> 
-    
-    <div class="table-container">
-      <div class="table-wrapper"></div>
-        <table id="myTable">
-          <thead>
-              <tr>
-                {% for column in columns %}
-                  {% if loop.index in [1, 2, 4, 5, 6] %}
-                    <th style="width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" data-lang="{{ column }}">{{ column }}</th>
-                  {% elif loop.index == 3 %}
-                    <th style="width: auto;" data-lang="{{ column }}">{{ column }}</th>
-                  {% else %}
-                    <th data-lang="{{ column }}">{{ column }}</th>
-                  {% endif %}
-                {% endfor %}
-              </tr>
-          </thead>
-          <tbody>
-              {% for row in rows %}
-                  <tr>
-                      {% for cell in row %}
-                          <td>{{ cell | safe }}</td>
-                      {% endfor %}
-                  </tr>
+  
+  <div class="table-container">
+    <div class="table-wrapper"></div>
+      <table id="myTable">
+        <thead>
+            <tr>
+              {% for column in columns %}
+                {% if loop.index in [1, 2, 4, 5, 6] %}
+                  <th style="width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" data-lang="{{ column }}">{{ column }}</th>
+                {% elif loop.index == 3 %}
+                  <th style="width: auto;" data-lang="{{ column }}">{{ column }}</th>
+                {% else %}
+                  <th data-lang="{{ column }}">{{ column }}</th>
+                {% endif %}
               {% endfor %}
-          </tbody>
-        </table>
-      </div>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+                <tr>
+                    {% for cell in row %}
+                        <td>{{ cell | safe }}</td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+      </table>
     </div>
-    
-    <script>
-      const topicCounts = {{ topic_counts | tojson }};
-      const topicKeyMap = {
-        "Termékérdeklődés": "inquiry",
-        "Vásárlási szándék": "intention",
-        "Ár és promóció": "price",
-        "Panaszok és problémák": "complaint",
-        "Szolgáltatás": "service",
-        "Egyéb": "other",
-        "Összes": "all"
+  </div>
+  
+  <script>
+    const topicCounts = {{ topic_counts | tojson }};
+    const topicKeyMap = {
+      "Termékérdeklődés": "inquiry",
+      "Vásárlási szándék": "intention",
+      "Ár és promóció": "price",
+      "Panaszok és problémák": "complaint",
+      "Szolgáltatás": "service",
+      "Egyéb": "other",
+      "Összes": "all"
+    };
+
+
+    const topicFromServer = "{{ topic }}";
+
+
+    function updateTopicHeader(language) {
+      const topicTranslations = {
+        hu: {
+          all: "Összes üzenet",
+          inquiry: "Chat termékekről",
+          intention: "Vásárlási szándék",
+          price: "Chat árakról és promóciókról",
+          complaint: "Panaszok és problémák",
+          service: "Beszélgetés szolgáltatásokról",
+          other: "Egyéb üzenetek"
+        },
+        en: {
+          all: "All messages",
+          inquiry: "Product inquiries",
+          intention: "Intention to purchase",
+          price: "Chats about price and promotion",
+          complaint: "Complaints and issues",
+          service: "Service-related chats",
+          other: "Other messages"
+        }
       };
 
+      const topicKey = topicKeyMap[topicFromServer];
+      if (!topicKey) return; // if no topic, skip
 
-      const topicFromServer = "{{ topic }}";
+      const header1Elements = document.querySelectorAll(
+        ".date-container-wide h1, .date-container-narrow h1"
+      );
+      const headerText = topicTranslations[language][topicKey];
+      if (!headerText) return;
 
-
-      function updateTopicHeader(language) {
-        const topicTranslations = {
-          hu: {
-            all: "Összes üzenet",
-            inquiry: "Chat termékekről",
-            intention: "Vásárlási szándék",
-            price: "Chat árakról és promóciókról",
-            complaint: "Panaszok és problémák",
-            service: "Beszélgetés szolgáltatásokról",
-            other: "Egyéb üzenetek"
-          },
-          en: {
-            all: "All messages",
-            inquiry: "Product inquiries",
-            intention: "Intention to purchase",
-            price: "Chats about price and promotion",
-            complaint: "Complaints and issues",
-            service: "Service-related chats",
-            other: "Other messages"
-          }
-        };
-
-        const topicKey = topicKeyMap[topicFromServer];
-        if (!topicKey) return; // if no topic, skip
-
-        const header1Elements = document.querySelectorAll(
-          ".date-container-wide h1, .date-container-narrow h1"
-        );
-        const headerText = topicTranslations[language][topicKey];
-        if (!headerText) return;
-
-        header1Elements.forEach(el => {
-          el.textContent = headerText;
-        });
-      }
+      header1Elements.forEach(el => {
+        el.textContent = headerText;
+      });
+    }
 
 
-      function navigateToTopic(topic) {
-          const params = new URLSearchParams(window.location.search);
+    function navigateToTopic(topic) {
+        const params = new URLSearchParams(window.location.search);
 
-          // Parse the backend-provided dates into JS Date objects
-          const startDate = new Date("{{ start_date.isoformat() }}");
-          const endDate = new Date("{{ end_date.isoformat() }}");
+        // Parse the backend-provided dates into JS Date objects
+        const startDate = new Date("{{ start_date.isoformat() }}");
+        const endDate = new Date("{{ end_date.isoformat() }}");
 
-          if (topic === "Összes") {
-              const baseUrl = `/chats_in_requested_period`;
+        if (topic === "Összes") {
+            const baseUrl = `/chats_in_requested_period`;
 
-              // Extract components dynamically from start and end
-              params.set("year", startDate.getFullYear());
-              params.set("month", String(startDate.getMonth() + 1).padStart(2, "0"));
-              params.set("day", String(startDate.getDate()).padStart(2, "0"));
-              params.set("hour", String(startDate.getHours()).padStart(2, "0"));
-              params.set("minutes", String(startDate.getMinutes()).padStart(2, "0"));
-              params.set("seconds", String(startDate.getSeconds()).padStart(2, "0"));
+            // Extract components dynamically from start and end
+            params.set("year", startDate.getFullYear());
+            params.set("month", String(startDate.getMonth() + 1).padStart(2, "0"));
+            params.set("day", String(startDate.getDate()).padStart(2, "0"));
+            params.set("hour", String(startDate.getHours()).padStart(2, "0"));
+            params.set("minutes", String(startDate.getMinutes()).padStart(2, "0"));
+            params.set("seconds", String(startDate.getSeconds()).padStart(2, "0"));
 
-              params.set("year_end", endDate.getFullYear());
-              params.set("month_end", String(endDate.getMonth() + 1).padStart(2, "0"));
-              params.set("day_end", String(endDate.getDate()).padStart(2, "0"));
-              params.set("hour_end", String(endDate.getHours()).padStart(2, "0"));
-              params.set("minutes_end", String(endDate.getMinutes()).padStart(2, "0"));
-              params.set("seconds_end", String(endDate.getSeconds()).padStart(2, "0"));
+            params.set("year_end", endDate.getFullYear());
+            params.set("month_end", String(endDate.getMonth() + 1).padStart(2, "0"));
+            params.set("day_end", String(endDate.getDate()).padStart(2, "0"));
+            params.set("hour_end", String(endDate.getHours()).padStart(2, "0"));
+            params.set("minutes_end", String(endDate.getMinutes()).padStart(2, "0"));
+            params.set("seconds_end", String(endDate.getSeconds()).padStart(2, "0"));
 
-              params.set("language", "{{ language }}");
-              params.set("frequency", "{{ frequency }}");
+            params.set("language", "{{ language }}");
+            params.set("frequency", "{{ frequency }}");
 
-              window.location.href = `${baseUrl}?${params.toString()}`;
-              return;
-          }
-
-          const baseUrl = `/chats_in_requested_period/topic`;
-
-          params.set("topic", topic);
-          params.set("start_date", "{{ start_date.isoformat() }}");
-          params.set("end_date", "{{ end_date.isoformat() }}");
-          params.set("language", "{{ language }}");
-          params.set("frequency", "{{ frequency }}");
-
-          window.location.href = `${baseUrl}?${params.toString()}`;
-      }
-
-      function updateDropdownCounts(topicCounts, language) {
-          // Find all dropdown links
-          const dropdownLinks = document.querySelectorAll('.resource-dropdown-content a');
-          
-          // Reset them first (remove any previous counts)
-          dropdownLinks.forEach(link => {
-            const key = link.dataset.lang;
-            link.textContent = translations[language][key];
-          });
-
-          // Loop over each topic count and append "(X chat)" or "(X chats)"
-          topicCounts.forEach(item => {
-            const key = topicKeyMap[item.topic_classification];
-            if (!key) return; // skip unknowns
-            const link = document.querySelector(`.resource-dropdown-content a[data-lang="${key}"]`);
-            if (link) {
-              const countText = language === 'hu'
-                ? ` (${item.count} chat)`
-                : ` (${item.count} chats)`;
-              link.textContent += countText;
-            }
-          });
+            window.location.href = `${baseUrl}?${params.toString()}`;
+            return;
         }
 
-      const dropdownWrapper = document.querySelector('.dropdown');
-      var buttonSubscription = document.getElementById('buttonSubscription');
-      var resourcedropdownContent = document.getElementById('resourcedropdownContent');
+        const baseUrl = `/chats_in_requested_period/topic`;
 
-      function showDropdown(dropdown, button) {
-        dropdown.style.display = 'block';
-        button.classList.add('active');
+        params.set("topic", topic);
+        params.set("start_date", "{{ start_date.isoformat() }}");
+        params.set("end_date", "{{ end_date.isoformat() }}");
+        params.set("language", "{{ language }}");
+        params.set("frequency", "{{ frequency }}");
+
+        window.location.href = `${baseUrl}?${params.toString()}`;
     }
 
-    function hideDropdown(dropdown, button) {
-        dropdown.style.display = 'none';
-        button.classList.remove('active');
+    function updateDropdownCounts(topicCounts, language) {
+        // Find all dropdown links
+        const dropdownLinks = document.querySelectorAll('.resource-dropdown-content a');
+        
+        // Reset them first (remove any previous counts)
+        dropdownLinks.forEach(link => {
+          const key = link.dataset.lang;
+          link.textContent = translations[language][key];
+        });
+
+        // Loop over each topic count and append "(X chat)" or "(X chats)"
+        topicCounts.forEach(item => {
+          const key = topicKeyMap[item.topic_classification];
+          if (!key) return; // skip unknowns
+          const link = document.querySelector(`.resource-dropdown-content a[data-lang="${key}"]`);
+          if (link) {
+            const countText = language === 'hu'
+              ? ` (${item.count} chat)`
+              : ` (${item.count} chats)`;
+            link.textContent += countText;
+          }
+        });
+      }
+
+    const dropdownWrapper = document.querySelector('.dropdown');
+    var buttonSubscription = document.getElementById('buttonSubscription');
+    var resourcedropdownContent = document.getElementById('resourcedropdownContent');
+
+    function showDropdown(dropdown, button) {
+      dropdown.style.display = 'block';
+      button.classList.add('active');
+  }
+
+  function hideDropdown(dropdown, button) {
+      dropdown.style.display = 'none';
+      button.classList.remove('active');
+  }
+
+    if (dropdownWrapper) {
+      dropdownWrapper.addEventListener('mouseenter', function() {
+        showDropdown(resourcedropdownContent, buttonSubscription);
+      });
+
+      dropdownWrapper.addEventListener('mouseleave', function() {
+        setTimeout(function() {
+          if (
+            !resourcedropdownContent.matches(':hover') &&
+            !dropdownWrapper.matches(':hover')
+          ) {
+            hideDropdown(resourcedropdownContent, buttonSubscription);
+          }
+        }, 100);
+      });
     }
 
-      if (dropdownWrapper) {
-        dropdownWrapper.addEventListener('mouseenter', function() {
-          showDropdown(resourcedropdownContent, buttonSubscription);
-        });
+    // --- Metrics link click handler ---
+    const statsLink = document.getElementById('statsLink');
+    if (statsLink) {
+      statsLink.addEventListener('click', function(event) {
+        event.preventDefault();
 
-        dropdownWrapper.addEventListener('mouseleave', function() {
-          setTimeout(function() {
-            if (
-              !resourcedropdownContent.matches(':hover') &&
-              !dropdownWrapper.matches(':hover')
-            ) {
-              hideDropdown(resourcedropdownContent, buttonSubscription);
-            }
-          }, 100);
-        });
-      }
+        // Parse the backend-provided dates into JS Date objects
+        const startDate = new Date("{{ start_date.isoformat() }}");
+        const endDate = new Date("{{ end_date.isoformat() }}");
 
-      // --- Metrics link click handler ---
-      const statsLink = document.getElementById('statsLink');
-      if (statsLink) {
-        statsLink.addEventListener('click', function(event) {
-          event.preventDefault();
+        const params = new URLSearchParams();
 
-          // Parse the backend-provided dates into JS Date objects
-          const startDate = new Date("{{ start_date.isoformat() }}");
-          const endDate = new Date("{{ end_date.isoformat() }}");
+        // Start date parts
+        params.set("year", startDate.getFullYear());
+        params.set("month", String(startDate.getMonth() + 1).padStart(2, "0"));
+        params.set("day", String(startDate.getDate()).padStart(2, "0"));
+        params.set("hour", String(startDate.getHours()).padStart(2, "0"));
+        params.set("minutes", String(startDate.getMinutes()).padStart(2, "0"));
+        params.set("seconds", String(startDate.getSeconds()).padStart(2, "0"));
 
-          const params = new URLSearchParams();
+        // End date parts
+        params.set("year_end", endDate.getFullYear());
+        params.set("month_end", String(endDate.getMonth() + 1).padStart(2, "0"));
+        params.set("day_end", String(endDate.getDate()).padStart(2, "0"));
+        params.set("hour_end", String(endDate.getHours()).padStart(2, "0"));
+        params.set("minutes_end", String(endDate.getMinutes()).padStart(2, "0"));
+        params.set("seconds_end", String(endDate.getSeconds()).padStart(2, "0"));
 
-          // Start date parts
-          params.set("year", startDate.getFullYear());
-          params.set("month", String(startDate.getMonth() + 1).padStart(2, "0"));
-          params.set("day", String(startDate.getDate()).padStart(2, "0"));
-          params.set("hour", String(startDate.getHours()).padStart(2, "0"));
-          params.set("minutes", String(startDate.getMinutes()).padStart(2, "0"));
-          params.set("seconds", String(startDate.getSeconds()).padStart(2, "0"));
+        // Other parameters from backend
+        params.set("language", "{{ language }}");
+        params.set("frequency", "{{ frequency }}");
+        params.set("topic", topic);
 
-          // End date parts
-          params.set("year_end", endDate.getFullYear());
-          params.set("month_end", String(endDate.getMonth() + 1).padStart(2, "0"));
-          params.set("day_end", String(endDate.getDate()).padStart(2, "0"));
-          params.set("hour_end", String(endDate.getHours()).padStart(2, "0"));
-          params.set("minutes_end", String(endDate.getMinutes()).padStart(2, "0"));
-          params.set("seconds_end", String(endDate.getSeconds()).padStart(2, "0"));
-
-          // Other parameters from backend
-          params.set("language", "{{ language }}");
-          params.set("frequency", "{{ frequency }}");
-          params.set("topic", topic);
-
-          // Build the target URL and open it in a new tab
-          const url = `/productbreakdown_topics?${params.toString()}`;
-          window.open(url, '_blank');
-        });
-      }
-
-
-       
-
-      // Get the table element
-      const table = document.getElementById('myTable');
-      const rows = Array.from(table.getElementsByTagName('tr')).slice(1); // Get all rows except the header
-    
-      // Function to group rows by date
-      function groupByDate(rows) {
-          const groups = {};
-          rows.forEach(row => {
-              const createdAt = row.getElementsByTagName('td')[0].textContent.trim();
-              const dateOnly = createdAt.split(' ')[0]; // Extract only the date
-              if (!groups[dateOnly]) {
-                  groups[dateOnly] = [];
-              }
-              groups[dateOnly].push(row);
-          });
-          return groups;
-      }
-    
-      // Function to sort rows within each date group
-      function sortWithinGroup(group) {
-          return group.sort((a, b) => {
-              const createdAtA = a.getElementsByTagName('td')[0].textContent.trim();
-              const createdAtB = b.getElementsByTagName('td')[0].textContent.trim();
-              const userIdA = a.getElementsByTagName('td')[1].textContent.trim();
-              const userIdB = b.getElementsByTagName('td')[1].textContent.trim();
-              
-              // Sort by created_at, then by user_id
-              if (createdAtA < createdAtB) return -1;
-              if (createdAtA > createdAtB) return 1;
-              if (userIdA < userIdB) return -1;
-              if (userIdA > userIdB) return 1;
-              return 0;
-          });
-      }
-    
-      // Function to reorder rows by user_id within each date group
-      function reorderByUserId(sortedRows) {
-          const userGroups = {};
-          sortedRows.forEach(row => {
-              const userId = row.getElementsByTagName('td')[1].textContent.trim();
-              if (!userGroups[userId]) {
-                  userGroups[userId] = [];
-              }
-              userGroups[userId].push(row);
-          });
-    
-          const reorderedRows = [];
-          Object.keys(userGroups).sort((a, b) => {
-              // Compare by the earliest created_at within each user group
-              const firstRowA = userGroups[a][0];
-              const firstRowB = userGroups[b][0];
-              const createdAtA = firstRowA.getElementsByTagName('td')[0].textContent.trim();
-              const createdAtB = firstRowB.getElementsByTagName('td')[0].textContent.trim();
-              return createdAtA.localeCompare(createdAtB);
-          }).forEach(userId => {
-              reorderedRows.push(...userGroups[userId]);
-          });
-    
-          return reorderedRows;
-      }
-    
-      // Main processing
-      const groupedRows = groupByDate(rows);
-      let finalRows = [];
-    
-      Object.keys(groupedRows).sort().forEach(date => {
-          const sortedRows = sortWithinGroup(groupedRows[date]);
-          const reorderedRows = reorderByUserId(sortedRows);
-          finalRows.push(...reorderedRows);
+        // Build the target URL and open it in a new tab
+        const url = `/productbreakdown_topics?${params.toString()}`;
+        window.open(url, '_blank');
       });
-    
-      // Clear the current table body
-      const tbody = table.getElementsByTagName('tbody')[0];
-      tbody.innerHTML = '';
-    
-      // Append the final sorted and reordered rows
-      finalRows.forEach(row => {
-          tbody.appendChild(row);
-      });
-    
-      // Now, apply background colors
-      let previousUserId = null;
-      let previousDate = null;
-      let isEven = false;
-    
-      finalRows.forEach(row => {
-          const cells = row.getElementsByTagName('td');
-          const createdAt = cells[0].textContent.trim();
-          const userId = cells[1].textContent.trim();
-          const dateOnly = createdAt.split(' ')[0];
-    
-          if (userId !== previousUserId || dateOnly !== previousDate) {
-              isEven = !isEven;
-              previousUserId = userId;
-              previousDate = dateOnly;
-          }
-    
-          if (isEven) {
-              row.classList.add('bg-color-even');
-          } else {
-              row.classList.add('bg-color-odd');
-          }
-      });
+    }
 
-      const translations = {
-            en: {
-                created_at: "Arrival date",
-                chattopic: "Chat Topics",
-                inquiry: "Interest in the product",
-                intention: "Intention to purchase",
-                price: "Price and promotion",
-                complaint: "Complaints and issues",
-                service: "Service",
-                other: "Other",
-                all: "All",
-                user_id: "User ID",
-                message: "Message",
-                latitude: "Latitude",
-                longitude: "Longitude",
-                location: "Location",
-                header1:"Chat Messages",
-                header2:"/ {{start_date}} to {{end_date}} /",
-                header3:"/ {{start_date}} to  ",
-                header4:"/ {{end_date}} /",
-                user_label: "USER",
-                assistant_label: "ASSISTANT",
-                statistics: metrics
-            },
-            hu: {
-                created_at: "Beérkezés",
-                chattopic: "Chat Témakörök",
-                inquiry: "Érdeklődés termékről",
-                intention: "Vásárlási szándék",
-                price: "Ár és promóció",
-                complaint: "Panaszok és problémák",
-                service: "Szolgáltatás",
-                other:"Egyéb",
-                all:"Összes",
-                user_id: "Azonosító",
-                message: "Üzenet",
-                latitude: "Szélesség",
-                longitude: "Hosszúság",
-                location: "Hely",
-                header1:"Üzenetek",
-                header2:"/ {{start_date}} - {{end_date}} /",
-                header3:"/ {{start_date}} -  ",
-                header4:"/ {{end_date}} /",
-                user_label: "ÜGYFÉL",
-                assistant_label: "ASSZISZTENS",
-                statistics: metrikák
-            }
-            };
 
-              // Set language on page load
       
-    
-      // Set language on page load
-      window.onload = function() {
-          if (typeof translations !== 'undefined') {
-              // Use backend-provided language if available, otherwise use localStorage, otherwise default to 'hu'
-              const backendLang = "{{ language }}"; // Jinja variable
-              const storedLang = localStorage.getItem('language');
-              const language = backendLang && backendLang !== "" ? backendLang : (storedLang || 'hu');
 
-              setLanguage(language);
-              updateTopicHeader(language);
-          }
-      };
-
-      function setLanguage(language) {
-        console.log("Setting language:", language);
-        document.querySelectorAll('[data-lang]').forEach(element => {
-          const langKey = element.getAttribute('data-lang');
-          const translation = translations[language][langKey];
-
-          if (translation) {
-            if (element.hasAttribute('placeholder')) {
-              // For inputs like <input placeholder="...">
-              element.setAttribute('placeholder', translation);
-            }else if(element.tagName === "INPUT" && element.type === "submit") {
-            // For submit buttons
-            element.value = translation;
-              
-            } else {
-              // For regular elements like <div>, <span>, etc.
-              element.innerHTML = translation;
+    // Get the table element
+    const table = document.getElementById('myTable');
+    const rows = Array.from(table.getElementsByTagName('tr')).slice(1); // Get all rows except the header
+  
+    // Function to group rows by date
+    function groupByDate(rows) {
+        const groups = {};
+        rows.forEach(row => {
+            const createdAt = row.getElementsByTagName('td')[0].textContent.trim();
+            const dateOnly = createdAt.split(' ')[0]; // Extract only the date
+            if (!groups[dateOnly]) {
+                groups[dateOnly] = [];
             }
-          }
+            groups[dateOnly].push(row);
         });
-        // Update dynamic labels inside messages
-        document.querySelectorAll('[data-role="user"]').forEach(el => {
-            el.textContent = translations[language].user_label;
+        return groups;
+    }
+  
+    // Function to sort rows within each date group
+    function sortWithinGroup(group) {
+        return group.sort((a, b) => {
+            const createdAtA = a.getElementsByTagName('td')[0].textContent.trim();
+            const createdAtB = b.getElementsByTagName('td')[0].textContent.trim();
+            const userIdA = a.getElementsByTagName('td')[1].textContent.trim();
+            const userIdB = b.getElementsByTagName('td')[1].textContent.trim();
+            
+            // Sort by created_at, then by user_id
+            if (createdAtA < createdAtB) return -1;
+            if (createdAtA > createdAtB) return 1;
+            if (userIdA < userIdB) return -1;
+            if (userIdA > userIdB) return 1;
+            return 0;
         });
-
-        document.querySelectorAll('[data-role="assistant"]').forEach(el => {
-            el.textContent = translations[language].assistant_label;
+    }
+  
+    // Function to reorder rows by user_id within each date group
+    function reorderByUserId(sortedRows) {
+        const userGroups = {};
+        sortedRows.forEach(row => {
+            const userId = row.getElementsByTagName('td')[1].textContent.trim();
+            if (!userGroups[userId]) {
+                userGroups[userId] = [];
+            }
+            userGroups[userId].push(row);
         });
-        if (typeof topicCounts !== 'undefined') {
-          updateDropdownCounts(topicCounts, language);
+  
+        const reorderedRows = [];
+        Object.keys(userGroups).sort((a, b) => {
+            // Compare by the earliest created_at within each user group
+            const firstRowA = userGroups[a][0];
+            const firstRowB = userGroups[b][0];
+            const createdAtA = firstRowA.getElementsByTagName('td')[0].textContent.trim();
+            const createdAtB = firstRowB.getElementsByTagName('td')[0].textContent.trim();
+            return createdAtA.localeCompare(createdAtB);
+        }).forEach(userId => {
+            reorderedRows.push(...userGroups[userId]);
+        });
+  
+        return reorderedRows;
+    }
+  
+    // Main processing
+    const groupedRows = groupByDate(rows);
+    let finalRows = [];
+  
+    Object.keys(groupedRows).sort().forEach(date => {
+        const sortedRows = sortWithinGroup(groupedRows[date]);
+        const reorderedRows = reorderByUserId(sortedRows);
+        finalRows.push(...reorderedRows);
+    });
+  
+    // Clear the current table body
+    const tbody = table.getElementsByTagName('tbody')[0];
+    tbody.innerHTML = '';
+  
+    // Append the final sorted and reordered rows
+    finalRows.forEach(row => {
+        tbody.appendChild(row);
+    });
+  
+    // Now, apply background colors
+    let previousUserId = null;
+    let previousDate = null;
+    let isEven = false;
+  
+    finalRows.forEach(row => {
+        const cells = row.getElementsByTagName('td');
+        const createdAt = cells[0].textContent.trim();
+        const userId = cells[1].textContent.trim();
+        const dateOnly = createdAt.split(' ')[0];
+  
+        if (userId !== previousUserId || dateOnly !== previousDate) {
+            isEven = !isEven;
+            previousUserId = userId;
+            previousDate = dateOnly;
         }
+  
+        if (isEven) {
+            row.classList.add('bg-color-even');
+        } else {
+            row.classList.add('bg-color-odd');
+        }
+    });
+
+    const translations = {
+          en: {
+              created_at: "Arrival date",
+              chattopic: "Chat Topics",
+              inquiry: "Interest in the product",
+              intention: "Intention to purchase",
+              price: "Price and promotion",
+              complaint: "Complaints and issues",
+              service: "Service",
+              other: "Other",
+              all: "All",
+              user_id: "User ID",
+              message: "Message",
+              latitude: "Latitude",
+              longitude: "Longitude",
+              location: "Location",
+              header1:"Chat Messages",
+              header2:"/ {{start_date}} to {{end_date}} /",
+              header3:"/ {{start_date}} to  ",
+              header4:"/ {{end_date}} /",
+              user_label: "USER",
+              assistant_label: "ASSISTANT",
+              statistics: metrics
+          },
+          hu: {
+              created_at: "Beérkezés",
+              chattopic: "Chat Témakörök",
+              inquiry: "Érdeklődés termékről",
+              intention: "Vásárlási szándék",
+              price: "Ár és promóció",
+              complaint: "Panaszok és problémák",
+              service: "Szolgáltatás",
+              other:"Egyéb",
+              all:"Összes",
+              user_id: "Azonosító",
+              message: "Üzenet",
+              latitude: "Szélesség",
+              longitude: "Hosszúság",
+              location: "Hely",
+              header1:"Üzenetek",
+              header2:"/ {{start_date}} - {{end_date}} /",
+              header3:"/ {{start_date}} -  ",
+              header4:"/ {{end_date}} /",
+              user_label: "ÜGYFÉL",
+              assistant_label: "ASSZISZTENS",
+              statistics: metrikák
+          }
+          };
+
+            // Set language on page load
+    
+  
+    // Set language on page load
+    window.onload = function() {
+        if (typeof translations !== 'undefined') {
+            // Use backend-provided language if available, otherwise use localStorage, otherwise default to 'hu'
+            const backendLang = "{{ language }}"; // Jinja variable
+            const storedLang = localStorage.getItem('language');
+            const language = backendLang && backendLang !== "" ? backendLang : (storedLang || 'hu');
+
+            setLanguage(language);
+            updateTopicHeader(language);
+        }
+    };
+
+    function setLanguage(language) {
+      console.log("Setting language:", language);
+      document.querySelectorAll('[data-lang]').forEach(element => {
+        const langKey = element.getAttribute('data-lang');
+        const translation = translations[language][langKey];
+
+        if (translation) {
+          if (element.hasAttribute('placeholder')) {
+            // For inputs like <input placeholder="...">
+            element.setAttribute('placeholder', translation);
+          }else if(element.tagName === "INPUT" && element.type === "submit") {
+          // For submit buttons
+          element.value = translation;
+            
+          } else {
+            // For regular elements like <div>, <span>, etc.
+            element.innerHTML = translation;
+          }
+        }
+      });
+      // Update dynamic labels inside messages
+      document.querySelectorAll('[data-role="user"]').forEach(el => {
+          el.textContent = translations[language].user_label;
+      });
+
+      document.querySelectorAll('[data-role="assistant"]').forEach(el => {
+          el.textContent = translations[language].assistant_label;
+      });
+      if (typeof topicCounts !== 'undefined') {
+        updateDropdownCounts(topicCounts, language);
       }
+    }
 
       function toggleDateContainers() {
   const wide = document.querySelector('.date-container-wide');

@@ -9,7 +9,7 @@ import pandas as pd
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 import copy
 from datetime import date, datetime, timedelta, time
-from dateutil.relativedelta import relativedelta2
+from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import scoped_session
@@ -17,16 +17,16 @@ from contextlib import contextmanager
 from sqlalchemy.exc import OperationalError
 from io import BytesIO
 from azure.storage.blob import BlobServiceClient
-from mywebpage import session_scope
-from mywebpage.datatransformation_detaileduserdata import get_or_create_detailed_df, run_cpu_task
 import pytz 
-from mywebpage import run_cpu_task, stream_chunks_from_redis, fetch_partitions_for_table_chunks, fetch_partition_rows_in_chunks_gen, store_chunk_in_redis, find_gaps_in_range, async_session_scope, list_blob_names_for_range, load_blob_in_chunks
-import json
+from mywebpage.datatransformation_detaileduserdata import stream_chunks_from_redis, fetch_partitions_for_table_chunks, fetch_partition_rows_in_chunks_gen, store_chunk_in_redis, find_gaps_in_range, list_blob_names_for_range, load_blob_in_chunks
+from mywebpage.db import async_session_scope
 from functools import reduce
 from copy import deepcopy
-
+import asyncio
 
 # Helper for datatransformation_for_chartjs
+
+from mywebpage.concurrency import run_cpu_task
 
 def merge_two_lists(list1, list2, breakdown="weekly"):
     """
