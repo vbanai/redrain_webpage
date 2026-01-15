@@ -300,7 +300,11 @@
     display: block;
 }
 
-
+.colleaguesWindow.show {
+    opacity: 0.84;
+    pointer-events: auto;
+    transform: translate(-50%, -50%) scale(1);
+}
 
 .invite_form.show {
     opacity: 0.84;
@@ -598,7 +602,7 @@ select {
       display: none;
       position: absolute;
       background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
-      min-width: 250px;
+      min-width: 233px;
       box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
       z-index: 1;
       border-radius: 10px;
@@ -612,7 +616,7 @@ select {
       display: none;
       position: absolute;
       background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
-      min-width: 250px;
+      min-width: 210px;
       box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
       z-index: 1;
       border-radius: 10px;
@@ -625,7 +629,7 @@ select {
       display: none;
       position: absolute;
       background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
-      min-width: 250px;
+      min-width: 210px;
       box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
       z-index: 1;
       border-radius: 10px;
@@ -638,6 +642,7 @@ select {
     .circle-dropdown-content a,
     .dropdown-content a {
       color: rgb(9, 13, 44);
+      font-size: clamp(0.85rem, 1.2vw, 1.1rem);
       padding: 12px 16px;
       text-decoration: none;
       display: block;
@@ -742,8 +747,35 @@ select {
         font-size: clamp(10px, 4vw, 14px);
       }
     }
+  
+    .colleagues-list {
+      list-style: none;
+      padding: 0;
+      margin-top: 10px;
+    }
 
+    .colleague-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 14px;
+    }
 
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .online {
+      background-color: #2ecc71; /* green */
+    }
+
+    .offline {
+      background-color: #bdc3c7; /* gray */
+    }
+ 
 
 
 
@@ -757,26 +789,27 @@ select {
     <div class="middle-section">
       <ul>
         <li class="nav_item">
-          <a href="#home" class="nav_link buttonsubscription" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" id="home" data-lang="home">Home</a>
+          <a href="/" class="nav_link buttonsubscription" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" id="home" data-lang="home">Home</a>
           <div id="navItem">
-            <a href="#services" class="buttonsubscription" id="buttonSubscription" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" data-lang="myservice">My Services</a>
+            <a href="#services" class="buttonsubscription" id="buttonSubscription" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" data-lang="chatwidget">Chat widget</a>
             <div class="dropdown-content" id="dropdownContent">
               {% if chat_control_access %}
-                <a href="#service1" id="dashboardLink0" data-lang="chatcontrol">Chat Control</a>
+                <a href="#service1" id="dashboardLink0" data-lang="design">Design</a>
               {% endif %}
               {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
-                <a href="#service1" id="dashboardLink" data-lang="metrics">ChatBot Metrics & Insights</a>
+                <a href="#service1" id="dashboardLink" data-lang="settings">Settings</a>
               {% endif %}
               {% if advanced_ai_access and user_role in ['Manager', 'Team Leader'] %}
-                <a href="{{ url_for('predictive_dashboard') }}" data-lang="prediction">Advanced AI Predictive Solutions</a>
+                <a href="{{ url_for('predictive_dashboard') }}" data-lang="sample">Sample</a>
               {% endif %}
               </div>
           </div>
           <!-- <a href="#services" class="nav_link buttonsubscription" id="form-open">Resource Management</a> -->
           {% if user_role in ['Manager', 'Team Leader'] %}
             <div id="navItem2">
-              <a href="#services" class="buttonsubscription" id="buttonSubscription" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" data-lang="resourcemanagement">Resource Management</a>
+              <a href="#services" class="buttonsubscription" id="buttonSubscription2" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" data-lang="resourcemanagement">Resources</a>
               <div class="resource-dropdown-content" id="resourcedropdownContent">
+                <a href="#" id="form-colleagues" data-lang="colleaguesonline">Colleagues on board</a>
                 <a href="#service1" id="form-Invitation" data-lang="invitation">Invitation</a>
                 <a href="#" id="form-roleManagement" data-lang="manageroles">Manage Roles</a>
                 <a href="#service1" id="form-Removal" data-lang="removeresource">Remove Resource</a>
@@ -822,16 +855,40 @@ select {
       
     </div>
   </div>
-  
+  <input type="hidden" id="csrf_access_token" value="{{ csrf_token }}">
   <section class="home" id="home">
-   
+    <!-- REGSISTERED COLLEAGUES -->
+    
+    
+
+    <div class="form_container colleaguesWindow">
+      <i class="uil uil-times form_close" id="closeColleagues"></i>
+
+      <div class="form signup_form">
+        <h2
+          style="color:#283255; text-align:center;"
+          data-lang="colleaguesonline"
+        >
+          Munkatársak elérhetősége
+        </h2>
+
+        <ul id="colleaguesList" class="colleagues-list">
+          <!-- populated by JS -->
+        </ul>
+      </div>
+    </div>
+
+    
+    
+<!--     
+    INVITATION -->
+    
     <div class="form_container invite_form">
       <i class="uil uil-times form_close" id="closeInvite"></i>
       
       <div class="form signup_form" >
         <form id="inviteForm" method="post">
-          <!-- <meta name="csrf-token" content="{{ csrf_token() }}"> -->
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          
           <input type="hidden" name="user_role" value="{{ user_role }}">
           <input type="hidden" name="First_character" value="{{ First_character }}">
           <input type="hidden" name="email_prefix" value="{{ email_prefix }}">
@@ -842,15 +899,7 @@ select {
           <input type="hidden" name="advanced_ai_access" value="{{ advanced_ai_access }}">
           <input type="hidden" name="form_type" value="invite_user">
 
-          <!-- {% with messages = get_flashed_messages() %}
-            {% if messages %}
-              <ul class="flash-messages">
-                {% for message in messages %}
-                  <li>{{ message }}</li>
-                {% endfor %}
-              </ul>
-            {% endif %}
-          {% endwith %} -->
+          
           <h2 style="color: #283255; font-size: clamp(14px, 1.6vw, 34px); text-align: center;" data-lang="invitenewusers">Invite New Users</h2>
           <div class="input_box">
             <p class="input_group_label" style="font-size: clamp(9px, 1vw, 14px)" data-lang="enteremails">Enter email(s) separated by comas:</p>
@@ -881,13 +930,14 @@ select {
         </form>
       </div>
     </div>
+<!-- 
+    ROLE MANAGEMENT -->
 
     <div class="form_container roleManagement">
       <i class="uil uil-times form_close" id="closeRoleManagement"></i>
       <div class="form signup_form" >
-        <form id="roleManagementForm" method="post">
-          <!-- <meta name="csrf-token" content="{{ csrf_token() }}"> -->
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <form id="roleManagementForm" method="post">
+          
           <input type="hidden" name="user_role" value="{{ user_role }}">
           <input type="hidden" name="First_character" value="{{ First_character }}">
           <input type="hidden" name="email_prefix" value="{{ email_prefix }}">
@@ -931,15 +981,14 @@ select {
 
 
 
-
-
+<!-- 
+    RESOURCE REMOVAL -->
 
     <div class="form_container resourceRemoval">
       <i class="uil uil-times form_close" id="closeResourceRemoval"></i>
       <div class="form signup_form" >
-        <form id="userRemovalForm" method="post">
-          <!-- <meta name="csrf-token" content="{{ csrf_token() }}"> -->
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <form id="userRemovalForm" method="post">
+         
           <input type="hidden" name="user_role" value="{{ user_role }}">
           <input type="hidden" name="First_character" value="{{ First_character }}">
           <input type="hidden" name="email_prefix" value="{{ email_prefix }}">
@@ -969,7 +1018,7 @@ select {
       
     
     <div class="inner_container" >
-      <h1 class="greeting slogan" style="color: white; margin-bottom: 3px; font-size: clamp(13px, 2vw, 20px); font-family: 'Inter', sans-serif; " data-lang="greeting">Hello {{ name }} from {{ client_name }}, Welcome to your subscription!</h2>
+      <h1 class="greeting slogan" style="max-width: 100%; text-align: center; color: white; margin-bottom: 6px; font-size: clamp(13px, 2vw, 20px); font-family: 'Inter', sans-serif; " data-lang="greeting">Hello {{ name }} from {{ client_name }}, Welcome to your subscription!</h2>
       <p class="greeting2" style="color: white; font-size: clamp(10px, 1.3vw, 15px);" data-lang="greeting2"> Please select a service</p>
       <!-- Your form or other content goes here -->
     </div>
@@ -994,7 +1043,7 @@ select {
               
               <!-- Chatbot Metrics & Insights: Accessible to Manager and Team Leader with Basic, Gold, or Platinum subscriptions -->
               {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
-                  <a href="{{ url_for('dashboard_vbanai') }}" class="container-chat-grid">
+                  <a href="/dashboard_vbanai" class="container-chat-grid">
                       <p class="chatbot-title" style="color: white; margin-top: 5px; font-size: clamp(10px, 1.4vw, 17px);" data-lang="metrics" >Chatbot Metrics & Insights</p>
                       <div class="image-link">
                           <img src="static/Data extraction-pana.png" alt="Clickable Image" />
@@ -1004,7 +1053,7 @@ select {
               
               <!-- Advanced AI Predictive Solutions: Accessible to Manager and Team Leader with Platinum subscription -->
               {% if advanced_ai_access and user_role in ['Manager', 'Team Leader'] %}
-                  <a href="{{ url_for('predictive_dashboard') }}"  class="container-chat-grid">
+                  <a href="/predictive_dashboard"  class="container-chat-grid">
                       <p class="chatbot-title" style="color: white; margin-top: 5px; font-size: clamp(10px, 1.4vw, 17px);" data-lang="prediction">Advanced AI Predictive Solutions</p>
                       <div class="image-link">
                           <img src="static/robotic-process-automation-illustration.png" style="object-fit: contain" alt="Clickable Image" />
@@ -1035,6 +1084,13 @@ select {
     var home = document.querySelector(".home");
     var navItem = document.getElementById('navItem');
     var navItem2 = document.getElementById('navItem2');
+    var dropdownContent = document.getElementById('dropdownContent');
+    
+    console.log("-------------------")
+    console.log("navItem:", navItem);
+    console.log("navItem2:", navItem2);
+    console.log("dropdowncontent:", dropdownContent)
+    console.log("-------------------")
 
 
     
@@ -1050,7 +1106,7 @@ select {
     var formOpenRoles = document.getElementById("form-roleManagement");
     var formLinkOpenRemoval = document.getElementById("form-Removal");
     
-    var dropdownContent = document.getElementById('dropdownContent');
+    
     var resourcedropdownContent = document.getElementById('resourcedropdownContent');
     var buttonSubscription = document.getElementById('buttonSubscription');
     var buttonSubscription2 = document.getElementById('buttonSubscription2');
@@ -1068,7 +1124,12 @@ select {
     var circleDashboardLink2= document.getElementById('circleDashboardLink2');
     var dropdownRole = document.getElementById("userDropdownRole");
     var dropdownRemoval = document.getElementById("userDropdownRemoval");
+    var colleaguesBtn = document.getElementById("form-colleagues");
+    var colleaguesWindow = document.querySelector(".colleaguesWindow");
+    var closeColleagues = document.getElementById("closeColleagues");
 
+
+      
     if (dropdownRole) {
     dropdownRole.addEventListener("click", function () {
       const selectedValue = dropdownRole.value;
@@ -1142,26 +1203,36 @@ select {
 
 
 
+  function resetForms() {
+    home.classList.remove("show");
 
-
+    [formFormInvitation, formFormRoleManagement, formFormResourceRemoval].forEach(f => {
+        f.classList.remove("show");
+        f.style.opacity = "";
+        f.style.pointerEvents = "";
+        f.style.transform = "";
+        f.style.display = "";
+    });
+}
 
      // Function to show a form
     function showForm(formToShow) {
         // Hide both forms
-        formFormInvitation.classList.remove("show");
-        formFormRoleManagement.classList.remove("show");
-        formFormResourceRemoval.classList.remove("show");
+        resetForms();
        
-        // Show the selected form
-        formToShow.classList.add("show");
         
         // Add blur effect to the home section
         home.classList.add("show");
+
+        
+        // Show the selected form
+        formToShow.classList.add("show");
     }
 
     // Event listener to open the Invitation form
     if (formOpenInvite) {
     formOpenInvite.addEventListener("click", (e) => {
+        
         e.preventDefault();
         showForm(formFormInvitation);
     });
@@ -1178,8 +1249,7 @@ select {
     // Event listener to close forms
     if (closeInviteButton) {
     closeInviteButton.addEventListener("click", () => {
-        formFormInvitation.classList.remove("show");
-        home.classList.remove("show"); // Remove blur effect
+        resetForms();
     });
   }
   if (formLinkOpenRemoval) {
@@ -1190,16 +1260,14 @@ select {
   }
   if (closeRoleManagementButton) {
     closeRoleManagementButton.addEventListener("click", () => {
-        formFormRoleManagement.classList.remove("show");
-        home.classList.remove("show"); // Remove blur effect
+        resetForms();
     });
   }
   if (closeResourceRemoval) {
     closeResourceRemoval.addEventListener("click", () => {
-      formFormResourceRemoval.classList.remove("show");
-        home.classList.remove("show"); // Remove blur effect
-    });
-  }
+      resetForms();
+    }
+    )};
       
     // formOpenBtn.addEventListener("click", () => home.classList.add("show"));
     // formCloseBtn.addEventListener("click", () => home.classList.remove("show"));
@@ -1223,9 +1291,105 @@ select {
     }
 
 
+
+
+
+
+
+
+
     //////////////////////////////////////////////////////////
-    /////     RESOURCE MANAGEMENT SUBMIT BUTTONS       //////
+    /////     RESOURCE MANAGEMENT                      //////
+    ////////////////////////////////////////////////////////
+
+     //////////////////////////////////////////////////////////
+    /////     RESOURCE MANAGEMENT                       //////
     /////////////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////
+    /////     RESOURCE MANAGEMENT                       //////
+    /////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
+    // REGISTERED USERS
+    
+    if (colleaguesBtn) {
+        colleaguesBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            colleaguesWindow.classList.add("show");
+            home.classList.add("show");
+            loadColleagues();
+        });
+    }
+
+    if (closeColleagues) {
+        closeColleagues.addEventListener("click", () => {
+            colleaguesWindow.classList.remove("show");
+            home.classList.remove("show");
+        });
+    }
+
+    async function loadColleagues() {
+        try {
+            const res = await fetch("/get_users");
+            if (!res.ok) return;
+
+            const users = await res.json();
+            const list = document.getElementById("colleaguesList");
+            list.innerHTML = "";
+
+            users.forEach(user => {
+                const li = document.createElement("li");
+                li.className = "colleague-item";
+
+                const dot = document.createElement("span");
+                dot.className = `status-dot ${user.is_online ? "online" : "offline"}`;
+
+                const name = document.createElement("span");
+                name.textContent = `${user.name || user.email} (${user.role})`;
+
+                li.appendChild(dot);
+                li.appendChild(name);
+                list.appendChild(li);
+            });
+
+        } catch (err) {
+            console.error("Failed to load colleagues", err);
+        }
+    }
+    let colleaguesInterval = null;
+
+    function startColleaguesRefresh() {
+        loadColleagues();
+        colleaguesInterval = setInterval(loadColleagues, 5000);
+    }
+
+    function stopColleaguesRefresh() {
+        clearInterval(colleaguesInterval);
+    }
+
+    if (colleaguesBtn) {
+        colleaguesBtn.addEventListener("click", startColleaguesRefresh);
+    }
+
+    if (closeColleagues) {
+        closeColleagues.addEventListener("click", stopColleaguesRefresh);
+    }
+
+
+
+    // INVITATION
+
+
    if (document.getElementById("inviteSubmitButton")){
     document.getElementById("inviteSubmitButton").addEventListener("click", function () {
         const form = document.getElementById("inviteForm");
@@ -1276,15 +1440,17 @@ select {
         
         const formData = new FormData(form);
         
-        
-
-        fetch("{{ url_for('manager_dashboard') }}", {
+        const csrfToken = document.getElementById("csrf_access_token").value;
+        console.log("Fetch URL:", "{{ request.url_for('manager_dashboard') }}");
+        //Ezt azért kell így csinálni, mert a backend http-n megy, míg a frontend a https-t látja a loophole miatt, és a jinja2 syntaxot visont a backend teszi be autmatikusan ami http-t használ, de https kell a loophole miatt
+        const API_BASE = "https://redrain1230.loophole.site";   
+        fetch(`${API_BASE}/manager-dashboard`, {
             method: "POST",
             body: formData,
+            credentials: "include",
             headers: {
-                "X-Requested-With": "XMLHttpRequest", // To identify AJAX requests
-                "X-CSRF-Token": document.querySelector("input[name='csrf_token']").value
-              }
+            "X-CSRF-Token": csrfToken
+            }
         })
         .then(response => {
         if (!response.ok) {
@@ -1306,7 +1472,11 @@ select {
                     const div = document.createElement("div");
                     div.className = `flash ${message.category}`;
                     //div.textContent = message.text;
-                    div.textContent = message[`text_${language}`] || message.text_en || "Error";
+                    div.textContent =
+                        message.text ||
+                        message[`text_${language}`] ||
+                        message.text_en ||
+                        "Error";
                     flashMessages.appendChild(div);
 
                     setTimeout(() => {
@@ -1315,6 +1485,10 @@ select {
                 }, 3500);
                 });
             }
+
+            if (data.success) {
+              resetForms()
+               }
             
 
             const homeElement = document.querySelector('.home');
@@ -1331,9 +1505,12 @@ select {
                   formContainer.style.pointerEvents = "none";  // Disable interaction
                   formContainer.style.transform = "translate(-50%, -50%) scale(0.8)"; // Optional shrinking effect
                   setTimeout(() => {
-                      formContainer.style.display = "none"; // Fully hide after animation
-                  }, 400); // Match the CSS transition duration
-              }
+                    resetForms(); // hides everything & removes blur
+                    }, 400);
+                } else {
+                    resetForms();
+                }
+                 
             
         })
         .catch(error => {
@@ -1346,17 +1523,19 @@ select {
     document.getElementById("roleSubmitButton").addEventListener("click", function () {
         const form = document.getElementById("roleManagementForm");
         const formData = new FormData(form);
+        const csrfToken = document.getElementById("csrf_access_token").value;
+        console.log("CSRF Token to send:", csrfToken);
         
         const selectedUser = formData.get("selected_user"); 
         console.log("Selected user value before submit:", selectedUser);
         
-
-        fetch("{{ url_for('manager_dashboard') }}", {
+        const API_BASE = "https://redrain1230.loophole.site";   
+        fetch(`${API_BASE}/manager-dashboard`, {
             method: "POST",
             body: formData,
+            credentials: "include",
             headers: {
-                "X-Requested-With": "XMLHttpRequest", // To identify AJAX requests
-                "X-CSRF-Token": document.querySelector("input[name='csrf_token']").value
+                "X-CSRF-Token": csrfToken
               }
         })
         .then(response => {
@@ -1378,7 +1557,14 @@ select {
                     const div = document.createElement("div");
                     div.className = `flash ${message.category}`;
                     console.log("MESSAGE:", message)
-                    div.textContent = message[`text_${language}`] || message.text_en || "Error";
+                    
+                    div.textContent =
+                        message.text ||
+                        message[`text_${language}`] ||
+                        message.text_en ||
+                        "Error";
+                    
+                    
                     flashMessages.appendChild(div);
 
                     setTimeout(() => {
@@ -1387,7 +1573,8 @@ select {
                 }, 3500);
                 });
             }
-            
+
+      
 
             const homeElement = document.querySelector('.home');
               if (homeElement) {
@@ -1404,9 +1591,12 @@ select {
                   formContainer.style.pointerEvents = "none";  // Disable interaction
                   formContainer.style.transform = "translate(-50%, -50%) scale(0.8)"; // Optional shrinking effect
                   setTimeout(() => {
-                      formContainer.style.display = "none"; // Fully hide after animation
-                  }, 400); // Match the CSS transition duration
-              }    
+                    resetForms(); // hides everything & removes blur
+                    }, 400);
+                } else {
+                    resetForms();
+                }
+                 
         })
         .catch(error => {
             console.error("Error:", error);
@@ -1420,17 +1610,17 @@ select {
         console.log("Submit button clicked")
         const form = document.getElementById("userRemovalForm");
         const formData = new FormData(form);
-        
+        const csrfToken = document.getElementById("csrf_access_token").value;
         const selectedUser = formData.get("selected_user"); 
         console.log("Selected user value before submit:", selectedUser);
         
-
-        fetch("{{ url_for('manager_dashboard') }}", {
+        const API_BASE = "https://redrain1230.loophole.site"; 
+        fetch(`${API_BASE}/manager-dashboard`, {
             method: "POST",
             body: formData,
+            credentials: "include",
             headers: {
-                "X-Requested-With": "XMLHttpRequest", // To identify AJAX requests
-                "X-CSRF-Token": document.querySelector("input[name='csrf_token']").value
+                "X-CSRF-Token": csrfToken
             }
         })
         .then(response => {
@@ -1453,7 +1643,15 @@ select {
                     const div = document.createElement("div");
                     div.className = `flash ${message.category}`;
                     //div.textContent = message.text;
-                    div.textContent = message[`text_${language}`] || message.text_en || "Error";
+                    
+                    
+                    
+                    div.textContent =
+                        message.text ||
+                        message[`text_${language}`] ||
+                        message.text_en ||
+                        "Error";
+                    
                     flashMessages.appendChild(div);
 
                     setTimeout(() => {
@@ -1462,7 +1660,8 @@ select {
                 }, 3500);
                 });
             }
-            
+
+          
 
             const homeElement = document.querySelector('.home');
               if (homeElement) {
@@ -1479,9 +1678,12 @@ select {
                   formContainer.style.pointerEvents = "none";  // Disable interaction
                   formContainer.style.transform = "translate(-50%, -50%) scale(0.8)"; // Optional shrinking effect
                   setTimeout(() => {
-                      formContainer.style.display = "none"; // Fully hide after animation
+                      resetForms(); // Fully hide after animation
                   }, 400); // Match the CSS transition duration
+              }else {
+                  resetForms();
               }
+                        
             
         })
         .catch(error => {
@@ -1517,25 +1719,41 @@ select {
 
 
     // For My Services dropdown
-    if (navItem){
+  console.log("_____________________")
+  console.log("navItem:", navItem);
+  console.log("buttonSubscription:", buttonSubscription);
+  console.log("dropdownContent:", dropdownContent);
+  console.log("_____________________")
+
+  if (navItem){
     navItem.addEventListener('mouseenter', function() {
-        showDropdown(dropdownContent, buttonSubscription);
+      console.log("mouseenter on navItem");
+      showDropdown(dropdownContent, buttonSubscription);
     });
   }
   if (navItem){
     navItem.addEventListener('mouseleave', function() {
-        setTimeout(function() {
-            if (!dropdownContent.matches(':hover') && !navItem.matches(':hover')) {
-                hideDropdown(dropdownContent, buttonSubscription);
-            }
+      console.log("mouseleave on navItem");
+      setTimeout(function() {
+        console.log("Checking hover states...");
+        console.log("dropdownContent:hover?", dropdownContent.matches(':hover'));
+        console.log("navItem:hover?", navItem.matches(':hover'));
+        if (!dropdownContent.matches(':hover') && !navItem.matches(':hover')) {
+          console.log("Hiding dropdownContent");
+          hideDropdown(dropdownContent, buttonSubscription);
+          }
         }, 100); // Delay to ensure dropdown doesn't vanish immediately
     });
   }
   if (dropdownContent){
     dropdownContent.addEventListener('mouseleave', function() {
+        console.log("mouseleave on dropdownContent");
         setTimeout(function() {
+            console.log("Checking hover state for button...");
+            console.log("navItem:hover?", navItem.matches(':hover'));
             if (!navItem.matches(':hover')) {
-                hideDropdown(dropdownContent, buttonSubscription);
+              console.log("Hiding dropdownContent from dropdownContent mouseleave");
+              hideDropdown(dropdownContent, buttonSubscription);
             }
         }, 100); // Delay to ensure dropdown doesn't vanish immediately
     });
@@ -1543,9 +1761,13 @@ select {
 
   if (dropdownContent){
     dropdownContent.addEventListener('mouseenter', function() {
-        showDropdown(dropdownContent, buttonSubscription);
+      console.log("mouseenter on dropdownContent");
+      showDropdown(dropdownContent, buttonSubscription);
     });
   }
+
+
+  
   if (circleDropdown){
     // For V character dropdown
     circleDropdown.addEventListener('mouseenter', function() {
@@ -1584,10 +1806,14 @@ select {
         window.location.href = "/";
     });
 
-
+    function isMobile() {
+        return window.matchMedia("(max-width: 768px)").matches;
+    }
 
     if (dashboardLink0){
     dashboardLink0.addEventListener("click", function() {
+    event.preventDefault();
+    console.log("++++++++++++++++ kokl++++++++++++++++++")
     const firstCharacterElement = document.querySelector("#circleDropdown .content");
 
     if (!firstCharacterElement) {
@@ -1599,17 +1825,26 @@ select {
     console.log("Sending firstCharacter:", firstCharacter);
 
     // Append first_character as a query parameter to the URL
-    const url = `/chatAdminPage?first_character=${encodeURIComponent(firstCharacter)}`;
-
-    // Redirect to the URL
+    const url = `/design?first_character=${encodeURIComponent(firstCharacter)}`;
     window.location.href = url;
+    // Redirect to the URL
+    // if (isMobile()) {
+    //     // Mobile → same tab
+    //     window.location.href = url;
+    // } else {
+    //     // 🖥 Desktop → new tab
+    //     window.open(url, "_blank", "noopener,noreferrer");
+    // }
 });
     }
 
+
+
     if (circleDashboardLink0){
 circleDashboardLink0.addEventListener("click", function() {
+    event.preventDefault();
     const firstCharacterElement = document.querySelector("#circleDropdown .content");
-
+    
     if (!firstCharacterElement) {
         console.error("circleDropdown .content NOT found.");
         return;
@@ -1622,12 +1857,19 @@ circleDashboardLink0.addEventListener("click", function() {
     const url = `/chatAdminPage?first_character=${encodeURIComponent(firstCharacter)}`;
 
     // Redirect to the URL
-    window.location.href = url;
+    if (isMobile()) {
+        // Mobile → same tab
+        window.location.href = url;
+    } else {
+        // 🖥 Desktop → new tab
+        window.open(url, "_blank", "noopener,noreferrer");
+    }
 });
     }
 
     if (chatGridLink){
 chatGridLink.addEventListener("click", function() {
+    event.preventDefault();
     const firstCharacterElement = document.querySelector("#circleDropdown .content");
 
     if (!firstCharacterElement) {
@@ -1642,7 +1884,13 @@ chatGridLink.addEventListener("click", function() {
     const url = `/chatAdminPage?first_character=${encodeURIComponent(firstCharacter)}`;
 
     // Redirect to the URL
-    window.location.href = url;
+    if (isMobile()) {
+        // Mobile → same tab
+        window.location.href = url;
+    } else {
+        // 🖥 Desktop → new tab
+        window.open(url, "_blank", "noopener,noreferrer");
+    }
 });
     }
 
@@ -1696,14 +1944,17 @@ const translations = {
       // 1. slide
 
       home: "Home",
-      myservice: "My Services",
+      chatwidget: "Chat widget",
       chatcontrol:"Chat Control",
+      settings:"Settings",
       metrics:"ChatBot Metrics & Insights",
-      prediction:"Advanced AI Predictive Solutions",
-      resourcemanagement:"Resource Management",
+      prediction:"Predictive AI Solutions",
+      resourcemanagement:"Resources",
       invitation:"Invitation",
+      design:"Design",
       manageroles:"Manage Roles",
       removeresource:"Remove Resource",
+      colleaguesonline: "Colleagues on board",
       placeholder_email: "email(s)",
       invitenewusers: "Invite New Users",
       enteremails: "Enter email(s) separated by comas:",
@@ -1722,6 +1973,7 @@ const translations = {
       removeresourceh2:"Remove Resource",
       greeting: "Hello {{name}} from {{client_name}}, Welcome to your subscription!",
       greeting2: "Please select a service",
+      sample:"Sample widget",
 
 
       
@@ -1731,14 +1983,18 @@ const translations = {
   hu: {
       // 1. slide
       home:"Kezdőlap",
-      myservice: "Előfizetéseim",
-      chatcontrol:"Chatfelügyelet",
+      chatwidget: "Chatablak",
+      chatcontrol:"Chat irányítópult",
+      sample:"Minta ablak",
+      settings:"Alapbeállítások",
+      design:"Megjelenés modosítása",
       metrics:"Chatbot mutatók és elemzések", 
       prediction:"Prediktív AI-megoldások",
       resourcemanagement:"Adminkezelés",
       invitation:"Felhasználó hozzáadás",
       manageroles:"Jogosultságkezelés",
       removeresource:"Felhasználó eltávolítás",
+      colleaguesonline: "Regisztrált kollégák",
       placeholder_email: "email(ek)",
       enteremails: "Add meg a csatlakozók email címeit vesszővel elválasztva:",
       enternames: "Add meg a csatlakozók nevét vesszővel elválasztva, az e-mailek sorrendjében:",
@@ -1780,7 +2036,7 @@ document.getElementById('lang-en').addEventListener('click', function() {
     credentials: 'include'
   });
 });
-
+if(document.getElementById('lang-hu')){
 document.getElementById('lang-hu').addEventListener('click', function() {
   const newLang = 'hu';
   localStorage.setItem('language', newLang);
@@ -1793,6 +2049,7 @@ document.getElementById('lang-hu').addEventListener('click', function() {
     credentials: 'include'
   });
 });
+}
 
 // Set language on page load
 window.onload = function() {
@@ -1826,6 +2083,20 @@ function setLanguage(language) {
     }
   });
 }
+
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return '';
+}
+
+// Populate all CSRF hidden inputs
+document.querySelectorAll('input[name="csrf_access_token"]').forEach(input => {
+    input.value = getCookie('csrf_access_token');
+});
+
+
 
 
 

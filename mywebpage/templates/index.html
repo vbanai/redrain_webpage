@@ -117,7 +117,10 @@
             <a href="#services" class="nav_link" data-lang="service"></a>
             <a href="#" id="carrier_open" class="nav_link" data-lang="carrier"></a>
             <a href="#contact" class="nav_link" data-lang="contact"></a>
-          </li> 
+            {% if logged_in %}
+              <a href="/serviceselector" class="nav_link" data-lang="dashboard"></a>
+            {% endif %}
+            </li> 
         </ul>
       </div>
       
@@ -140,16 +143,16 @@
                 {{First_character}} <!-- Your character or content here -->
               </div>
             </div>     
-            <div class="circle-dropdown-content" id="circleDropdownContent">
-              <a href="{{url_for('serviceselector_vbanai')}}" id="circleDashboardLink" data-lang="dashboard"></a>
+            <div class="circle-dropdown-content" id="circleDropdownContent" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);">
+              <a href="/serviceselector" id="circleDashboardLink" data-lang="dashboard"></a>
               {% if chat_control_access %}
-                <a href="{{url_for('chat_admin_page', first_character=First_character)}}" data-lang="chatcontrol"></a>
+                <a href="/chat_admin_page" data-lang="chatcontrol"></a>
               {% endif %}
               {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
-                <a href="{{ url_for('dashboard_vbanai') }}" data-lang="metrics"></a>
+                <a href="/dashboard_vbanai" data-lang="metrics"></a>
               {% endif %}
               {% if advanced_ai_access and user_role in ['Manager', 'Team Leader'] %}
-              <a href="{{ url_for('predictive_dashboard') }}" data-lang="prediction_nav"></a>
+              <a href="/predictive_dashboard" data-lang="prediction_nav"></a>
               {% endif %}
               <a href="#logout" id="logout" action="{{ url_for('logout') }}" data-lang="logout" method="post"></a>
             </div>

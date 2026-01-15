@@ -16,7 +16,7 @@ from mywebpage.redis_client import redis_url
 from mywebpage.background import redis_listener, send_admin_heartbeat
 from mywebpage.models_loader import load_models_bg
 from mywebpage.socketio_app import sio
-
+from socketio import ASGIApp
 import secrets
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -168,7 +168,7 @@ async def lifespan(app: FastAPI):
 SECRET_KEY = os.environ.get("SECRET_KEY") or secrets.token_hex(16)
 
 fastapi_app = FastAPI(lifespan=lifespan) # with this fastapi_app is defined at the module level, any code in that module can access it:
-
+sio_app = ASGIApp(sio, other_asgi_app=fastapi_app)
 # fastapi_app.include_router(my_router) adds all the routes defined in a router (APIRouter) to the main FastAPI app. Without it  FastAPI doesn’t know about
 
 # Event to signal that models are ready
@@ -176,10 +176,10 @@ fastapi_app = FastAPI(lifespan=lifespan) # with this fastapi_app is defined at t
 
 
 fastapi_app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)  # Looks for a session cookie in the request. If none exists, it creates a new session dictionary and sends a cookie back.
-# this is the way how it does, as session not see create it: session_id = request.session.get("session_id")
-#     if not session_id:
-#         session_id = secrets.token_urlsafe(16)
-#         request.session['session_id'] = session_id
+# This tells FastAPI/Starlette: “Create a session for the user if it doesn’t exist yet, and store it in a cookie called session.”
+# server can then do
+# session_id = request.session.get("session_id")
+
 
 # CORS It controls which frontend domains can call your backend.
 fastapi_app.add_middleware(

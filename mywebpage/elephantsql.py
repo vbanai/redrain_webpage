@@ -7,7 +7,7 @@ from itsdangerous.url_safe import URLSafeTimedSerializer as Serializer
 #from sqlalchemy.orm import relationship, backref
 from mywebpage.db import async_session_scope
 from sqlalchemy.future import select
-from sqlalchemy import create_engine, Column,UnicodeText, Boolean, JSON, DateTime, String, Float, Integer, NVARCHAR, ForeignKey, CheckConstraint, Unicode
+from sqlalchemy import text, Column,UnicodeText, Boolean, JSON, DateTime, String, Float, Integer, NVARCHAR, ForeignKey, CheckConstraint, Unicode
 import json
 from sqlalchemy.orm import declarative_base
 from contextlib import contextmanager
@@ -86,7 +86,7 @@ class Client(Base):
     icon_path = Column(UnicodeText, nullable=True)       # static URL path to icon
     use_google_icon = Column(Boolean, default=True)      # fallback if no custom icon
 
-    languages = Column(ARRAY(String), nullable=False, default=["en"])
+    languages = Column(ARRAY(String), nullable=False, server_default=text('ARRAY["hu"]'))
     reply_bg_color=Column(String(20), nullable=True)
     operator_icon=Column(String(20), nullable=True)
     font_color=Column(String(20), nullable=True)
@@ -98,6 +98,8 @@ class Client(Base):
     footer_input_bg_color=Column(String(20), nullable=True)
     footer_focus_outline_color=Column(String(20), nullable=True)
     scrollbar_color=Column(String(20), nullable=True)
+    config_updated_by = Column(String(255), nullable=True)
+    config_updated_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         CheckConstraint("mode IN ('automatic', 'manual')", name='check_mode'),
@@ -109,8 +111,28 @@ class Client(Base):
     chat_messages = relationship("ChatHistory", back_populates="client", cascade="all, delete-orphan")
     mode_overrides = relationship("UserModeOverride", back_populates="client", cascade="all, delete-orphan")
     connections = relationship("Connections", back_populates="org", cascade="all, delete-orphan")
+    
+    config_history = relationship(
+        "ClientConfigHistory",
+        back_populates="client",
+        cascade="all, delete-orphan",
+        order_by="desc(ClientConfigHistory.created_at)"
+    )
 
 
+
+class ClientConfigHistory(Base):
+    __tablename__ = "client_config_history"
+
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"))
+    parameters = Column(JSON, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationship back to Client
+    client = relationship("Client", back_populates="config_history")
+
+    
 class ChatHistory(Base):
     __tablename__ = 'chat_messages'
 

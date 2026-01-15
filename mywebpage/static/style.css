@@ -1209,6 +1209,23 @@ transition: transform 0.3s ease-in-out;
   transition: color 0.5s, font-size 0.5s; /* Added font-size to the transition */
 }
 
+/* Small screens (phones) */
+@media (max-width: 600px) {
+    .nav_link {
+      margin-left: 2px;
+      font-size: 0.7rem; /* smaller font for mobile */
+    }
+}
+
+/* Extra small screens (very small phones) */
+@media (max-width: 400px) {
+    .nav_link {
+      margin-left: 2px;
+      font-size: 0.6rem; /* even smaller */
+    }
+}
+
+
 .nav_link:hover {
   color: #d9d9d9;
   font-size: 1.05em; /* Increased font size on hover */

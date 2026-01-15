@@ -59,7 +59,7 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
-
+from urllib.parse import quote
 import aioredis
 import os
 import secrets
@@ -93,7 +93,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from itsdangerous import SignatureExpired, BadSignature
 
 import jwt
-from fastapi_csrf_protect import CsrfProtect
+from mywebpage.security import CsrfProtect
 
 import json
 #from authlib.integrations.starlette_client import OAuth
@@ -202,9 +202,10 @@ async def send_email(
         body=body,
         subtype=MessageType.plain  # or "html" if you want HTML emails
     )
-
+    print(message)
     fm = FastMail(conf)
     await fm.send_message(message)
+
 fast_mail = FastMail(conf)
 
 
@@ -240,7 +241,8 @@ SECRET = os.environ.get("SECRET_KEY", secrets.token_urlsafe(32))
 
 STATE_KEY_PREFIX = "oauth_state:"
 SESSION_KEY_PREFIX = "user_session:"
-SESSION_TTL = 3600  # 1 hour
+SESSION_TTL = 3600   # 1 hour
+SESSION_TTL_COOKIE=2*3600
 
 
 async def save_oauth_state(redis, state: str, session_id: str):
@@ -311,21 +313,34 @@ SCOPE = ['User.Read']  # Define your scopes here
 async def get_current_user(request: Request) -> dict | None:
 
     session_id = request.cookies.get("session_id")
-    print("👉 REQUEST app id:", id(request.app))
-    redis = getattr(request.app.state, "redis_client", None)
-    if not session_id or not redis:
+    print("REQUEST app id:", id(request.app))
+
+    if not session_id:
+        print("No session_id cookie")
         return None
-    
-    if not session_id or not redis:
+
+    redis = getattr(request.app.state, "redis_client", None)
+    if not redis:
+        print("Redis not available")
         return None
 
     user_data = await redis.hgetall(f"session:{session_id}")
     if not user_data:
+        print(f"No session data for session:{session_id}")
         return None
 
+
+    # Convert IDs back to integers
+    try:
+        user_id = int(user_data.get("user_id")) if user_data.get("user_id") else None
+        org_id = int(user_data.get("user_org")) if user_data.get("user_org") else None
+    except ValueError:
+        print("Invalid ID stored in Redis")
+        return None
+    
     return {
-        "id": user_data.get("user_id"),
-        "org_id": user_data.get("user_org"),
+        "id": user_id,
+        "org_id": org_id,
         "role": user_data.get("user_role"),
         "name": user_data.get("name"),
         "email": user_data.get("email"),
@@ -378,7 +393,9 @@ async def index(
         raw = await redis.get(f"flash:{flash_id}")
         if raw:
             try:
-                #raw_str = raw.decode() if isinstance(raw, bytes) else str(raw)
+                flash_message = raw.decode() if isinstance(raw, bytes) else str(raw)
+                print("FLASH!!!!!!!!!!!!!!")
+                print(flash_message)
                 flash_message = json.loads(raw)
             except Exception:
                 flash_message = None
@@ -393,11 +410,15 @@ async def index(
 
    
     
-    if user:
-        if not await redis.exists(f"session:{session_id}"):  #boolian false or true
+    
+    if session_id and not await redis.exists(f"session:{session_id}"):  #boolian false or true
             # Session expired → redirect to logout
-            return RedirectResponse(url="/logout", status_code=302)
-        
+            return RedirectResponse(
+            url="/logout?reason=expired",
+            status_code=302
+            )
+    
+    if user:    
         First_character = user.get("first_character")
         user_role = user.get("role")
         language = user.get("language", "hu")
@@ -595,7 +616,10 @@ async def serviceselector_vbanai(
 
     # If session expired in Redis → logout
     if not await redis.exists(session_key):
-        return RedirectResponse(url="/logout", status_code=302)
+        return RedirectResponse(
+        url="/logout?reason=expired",
+        status_code=302
+    )
     
 
     email = current_user["email"]
@@ -639,10 +663,13 @@ async def serviceselector_vbanai(
             metrics_access = False
             advanced_ai_access = False
         
-        csrf_token = csrf_protect.generate_csrf()
+        #csrf_token = csrf_protect.csrf_token()
+        #csrf_token = csrf_protect.create_csrf()
+        csrf_token, signed_token = csrf_protect.generate_csrf_tokens()
+        print("chat_control_access", chat_control_access, "metrics_access", metrics_access, "advanced_ai_access", advanced_ai_access)
 
         # Additional session-related data
-        return templates.TemplateResponse(
+        response = templates.TemplateResponse(
         "serviceselector_vbanai.html",
         {
             "request": request,
@@ -658,9 +685,13 @@ async def serviceselector_vbanai(
             "advanced_ai_access": advanced_ai_access,
             "language": language,
             "user_id": user_id,
-            "csrf_token": csrf_token
+            "csrf_token": csrf_token,  # <-- pass CSRF to template
         },
     )
+    csrf_protect.set_csrf_cookie(signed_token, response)  # <-- set cookie
+    return response
+
+
 
 
 
@@ -682,7 +713,10 @@ async def get_users(
 
     if not await redis.exists(f"session:{session_id}"):  #boolian false or true
             # Session expired → redirect to logout
-            return RedirectResponse(url="/logout", status_code=302)
+        return RedirectResponse(
+        url="/logout?reason=expired",
+        status_code=302
+    )
 
 
 
@@ -703,8 +737,21 @@ async def get_users(
                 "role": u.role.role_name if u.role else "No Role",
                 "is_online": is_online
             })
-
+    print(users)
+    print("  * * *  ")
+    print(users_data)
     return JSONResponse(users_data)
+
+
+
+# ---- helper for manager-dashboard route
+
+def msg(text_en: str, text_hu: str, category: str, lang: str):
+    return {
+        "text": text_hu if lang == "hu" else text_en,
+        "category": category
+    }
+
 
 ROLE_TRANSLATION_MAP = {
     "Menedzser": "Manager",
@@ -712,11 +759,70 @@ ROLE_TRANSLATION_MAP = {
     "Adminisztrátor": "Administrator"
 }
 
-@router.api_route("/manager-dashboard", methods=["POST"], response_class=HTMLResponse)
+EMAIL_TEMPLATES = {
+    "invite": {
+        "subject": {
+            "en": "Account Registration",
+            "hu": "Fiók regisztráció"
+        },
+        "body": {
+            "en": (
+                "Hello {name},\n\n"
+                "Please complete your registration by clicking the link below:\n"
+                "{link}\n\n"
+                "This link is valid for 3 days."
+            ),
+            "hu": (
+                "Kedves {name}!\n\n"
+                "Kérjük, fejezd be a regisztrációt az alábbi linkre kattintva:\n"
+                "{link}\n\n"
+                "A link 3 napig érvényes."
+            )
+        }
+    },
+    "role_change":{
+        "subject": {
+        "en": "Access Change Notification",
+        "hu": "Jogosultság változás"
+    },
+    "body": {
+        "en": (
+            "Hello,\n\n"
+            "Your access has been updated from '{old_role}' to '{new_role}'."
+        ),
+        "hu": (
+            "Üdvözlünk!\n\n"
+            "A jogosultságod megváltozott:\n"
+            "Régi jogosultság: '{old_role}'\n"
+            "Új jogosultság: '{new_role}'."
+        )
+    }
+        
+  },
+  "remove_user":{
+      "subject": {
+        "en": "Your account has been deleted",
+        "hu": "Töröltük a fiókod"
+    },
+    "body": {
+        "en": "Hello,\n\nYour account has been removed by the manager.",
+        "hu": "Üdvözlünk!\n\nA fiókodat töröltük."
+    }
+  }
+      
+  
+
+    
+}
+
+# ----------------------------------
+
+
+@router.post("/manager-dashboard")
 async def manager_dashboard(
     request: Request,
     csrf_protect: CsrfProtect = Depends(), # Depends() is FastAPI’s way of saying: Before running this route, call some other function/class and inject its return value here.
-    csrf_token: str = Form(...), # Form(...) REGUIRED, with no default means required. If the CSRF token is missing, FastAPI rejects the request before your route runs.
+    #csrf_token: str = Form(...), # Form(...) REGUIRED, with no default means required. If the CSRF token is missing, FastAPI rejects the request before your route runs.
     #form_type: str | None = Form(None),   # OPTIONAL, form_type: str | None = Form(None),   # It looks inside the submitted form (request.form() under the hood). It tries to find a field called "form_type". If it exists, it converts it to a str and gives it to you in the parameter form_type. If it doesn’t exist, it uses the default (None in your case).
     current_user: dict = Depends(login_required),  # ensures user is logged in
 ):
@@ -724,11 +830,17 @@ async def manager_dashboard(
   # if current_user.role != 'Team Leader' or current_user.role != 'Manager':
   #   flash("You do not have permission to access this page.", 'danger')
   #   return redirect(url_for('index'))
-  csrf_protect.validate_csrf(csrf_token, request)
+  await csrf_protect.validate_csrf(request)
+
   # csrf token validation here we block the attacker - user legitimatly can submits the form if token matches
   
   form = await request.form()
   form_type = form.get("form_type")
+  lang=current_user.get("language", "hu")
+  if lang not in ["en", "hu"]:
+      print("[DEBUG] Invalid lang detected, defaulting to 'hu'")
+      lang = "hu"
+  
   messages = []
 
   if form_type == "invite_user":
@@ -739,82 +851,167 @@ async def manager_dashboard(
           names = form.get("names", "")
           raw_role_name = form.get("role")
           role_name = ROLE_TRANSLATION_MAP.get(raw_role_name, raw_role_name)
-
+          print("Raw role from form:", raw_role_name)
+          print("Normalized role for DB query:", role_name)
           email_list = [e.strip() for e in emails.replace(',', '\n').splitlines() if e.strip()]
           name_list = [n.strip() for n in names.split(',') if n.strip()]
-
+          print("[DEBUG] Form raw_role_name:", raw_role_name)
+          print(email_list, name_list)
           if len(email_list) != len(name_list):
-              messages.append({
-                  'text_en': 'The number of names must match the number of emails.',
-                  'text_hu': 'Ugyanannyi email címet kell beírnod, ahány nevet választottál!',
-                  'category': 'danger'
-              })
-              return JSONResponse({'messages': messages, 'success': False})
-
+              messages.append(
+                  msg(
+                      text_en="The number of names must match the number of emails.",
+                      text_hu="Ugyanannyi email címet kell beírnod, ahány nevet választottál!",
+                      category="danger",
+                      lang=lang
+                  )
+              )
+              print("[DEBUG] Email/name count mismatch")
+              return JSONResponse({"messages": messages, "success": False})
+          
           async with async_session_scope() as db_session:
               # Find role
               result = await db_session.execute(
                   select(Role).where(func.lower(Role.role_name) == role_name.lower())
               )
               role = result.scalar_one_or_none()
+              print("[DEBUG] Role found:", role)
               if not role:
-                  messages.append({
-                      'text_en': 'Invalid role selected.',
-                      'text_hu': 'Érvénytelen munkakört választottál.',
-                      'category': 'danger'
-                  })
+                  messages.append(
+                      msg(
+                          text_en="Invalid role selected.",
+                          text_hu="Érvénytelen munkakört választottál.",
+                          category="danger",
+                          lang=lang
+                      )
+                  )
 
               new_users = []
               for email, name in zip(email_list, name_list):
+                  print(f"[DEBUG] Processing user: {email} / {name}")
                   if not is_valid_email(email):
-                      messages.append({
-                          'text_en': f'The email {email} is not valid.',
-                          'text_hu': f'Az email cím {email} nem érvényes.',
-                          'category': 'danger'
-                      })
+                      messages.append(
+                          msg(
+                              text_en=f"The email {email} is not valid.",
+                              text_hu=f"Az email cím {email} nem érvényes.",
+                              category="danger",
+                              lang=lang
+                          )
+                      )
                       continue
 
-                  exists = await db_session.execute(
-                      select(User).where(User.email == email)
-                  )
-                  if exists.scalar_one_or_none():
-                      messages.append({
-                          'text_en': f'The email {email} is already registered.',
-                          'text_hu': f'Az email címet {email} már regisztráltad.',
-                          'category': 'danger'
-                      })
-                      continue
+                  result = await db_session.execute(
+                        select(User).where(User.email == email)
+                    )
+                  existing_user = result.scalar_one_or_none()
 
+                  # ─────────────────────────────────────────────
+                  # CASE 2: user exists and already activated
+                  # ─────────────────────────────────────────────
+
+                  if existing_user and existing_user.is_active:
+                      messages.append(
+                          msg(
+                              text_en=f"The email {email} is already registered.",
+                              text_hu=f"Az email címet {email} már regisztráltad.",
+                              category="info",
+                              lang=lang
+                          )
+                      )
+                      print(f"[DEBUG] Email already exists: {email}")
+                      continue
+                
+                  # ─────────────────────────────────────────────
+                  # CASE 3: user exists but NOT activated → resend
+                  # ─────────────────────────────────────────────
+                  if existing_user and not existing_user.is_active:
+                      token = s.dumps(
+                          {"email": email, "lang": lang},
+                          salt="email-confirm",
+                      )
+                      registration_link = (
+                          f"https://redrain1230.loophole.site/register/confirm?token={token}"
+                      )
+                      # here await send_email is fine: That means awaiting send_email() does not interfere with SQLAlchemy, because the session state is essentially read-only.
+                      try:
+                          await send_email(
+                              subject=EMAIL_TEMPLATES["invite"]["subject"][lang],
+                              recipients=[email],
+                              body=EMAIL_TEMPLATES["invite"]["body"][lang].format(
+                                  name=existing_user.name,
+                                  link=registration_link,
+                              ),
+                          )
+
+                          messages.append(
+                              msg(
+                                  f"Invitation resent to {email}.",
+                                  f"A meghívó újraküldve: {email}.",
+                                  "success",
+                                  lang,
+                              )
+                          )
+                          print(f"[DEBUG] Invitation resent: {email}")
+
+                      except Exception as e:
+                          messages.append(
+                              msg(
+                                  f"Failed to resend invitation to {email}: {str(e)}",
+                                  f"Nem sikerült újraküldeni a meghívót: {email}.",
+                                  "danger",
+                                  lang,
+                              )
+                          )
+                      continue
+                
+                  # ─────────────────────────────────────────────
+                  # CASE 1: brand new user
+                  # ─────────────────────────────────────────────
                   new_user = User(
                       email=email,
                       name=name,
-                      client_id=current_user["client_id"],
+                      client_id=current_user["org_id"],
                       role_id=role.id,
                       is_active=False
                   )
                   new_users.append(new_user)
+                  print(f"[DEBUG] New user object created: {new_user}")
 
                   # Token + registration link
-                  token = s.dumps({'email': email}, salt="email-confirm")
-                  registration_link = request.url_for("register_confirm", token=token)
+                  token = s.dumps({'email': email, 'lang': lang}, salt="email-confirm")
+                  registration_link = f"https://redrain1230.loophole.site/register/confirm?token={token}"
+                  print(f"[DEBUG] Registration link for {email}: {registration_link}")
+
 
                   try:
                       await send_email(
-                          subject="Account Registration Invitation",
+                          subject=EMAIL_TEMPLATES["invite"]["subject"][lang],
                           recipients=[email],
-                          body=f"Hello {name},\n\nPlease complete your registration: {registration_link}"
+                          body=EMAIL_TEMPLATES["invite"]["body"][lang].format(
+                              name=name,
+                              link=registration_link
+                          )
                       )
-                      messages.append({
-                          'text_en': f'User invited successfully: {email} ({name}).',
-                          'text_hu': f'Sikeresen meghívtad: {email} ({name}).',
-                          'category': 'success'
-                      })
+
+                      messages.append(
+                          msg(
+                              text_en=f"User invited successfully: {email} ({name}).",
+                              text_hu=f"Sikeresen meghívtad: {email} ({name}).",
+                              category="success",
+                              lang=lang
+                          )
+                      )
+                      print(f"[DEBUG] Email sent successfully to: {email}")
+
                   except Exception as e:
-                      messages.append({
-                        'text_en': f'An error occurred while sending the email to {email}: {str(e)}.',
-                        'text_hu': f'Hiba történt az email küldése közben: {email}.',
-                        'category': 'danger'
-                    })
+                      messages.append(
+                          msg(
+                              text_en=f"An error occurred while sending the email to {email}: {str(e)}.",
+                              text_hu=f"Hiba történt az email küldése közben: {email}.",
+                              category="danger",
+                              lang=lang
+                          )
+                      )
 
               if new_users:
                   try:
@@ -822,87 +1019,131 @@ async def manager_dashboard(
                      
                   except SQLAlchemyError as e:
                       await db_session.rollback()
-                      messages.append({
-                          'text_en': f"An error occurred while saving users: {str(e)}",
-                          'text_hu': "Hiba történt a mentés közben.",
-                          'category': 'danger'
-                      })
+                      messages.append(
+                          msg(
+                              text_en=f"An error occurred while saving users: {str(e)}",
+                              text_hu="Hiba történt a mentés közben.",
+                              category="danger",
+                              lang=lang
+                          )
+                      )
 
       except Exception as e:
-          messages.append({
-              'text_en': f'An error occurred: {str(e)}.',
-              'text_hu': f'Hiba történt!: {str(e)}.',
-              'category': 'danger'
-          })
-
-      success = any(m['category'] == 'success' for m in messages)
+          messages.append(
+              msg(
+                  text_en=f"An error occurred: {str(e)}.",
+                  text_hu=f"Hiba történt!: {str(e)}.",
+                  category="danger",
+                  lang=lang
+              )
+          )
+      print("ide eljön????")
+      success = not any(m['category'] == 'danger' for m in messages)
       return JSONResponse({'messages': messages, 'success': success})
 
    
   elif form_type == "manage_user":
       try:
+          # emails = form.get('emails')
+          # role_name = form.get('role')
+          selected_user_email = form.get("selected_user")
+          selected_role_name = form.get("selected_role")
 
-        emails = form.get('emails')
-        role_name = form.get('role')
-        selected_user_email = form.get("selected_user")
-        selected_role_name = form.get("selected_role")
-        
-        if not selected_user_email or not selected_role_name:
-              messages.append({
-                  'text_en': "Please select both a user and a role.",
-                  'text_hu': "Felhasználót és pozíciót is választanod kell!",
-                  'category': 'danger'
-              })
-              return JSONResponse({'messages': messages, 'success': False})
+          if not selected_user_email or not selected_role_name:
+              messages.append(
+                  msg(
+                      text_en="Please select both a user and a role.",
+                      text_hu="Felhasználót és pozíciót is választanod kell!",
+                      category="danger",
+                      lang=lang
+                  )
+              )
+              return JSONResponse({"messages": messages, "success": False})
 
-        async with async_session_scope() as db_session:
-            result = await db_session.execute(
-                select(Role).where(Role.role_name == selected_role_name)
-            )
-            role = result.scalar_one_or_none()
-            if not role:
-                messages.append({
-                    'text_en': "Invalid role selected.",
-                    'text_hu': "Nem megfelelő pozíciót választottál.",
-                    'category': 'danger'
-                })
-                return JSONResponse({'messages': messages, 'success': False})
+          # --- DB operations ---
+          async with async_session_scope() as db_session:
+              result = await db_session.execute(
+                  select(User)
+                  .options(selectinload(User.role))
+                  .where(User.email == selected_user_email)
+              )
+              user = result.scalar_one_or_none()
+              # pl.: user = User(
+              #     id=1,
+              #     email="alice@example.com",
+              #     name="Alice",
+              #     role_id=2,
+              #     is_active=True,
+              #     role=Role(id=2, role_name="Team Leader")  # loaded because of selectinload
+              # )
 
-            result = await db_session.execute(
-                select(User).where(User.email == selected_user_email)
-            )
-            user = result.scalar_one_or_none()
-            if user:
-                old_role = user.role.role_name if user.role else "No Role"
-                user.role_id = role.id
+              if not user:
+                  messages.append(
+                      msg(
+                          text_en="User not found.",
+                          text_hu="A felhasználó nincs benne az adatbázisba.",
+                          category="danger",
+                          lang=lang
+                      )
+                  )
+                  return JSONResponse({"messages": messages, "success": False})
+   
+              
+              old_role = user.role.role_name if user.role else "No Role"
+              result_role = await db_session.execute(
+                  select(Role).where(Role.role_name == selected_role_name)
+              )
+              role = result_role.scalar_one_or_none()
+              if not role:
+                  messages.append(
+                      msg(
+                          text_en="Invalid role selected.",
+                          text_hu="Nem megfelelő pozíciót választottál.",
+                          category="danger",
+                          lang=lang
+                      )
+                  )
+                  return JSONResponse({"messages": messages, "success": False})
+              user.role_id = role.id
+              user_email = user.email
 
-                try:
-                    await send_email(
-                        subject="Role Change Notification",
-                        recipients=[user.email],
-                        body=f"Hello,\n\nYour role has been updated from '{old_role}' to '{selected_role_name}'."
-                    )
-                except Exception as e:
-                    print(f"Error sending role-change email: {e}")
+          # --- Outside the session: safe to do async IO ---
+          # as the session closes and safle can start another async IO, in invitation we have first the email send and after the db modfication
+          try:
+              await send_email(
+                  subject=EMAIL_TEMPLATES["role_change"]["subject"][lang],
+                  recipients=[user_email],
+                  body=EMAIL_TEMPLATES["role_change"]["body"][lang].format(
+                      old_role=old_role,
+                      new_role=selected_role_name
+                  )
+              )
+          except Exception as e:
+              # Email failure should not block role change
+              print(f"Error sending role-change email: {e}")
 
-                messages.append({
-                    'text_en': f"User {user.email} role updated to {selected_role_name}.",
-                    'text_hu': f"A felhasználó {user.email} pozíciója frissítve lett: {selected_role_name}.",
-                    'category': 'success'
-                })
-               
-            else:
-                messages.append({
-                    'text_en': "User not found.",
-                    'text_hu': "A felhasználó nincs benne az adatbázisba.",
-                    'category': 'danger'
-                })
+          messages.append(
+              msg(
+                  text_en=f"User {user_email} role updated to {selected_role_name}.",
+                  text_hu=f"A felhasználó {user_email} pozíciója frissítve lett: {selected_role_name}.",
+                  category="success",
+                  lang=lang
+              )
+          )
+
       except Exception as e:
-          messages.append({'text_en': f'Error: {str(e)}', 'text_hu': f'Hiba történt: {str(e)}', 'category': 'danger'})
+          messages.append(
+              msg(
+                  text_en=f"Error: {str(e)}",
+                  text_hu=f"Hiba történt: {str(e)}",
+                  category="danger",
+                  lang=lang
+              )
+          )
 
-      success = any(m['category'] == 'success' for m in messages)
+      # Determine success based on messages
+      success = not any(m['category'] == 'danger' for m in messages)
       return JSONResponse({'messages': messages, 'success': success})
-
 
       
   elif form_type == "remove_user":  
@@ -914,11 +1155,14 @@ async def manager_dashboard(
 
 
           if not selected_user_email:
-              messages.append({
-                  'text_en': "Please select a user to remove.",
-                  'text_hu': "Válaszd ki a munkatársat, akit törölni akarsz!",
-                  'category': 'danger'
-              })
+              messages.append(
+                  msg(
+                      text_en="Please select a user to remove.",
+                      text_hu="Válaszd ki a munkatársat, akit törölni akarsz!",
+                      category="danger",
+                      lang=lang
+                  )
+              )
               return JSONResponse({'messages': messages, 'success': False})
 
           async with async_session_scope() as db_session:
@@ -926,41 +1170,120 @@ async def manager_dashboard(
                   select(User).where(User.email == selected_user_email)
               )
               user = result.scalar_one_or_none()
+
               if user:
                   user.is_deleted = True
                   user.deleted_at = datetime.utcnow()
-                 
-
-                  try:
-                      await send_email(
-                          subject="Account Removal Notification",
-                          recipients=[user.email],
-                          body="Hello,\n\nYour account has been removed by the manager."
-                      )
-                  except Exception as e:
-                      print(f"Error sending removal email: {e}")
-
-                  messages.append({
-                      'category': 'success',
-                      'text_en': f"User {user.email} removed successfully.",
-                      'text_hu': f"A felhasználó {user.email} törölve lett."
-                  })
+                  user.is_active = False
               else:
-                  messages.append({
-                      'category': 'danger',
-                      'text_en': "User not found.",
-                      'text_hu': "A felhasználó nem található."
-                  })
+                  messages.append(
+                    msg(
+                        text_en="User not found.",
+                        text_hu="A felhasználó nem található.",
+                        category="danger",
+                        lang=lang
+                    )
+                )
+
+                  
+          if user:
+              try:
+                  await send_email(
+                      subject=EMAIL_TEMPLATES["remove_user"]["subject"][lang],
+                      recipients=[user.email],
+                      body=EMAIL_TEMPLATES["remove_user"]["body"][lang]
+                  )
+              except Exception as e:
+                  print(f"Error sending removal email: {e}")
+
+              messages.append(
+                  msg(
+                      text_en=f"User {user.email} removed successfully.",
+                      text_hu=f"A felhasználó {user.email} törölve lett.",
+                      category="success",
+                      lang=lang
+                  )
+              )
+
+             
       except Exception as e:
-          messages.append({'text_en': f'Error: {str(e)}', 'text_hu': f'Hiba történt: {str(e)}', 'category': 'danger'})
-
-      success = any(m['category'] == 'success' for m in messages)
+        messages.append(
+            msg(
+                text_en=f"Error: {str(e)}",
+                text_hu=f"Hiba történt: {str(e)}",
+                category="danger",
+                lang=lang
+            )
+        )
+      success = not any(m['category'] == 'danger' for m in messages)
       return JSONResponse({'messages': messages, 'success': success})
+  
 
 
+@router.get("/design", response_class=HTMLResponse)
+async def design_page(
+    request: Request,
+    first_character: str | None = Query(None),
+    user: dict = Depends(login_required),  # ensures user is logged in
+):
+    redis = request.app.state.redis_client
+    session_id = request.cookies.get("session_id")
+    print("Ide1")
+    if not session_id:
+        raise HTTPException(status_code=401, detail="No session_id cookie found")
+    
+    client_id_bytes = await redis.hget(f"session:{session_id}", "user_org")
+    if not client_id_bytes:
+        raise HTTPException(status_code=401, detail="Session expired or invalid")
 
+    client_id = int(client_id_bytes)
+    print("Ide2")
+    # Fetch client from DB using async session
+    async with async_session_scope() as db_session:
+        result = await db_session.execute(
+            select(Client).where(Client.id == client_id)
+        )
+        client = result.scalar_one_or_none()
+        if not client:
+            raise HTTPException(status_code=404, detail="Client not found")
+    print("Ide3")
+    # Determine icon path
+    icon_path = client.icon_path 
+    use_google_icon = False
+    if not icon_path:
+        use_google_icon = True
+     
+    print("Ide4")
+    print("iconpath", icon_path)
+    print("google_icon", use_google_icon)
+    # Build template context
+    context = {
+        "request": request,
+        "user_id": str(client.id),
+        "client_id_initial": client.client_code,
+        "client_mode": client.mode,
+        "languages": client.languages,
+        "primary_color": client.primary_color,
+        "reply_bg_color": client.reply_bg_color,
+        "operator_icon": client.operator_icon,
+        "font_color": client.font_color,
+        "everything_which_is_white": client.everything_which_is_white,
+        "user_input_message_color": client.user_input_message_color,
+        "popup_bg_color": client.popup_bg_color,
+        "footer_bg_color": client.footer_bg_color,
+        "footer_controls_bg": client.footer_controls_bg,
+        "footer_input_bg_color": client.footer_input_bg_color,
+        "footer_focus_outline_color": client.footer_focus_outline_color,
+        "scrollbar_color": client.scrollbar_color,
+        "border_radius": client.border_radius,
+        "border_width": client.border_width,
+        "border_color": client.border_color,
+        "icon_path": icon_path,
+        "use_google_icon": use_google_icon,
+        "first_character": first_character
+    }
 
-
+    return templates.TemplateResponse("graphic_design.html", context)
 
 
 @router.get("/register/confirm")
@@ -968,16 +1291,27 @@ async def register_confirm(request: Request, token: str):
     redis = request.app.state.redis_client  # aioredis client
     flash_id = str(uuid.uuid4())  # unique ID for this flash message
     flash_message = {"text": "", "category": ""}
-
+    
+    lang = "hu"
+    
     try:
-        data = s.loads(token, salt="email-confirm", max_age=3600)
+        data = s.loads(token, salt="email-confirm", max_age=60 * 60 * 48)
         email = data["email"]
+        lang = data.get("lang", "hu") 
     except SignatureExpired:
-        flash_message = {"text": "The registration link has expired. Please request a new one.", "category": "danger"}
+        flash_message = {
+            "text": "The registration link has expired. Please request a new one."
+                    if lang == "en" else
+                    "A regisztrációs link lejárt. Kérj újat.",
+            "category": "danger"
+        }
         await redis.set(f"flash:{flash_id}", json.dumps(flash_message), ex=60)  # expires in 60 seconds
         return RedirectResponse(url=f"/?flash_id={flash_id}")
     except BadSignature:
-        flash_message = {"text": "The registration link is invalid.", "category": "danger"}
+        flash_message = {
+            "text": "The registration link is invalid." if lang == "en" else "A regisztrációs link érvénytelen.",
+            "category": "danger"
+        }
         await redis.set(f"flash:{flash_id}", json.dumps(flash_message), ex=60)
         return RedirectResponse(url=f"/?flash_id={flash_id}")
 
@@ -987,14 +1321,28 @@ async def register_confirm(request: Request, token: str):
         user = result.scalar_one_or_none()
 
         if not user:
-            flash_message = {"text": "The user does not exist.", "category": "danger"}
+            flash_message = {
+                "text": "The user does not exist." if lang == "en" else "A felhasználó nem létezik.",
+                "category": "danger"
+            }
         elif user.is_active:
-            flash_message = {"text": "Account is already activated. You can log in now.", "category": "info"}
+            flash_message = {
+                "text": "Account is already activated. You can log in now."
+                        if lang == "en" else
+                        "A fiókot már korábban aktiváltad. Jelentkezz be.",
+                "category": "info"
+            }
         else:
             user.is_active = True
             db_session.add(user)
         
-            flash_message = {"text": "Your account has been activated. You can now log in.", "category": "success"}
+            flash_message = {
+                "text": "Your account has been activated. You can now log in."
+                        if lang == "en" else
+                        "A fiókodat aktiváltuk. Most már be tudsz lépni.",
+                "category": "success"
+            }
+
 
     # Store flash message in Redis, flash_id is appended to the URL
     await redis.set(f"flash:{flash_id}", json.dumps(flash_message), ex=60)
@@ -1007,30 +1355,31 @@ async def register_confirm(request: Request, token: str):
 #----------------------
 
 @router.get("/predictive_dashboard", response_class=HTMLResponse)
-async def predictive_dashboard(user: dict = Depends(role_required("Manager"))):
+async def predictive_dashboard(request: Request, user: dict = Depends(role_required("Manager"))):
     # Determine message based on user's language
-    if user.get("language") == "hu":
-        message_text = "Nem áll rendelkezésre elegendő adat ehhez a szolgáltatáshoz"
-    else:
-        message_text = "No data available for this service"
+    message_text = (
+        "Nem áll rendelkezésre elegendő adat ehhez a szolgáltatáshoz"
+        if user.get("language") == "hu"
+        else "No data available for this service"
+    )
 
-    html_content = f"""
-    <html>
-        <head>
-            <style>
-                .message {{
+    # Render inline HTML via TemplateResponse
+    return templates.TemplateResponse(
+        "base.html",  # your main base template with header/navbar
+        {
+            "request": request,  # REQUIRED for url_for inside templates
+            "user": user,
+            "content_html": f"""
+                <div class="message" style="
                     font-size: 24px;
                     text-align: center;
                     margin-top: 20%;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="message">{message_text}</div>
-        </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
+                ">
+                    {message_text}
+                </div>
+            """
+        }
+    )
 
 
 #----------------------
@@ -1048,7 +1397,10 @@ async def dashboard_vbanai(request: Request, csrf_protect: CsrfProtect=Depends()
     redis = request.app.state.redis_client
     if not await redis.exists(f"session:{session_id}"):  #boolian false or true
             # Session expired → redirect to logout
-            return RedirectResponse(url="/logout", status_code=302)
+        return RedirectResponse(
+        url="/logout?reason=expired",
+        status_code=302
+    )
 
     
     cpu_pool = request.app.state.cpu_pool
@@ -1230,7 +1582,10 @@ async def chats_in_requested_period_weekly(
     cpu_sem=request.app.state.cpu_sem
     if not await redis.exists(f"session:{session_id}"):  #boolian false or true
             # Session expired → redirect to logout
-            return RedirectResponse(url="/logout", status_code=302)
+        return RedirectResponse(
+        url="/logout?reason=expired",
+        status_code=302
+    )
 
 
     language = user.get("language", "hu")
@@ -1299,7 +1654,10 @@ async def chats_in_requested_period(
     redis = request.app.state.redis_client
     if not session_id or not await redis.exists(f"session:{session_id}"):  #int 1 or 0
         # Session expired → redirect to logout
-        return RedirectResponse(url="/logout", status_code=302)
+        return RedirectResponse(
+        url="/logout?reason=expired",
+        status_code=302
+    )
 
     cpu_pool = request.app.state.cpu_pool
     cpu_sem = request.app.state.cpu_sem
@@ -1388,7 +1746,10 @@ async def chats_in_requested_period_topic(
     redis = request.app.state.redis_client
     if not await redis.exists(f"session:{session_id}"):  #int 1 or 0
         # Session expired → redirect to logout
-        return RedirectResponse(url="/logout", status_code=302)
+        return RedirectResponse(
+        url="/logout?reason=expired",
+        status_code=302
+    )
 
 
     # Fetch client timezone asynchronously
@@ -1484,7 +1845,10 @@ async def chats_deepinsight_landingpage(
     redis = request.app.state.redis_client
     if not await redis.exists(f"session:{session_id}"):  #boolian false or true
             # Session expired → redirect to logout
-            return RedirectResponse(url="/logout", status_code=302)
+        return RedirectResponse(
+        url="/logout?reason=expired",
+        status_code=302
+    )
 
     try:
         # Extract form data from request
@@ -1668,7 +2032,10 @@ async def topic_monitoring(
     redis = request.app.state.redis_client
     if not await redis.exists(f"session:{session_id}"):  #boolian false or true
             # Session expired → redirect to logout
-            return RedirectResponse(url="/logout", status_code=302)
+        return RedirectResponse(
+        url="/logout?reason=expired",
+        status_code=302
+    )
 
     try:
         # Extract form data from request
@@ -2009,7 +2376,10 @@ async def topic_monitoring(
     redis = request.app.state.redis_client
     if not await redis.exists(f"session:{session_id}"):  #boolian false or true
             # Session expired → redirect to logout
-            return RedirectResponse(url="/logout", status_code=302)
+        return RedirectResponse(
+        url="/logout?reason=expired",
+        status_code=302
+    )
 
     try:
         # Extract form data from request
@@ -2200,7 +2570,10 @@ async def detailed_user_data(
     redis = request.app.state.redis_client # request.app is the reference to the FastAPI instance (fastapi_app) that is serving
     if not await redis.exists(f"session:{session_id}"):  #boolian false or true
             # Session expired → redirect to logout
-            return RedirectResponse(url="/logout", status_code=302)
+        return RedirectResponse(
+        url="/logout?reason=expired",
+        status_code=302
+    )
 
 
     try:
@@ -2439,6 +2812,63 @@ def get_signing_key(kid: str, jwks: list):
 
 #------------------------------------
 
+# REQUEST and RESPONSE in FastAPI  in my LOGIN environment:
+
+# REQUEST coming form browser, It contains headers, cookies, query parameters, body data, and also a reference to the app.
+# print(request.url)  # full URL the client requested
+# print(request.cookies)  # dictionary of cookies sent by the browser
+# print(request.headers)  # all HTTP headers
+# first browser send: GET /login/external, Cookie: (none — first visit)
+
+# as I add: fastapi_app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+# SessionMiddleware intercepts every request before your route handler.
+# It checks if the browser sent a cookie called "session".
+# If yes, it loads it (JSON decode) → request.session becomes that dict.
+# If no (new user) → request.session is an empty dict {}.
+# This creates a dictionary for each user: request.session.
+
+# At this point: request.session  # => {}
+# Middleware is responsible only for "session" cookie.  no login session_id
+
+# on the backend login/external:
+# New user → request.session empty → create random session_id.
+# Store it in request.session['session_id'] → now middleware will serialize this back into "session" cookie in the response.
+# in login route we add an outh state to  request.session['oauth_state'] = state
+# this is crf token when getting back from azure
+# so the COOKIE created by MIDDLEWARE IS NEEDED ONLY FOR OAUTH flow
+
+# in Auth receive we receive GET /auth?state=abc123&code=xyz987 Cookie: session={session_id: "<random>", oauth_state: "<state>"}
+# compare state and we loggedin then we create REAL session cookie for LOGGED IN USERS
+
+
+
+# At this point, the response that goes back to browser with created response automaticall will contain
+# Set-Cookie: session={session_id: "<random>", oauth_state: "..."}; Path=/; HttpOnly
+#the middleware automatically writes a Set-Cookie header for "session"
+#So, yes, the middleware will serialize your request.session into a cookie in the HTTP response automatically, even if your response is a redirect.
+# Browser receives this along with the 302 redirect, and stores the "session" cookie.
+# Browser then follows the redirect to Azure.
+
+# RESPONSE
+# Represents what FastAPI will send back to the client (browser).
+# You can manually modify headers or cookies before sending
+# response = JSONResponse({"ok": True})
+# response.set_cookie("mycookie", "value")
+
+
+
+# When the browser returns, SessionMiddleware reads the session cookie and fills request.session.
+# request.session['foo'] = 'bar'
+# This is separate from session_id.
+# It is just a place to store server-side state between requests.
+# here I am doing:
+# session_id = request.session.get("session_id")
+# if not session_id:
+#     session_id = secrets.token_urlsafe(16)
+#     request.session["session_id"] = session_id
+
+
+
 
 @router.api_route("/login/external", methods=["GET", "POST"])
 async def login_external(request: Request):
@@ -2462,7 +2892,7 @@ async def login_external(request: Request):
     redis = request.app.state.redis_client
     if redis:  # redisre is mentjük multiworker setup miatt, mert A user starts login on Worker 1, state is generated and stored in request.session. Microsoft redirects back after login — the request might go to Worker 2.
         await redis.setex(f"{STATE_KEY_PREFIX}{session_id}", 300, state)
-
+    print("elmentett!!!", await redis.get(f"{STATE_KEY_PREFIX}{session_id}"))
     
 
 
@@ -2501,14 +2931,14 @@ async def auth(
     code: str = Query(None)   # means this query parameter is optional (default None).
 ):
     #if I have redirect url: https://your-app.com/auth?state=abc123&code=xyz987 state = "abc123" and code = "xyz987"  by this Query  , None means default value is None but if we have code it will be the value
-
+    
     redis = request.app.state.redis_client
-    session_id = request.cookies.get("session_id")
+    session_id = request.session.get("session_id")
 
     # Load expected state from Redis Verify state (CSRF protection)
     stored_state = await load_oauth_state(redis, session_id)
 
-    print("SESSION COOKIE:", request.cookies.get("session_id"))
+    print("SESSION COOKIE:", request.session.get("session_id"))
     print("STATE FROM QUERY:", state)
     print("STATE FROM REDIS:", stored_state)
 
@@ -2538,6 +2968,13 @@ async def auth(
     tenant = os.environ.get("B2C_TENANT", "your_tenant_name")
     policy = os.environ.get("B2C_POLICY", "your_policy_name")
     client_id = os.environ.get("B2C_CLIENT_ID", "your_client_id")
+    
+    unverified_claims = jwt.decode(
+        id_token,
+        options={"verify_signature": False}
+    )
+
+    token_issuer = unverified_claims["iss"]
 
     try:
         claims = jwt.decode(
@@ -2545,10 +2982,13 @@ async def auth(
             key=key,
             algorithms=["RS256"],
             audience=client_id,
-            issuer=f"https://{tenant}.b2clogin.com/{tenant}.onmicrosoft.com/{policy}/v2.0/"
+            issuer=token_issuer,
+            leeway=120 
+           # issuer=f"https://{tenant}.b2clogin.com/{tenant}.onmicrosoft.com/{policy}/v2.0/"
         )
     except jwt.PyJWTError as e:
         return JSONResponse({"error": f"Invalid ID token: {str(e)}"}, status_code=400)
+    
 
     email = claims.get('emails')[0] if 'emails' in claims and claims['emails'] else None
     if not email:
@@ -2559,6 +2999,7 @@ async def auth(
 
     # --- Lookup client ---
     client_id = await find_client_by_email(email)  # should be async if using async DB
+    print("CLIENT ID: ", client_id)
     if not client_id:
         # Store flash message in Redis with short TTL
         flash_id = str(uuid.uuid4())
@@ -2576,6 +3017,8 @@ async def auth(
         )
         user = result.scalar_one_or_none()
 
+        lang = user.language or "hu"
+
         if not user:
             flash_id = str(uuid.uuid4())
             await redis.setex(f"flash:{flash_id}", 30, "Your email is not registered. Please contact your company.")
@@ -2587,7 +3030,8 @@ async def auth(
             return RedirectResponse(url=f"/?flash_id={flash_id}", status_code=302)
 
         # Save user info in Redis
-
+        # Login successful → create "real" session cookie
+        # we save save the user info in Redis
 
         await redis.hset(f"session:{session_id}", mapping={
             "user_id": str(user.id),
@@ -2599,7 +3043,18 @@ async def auth(
             "name": user.name
         })
         await redis.expire(f"session:{session_id}", SESSION_TTL)
-                
+        
+        online_key = f"online:{client_id}:{user.id}"
+        exists = await redis.exists(online_key)
+        if not exists:
+    # Set the key to some value (e.g., 1) and give it a TTL
+            await redis.setex(online_key, SESSION_TTL, 1)
+        else:
+            # Optionally: refresh TTL if user is still active
+            await redis.expire(online_key, SESSION_TTL)
+
+        
+                        
    
     try:
         
@@ -2623,39 +3078,66 @@ async def auth(
         print(f"[Redis Error] Failed to set online status: {e}")
 
     # --- Return redirect (simulate login) ---
-    response = RedirectResponse(url="/serviceselector_vbanai", status_code=302)
+    response = RedirectResponse(url="/serviceselector", status_code=302)
+    
+    secure = request.url.scheme == "https"
+    # set a second cookie for browser to use for subsequent authenticated requests:
+    # This cookie is independent of "session" created by middleware.
+    # session_id cookie is the actual login session → read by get_current_user on future requests.
+    # Ezt használjuk a bejelentezés után nem a middleware cookie-t
     response.set_cookie(   # without this modern browser will treat my cookie as unsecure
         "session_id",
         session_id,
         httponly=True,
-        secure=False,        # REQUIRED when using HTTPS (Azure App Service)
+        secure=secure,      # mind http and https esetén küldi a cookie-t pl session-t
         samesite="Lax",     # Good default for login flows
-        max_age=SESSION_TTL
+        max_age=SESSION_TTL_COOKIE
     )
+
+    response.set_cookie(
+        "lang",
+        lang,
+        httponly=False,  # front-end can read if needed
+        secure=secure,
+        samesite="Lax",
+        max_age=SESSION_TTL_COOKIE
+    )
+  
+
 
     return response
 
 
+
 @router.api_route("/logout", methods=["GET", "POST"])
-async def logout(request: Request):
+async def logout(request: Request, 
+                 current_user: dict | None = Depends(get_current_user),
+                 reason: str = Query("manual")):
+    
+    
+    print("scheme:", request.url.scheme)
+    print("index:", request.url_for("index"))
+
 
     redis = request.app.state.redis_client
     session_id = request.cookies.get("session_id")
 
     tenant = os.environ.get("B2C_TENANT")
     policy = os.environ.get("B2C_POLICY")
-    redirect_uri = str(request.url_for("index"))
 
-    # Construct the B2C logout URL
-    logout_url = f"https://{tenant}.b2clogin.com/{tenant}.onmicrosoft.com/{policy}/oauth2/v2.0/logout?post_logout_redirect_uri={redirect_uri}"
 
-    response = RedirectResponse(url=logout_url, status_code=302)
-    response.delete_cookie("session_id") 
 
-    # Clear the local session
-    if not session_id:
-        print("[Logout] No session_id found in cookies. Redirecting anyway.")
-        return response
+
+    redirect_uri = quote("https://redrain1230.loophole.site/", safe="")
+    
+
+
+
+    lang = request.cookies.get("lang", "hu")  # fallback to cookie if user not present
+    if lang not in ["en", "hu"]:
+        lang = "hu"
+
+  
 
     # --- Load session details from Redis ---
     # user_id = await redis.get(f"session:{session_id}:user_id")
@@ -2675,6 +3157,10 @@ async def logout(request: Request):
     await redis.delete(f"session:{session_id}")
 
     if user_id and org_id:
+
+        online_key = f"online:{org_id}:{user_id}"  # match your naming convention
+        await redis.delete(online_key) 
+        
         remaining_sids = []
         sids_bytes = await redis.smembers(f"org:{org_id}:connections")
         sids = [s.decode() for s in sids_bytes if s.decode() != session_id] 
@@ -2739,20 +3225,35 @@ async def logout(request: Request):
 
 
     # Add a flash message in Redis
-    if redis:
-        flash_id = str(uuid.uuid4())
-        flash_message = {
-            "text": "You have been logged out successfully.",
-            "category": "success",
-        }
-        await redis.setex(f"flash:{flash_id}", FLASH_EXPIRE_SECONDS, json.dumps(flash_message))
+    lang = request.cookies.get("lang", "hu") 
 
-        # Append flash_id to the redirect URL
-       
-        if "?" in response.headers["Location"]:
-            response.headers["Location"] += f"&flash_id={flash_id}"
-        else:
-            response.headers["Location"] += f"?flash_id={flash_id}"
+    flash_id = str(uuid.uuid4())
+    if reason == "expired":
+        flash_message = {
+            "text": "Your session expired due to inactivity. You have been logged out automatically." if lang == "en" else "Az időkorlát lejárt, ezért a kijelentkezés automatikusan megtörtént.",
+            "category": "warning"
+        }
+    else:
+        flash_message = {
+            "text": "You have been logged out successfully." if lang == "en" else "Sikeresen kijelentkeztél.",
+            "category": "success"
+        }
+    await redis.setex(f"flash:{flash_id}", FLASH_EXPIRE_SECONDS, json.dumps(flash_message))
+
+    # Embed flash_id directly in post_logout_redirect_uri
+    redirect_uri = quote(f"https://redrain1230.loophole.site/?flash_id={flash_id}", safe="")
+    logout_url = (
+        f"https://{tenant}.b2clogin.com/{tenant}.onmicrosoft.com/"
+        f"{policy}/oauth2/v2.0/logout?post_logout_redirect_uri={redirect_uri}"
+    )
+
+    response = RedirectResponse(url=logout_url)
+    response.delete_cookie("session_id")
+    
+        # if "?" in response.headers["Location"]:
+        #     response.headers["Location"] += f"&flash_id={flash_id}"
+        # else:
+        #     response.headers["Location"] += f"?flash_id={flash_id}"
 
     # Redirect to the B2C logout URL
     return response
@@ -3380,9 +3881,10 @@ async def upload_image(
 
 
 
-@router.get("/chatAdminPager", response_class=HTMLResponse)
+@router.get("/chatAdminPage", response_class=HTMLResponse)
 async def chat_admin_page(
     request: Request,
+    first_character: str | None = Query(None),
     user: dict = Depends(login_required),  # ensures user is logged in
 ):
  
@@ -3392,7 +3894,10 @@ async def chat_admin_page(
 
     # If session expired in Redis → logout
     if not await redis.exists(session_key) or not await redis.hget(session_key, "user_id"):
-        return RedirectResponse(url="/logout", status_code=302)
+        return RedirectResponse(
+        url="/logout?reason=expired",
+        status_code=302
+    )
     
 
     user_id = user["id"]
@@ -3406,7 +3911,7 @@ async def chat_admin_page(
         {
             "request": request,
             "user_org": user_org,
-            "First_character": first_character,
+            "first_character": first_character,
             "language": language,
             "user_id": user_id,
         },
@@ -3783,9 +4288,11 @@ async def release_redis_lock(redis, key: str, lock_id: str):
     await redis.eval(script, keys=[key], args=[lock_id])
 
 @sio.event
-async def connect(sid, environ): # connect() is special → Socket.IO passes environ directly
+async def connect(sid, environ, auth): # connect() is special → Socket.IO passes environ directly
     #other events (@sio.on(...)) are not → you must fetch it yourself with sio.get_environ(sid)
     cookies = environ.get("asgi.scope", {}).get("headers", [])
+    app = environ.get("asgi.scope", {}).get("app")
+    redis = app.state.redis_client
     session_id = None
     for key, value in cookies:
         if key == b'cookie':
@@ -3803,8 +4310,7 @@ async def connect(sid, environ): # connect() is special → Socket.IO passes env
         return  # Stop further connection handling
     
     
-    app = environ.get("asgi.scope", {}).get("app")
-    redis = app.state.redis_client
+    
 
     print("NÉZZÜK MI VAN ITT!!!")
     print(f"New connection: {sid}")  # Log each WebSocket connection 

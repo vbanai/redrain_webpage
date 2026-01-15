@@ -33,6 +33,24 @@
   margin-bottom: 2px ;
   
 }
+
+
+/* Small screens (phones) */
+@media (max-width: 600px) {
+    .left-section {
+      margin-left: 0px;
+      font-size: 0.7rem; /* smaller font for mobile */
+    }
+}
+
+/* Extra small screens (very small phones) */
+@media (max-width: 400px) {
+    .left-section {
+      margin-left: 0px;
+      font-size: 0.6rem; /* even smaller */
+    }
+}
+
 .hamburger{
   height: 50px;
 

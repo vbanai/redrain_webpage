@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatBot</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,400,0,0&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@48,400,1,0" />
+  <link rel="stylesheet" href="/static/graphic_design.css">
+  
+
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=swap" />
+
+</head>
+<body>
+  
+  <div class="settings-grid">
+    <div class="settings-box">
+      <!---------------------------->
+      <!-- Customize Popup Border -->
+      <!---------------------------->
+
+      <div class="popup-border-settings">
+        <h3>Customize popup border</h3>
+
+        <!-- Border Color -->
+        <div class="setting-row">
+          <label for="popup-border-color">Color:</label>
+          <input type="color" id="popup-border-color" value="#C1C0C0">
+        </div>
+
+        <!-- Border Radius -->
+        <div class="setting-row">
+          <label for="popup-border-radius">Radius:</label>
+          <input type="range" id="popup-border-radius" min="0" max="100" value="40">
+          <span id="popup-border-radius-value">40px</span>
+        </div>
+
+        <!-- Border Width -->
+        <div class="setting-row">
+          <label for="popup-border-width">Width:</label>
+          <input type="range" id="popup-border-width" min="0" max="10" step="0.5" value="1.5">
+          <span id="popup-border-width-value">1.5px</span>
+        </div>
+
+        <button id="apply-popup-border">Apply</button>
+      </div>
+    </div>
+
+    <div class="settings-box">
+    
+
+      <!---------------------------->
+      <!-- Customize Chat Header  -->
+      <!---------------------------->
+
+
+      <div class="color-settings" data-css-var="--primary-color" data-backend-value="{{ primary_color }}">
+        <h3>Customize chat header + avatar, thinking indicator & user message background color </h3>
+
+        <!-- Mode toggle -->
+        <div class="setting-row">
+          <label><input type="radio" name="color-mode" value="solid" checked> Solid</label>
+          <label><input type="radio" name="color-mode" value="gradient"> Gradient</label>
+        </div>
+
+        <!-- Solid color picker -->
+        <div id="solid-picker" class="setting-row">
+          <label for="solid-color">Please pick a color:</label>
+          <input type="color" id="solid-color" value="" class="chat-header-rectangular">
+        </div>
+
+        <!-- Gradient color pickers -->
+        <div id="gradient-picker" class="setting-row" style="display:none;">
+          <label for="gradient-start">Start color:</label>
+          <input type="color" id="gradient-start" value="">
+          <label for="gradient-end">End color:</label>
+          <input type="color" id="gradient-end" value="">
+        </div>
+
+        <button id="apply-colors">Apply</button>
+      </div>
+
+    </div>
+
+      <!--------------------------------->
+      <!-- Customize Reply Background  -->
+      <!--------------------------------->
+
+    <div class="settings-box">
+      <div class="reply-color-settings" data-css-var="--primary-color" data-backend-value="{{ reply_bg_color }}">
+
+        <h3>Customize bot/agent message background color</h3>
+
+        <!-- Mode toggle -->
+        <div class="setting-row">
+          <label>
+            <input type="radio" name="reply-mode" value="solid" checked> Solid
+          </label>
+          <label>
+            <input type="radio" name="reply-mode" value="gradient"> Gradient
+          </label>
+        </div>
+        
+        <!-- Solid color picker -->
+        <div id="reply-solid-picker" class="setting-row">
+          <label for="reply-solid-color">Please pick a color:</label>
+          <input type="color" id="reply-solid-color" value="">
+        </div>
+
+        <!-- Gradient pickers -->
+        <div class="setting-row" id="reply-gradient-picker" style="display:none;">
+          <label for="reply-gradient-start">Start color:</label>
+          <input type="color" id="reply-gradient-start" value="">
+
+          <label for="reply-gradient-end">End color:</label>
+          <input type="color" id="reply-gradient-end" value="">
+        </div>
+
+        <button id="apply-reply-color">Apply</button>
+
+      </div>
+    </div>
+      <!----------------------------------------------------------------->
+      <!-- Customize operator, emoji & attachment icons color          -->
+      <!----------------------------------------------------------------->
+
+    <div class="settings-box">
+      <div class="color-section">
+        <h4>Customize operator, emoji & attachment icons color</h4>
+
+        <!-- Solid color only -->
+        <div class="setting-row" id="operator-solid-picker">
+          <label for="operator-icon-color">Please pick a color:</label>
+          <input type="color" id="operator-icon-color" value="{{ operator_icon }}">
+        </div>
+
+        <button id="apply-operator-icon">Apply</button>
+      </div> 
+    </div>
+      <!------------------------------------------------------------------>
+      <!-- Customize Popup Background                                   -->
+      <!------------------------------------------------------------------>
+    <div class="settings-box">
+
+      <div class="color-settings">
+        <h3>Customize popup body background color</h3>
+
+        <div class="setting-row">
+          <label>
+            <input type="radio" name="popup-bg-mode" value="solid" checked> Solid
+          </label>
+          <label>
+            <input type="radio" name="popup-bg-mode" value="gradient"> Gradient
+          </label>
+        </div>
+
+        <div class="setting-row" id="popup-solid-picker">
+          <label for="popup-solid-color">Please pick a color:</label>
+          <input type="color" id="popup-solid-color" value="#fbfafa">
+        </div>
+
+        <div class="setting-row" id="popup-gradient-picker" style="display:none;">
+          <label for="popup-gradient-start">Start color:</label>
+          <input type="color" id="popup-gradient-start" value="#fbfafa">
+          <label for="popup-gradient-end">End color:</label>
+          <input type="color" id="popup-gradient-end" value="#e0e0e0">
+        </div>
+
+        <button id="apply-popup-bg">Apply</button>
+      </div>
+    </div>
+    <div class="settings-box">
+
+      <!------------------------------------------------------------------>
+      <!-- Customize Footer Background                                  -->
+      <!------------------------------------------------------------------>
+
+
+
+
+      <div class="color-settings">
+        <h3>Customize footer background color</h3>
+        
+        <div class="setting-row">
+          <label>
+            <input type="radio" name="footer-bg-mode" value="solid" checked> Solid
+          </label>
+          <label>
+            <input type="radio" name="footer-bg-mode" value="gradient"> Gradient
+          </label>
+        </div>
+
+        <div class="setting-row" id="footer-solid-picker">
+          <label for="footer-solid-color">Please pick a color:</label>
+          <input type="color" id="footer-solid-color" value="#ffffff">
+        </div>
+
+        <div class="setting-row" id="footer-gradient-picker" style="display:none;">
+          <label for="footer-gradient-start">Start color:</label>
+          <input type="color" id="footer-gradient-start" value="#ffffff">
+          <label for="footer-gradient-end">End color:</label>
+          <input type="color" id="footer-gradient-end" value="#f0f0f0">
+        </div>
+
+        <button id="apply-footer-bg">Apply</button>
+      </div>
+    </div> 
+
+      <!------------------------------------------------------------------>
+      <!--   Customize Footer Controls background                       -->
+      <!------------------------------------------------------------------>
+    <div class="settings-box"> 
+
+      <div class="color-settings">
+        <h3>Customize the background color of the agent, emoji and attachement icons in the footer</h3>
+        <div class="setting-row">
+          <label>
+            <input type="radio" name="footer-controls-mode" value="solid" checked> Solid
+          </label>
+          <label>
+            <input type="radio" name="footer-controls-mode" value="gradient"> Gradient
+          </label>
+        </div>
+
+        <div class="color-settings" id="footer-controls-solid-picker" style="font-size: 14px;">
+            <label for="footer-controls-solid-color" style="margin-right: 10px">Please pick a color:</label>
+          <input type="color" id="footer-controls-solid-color" value="">
+        </div>
+
+        <div class="color-settings" id="footer-controls-gradient-picker" style="display:none;">
+          <label for="footer-controls-gradient-start" style="font-size: 14px; margin-right: 5px">Start color:</label>
+          <input type="color" id="footer-controls-gradient-start" value="">
+          <label for="footer-controls-gradient-end" style="font-size: 14px; margin-right: 5px; margin-left: 5px">End color:</label>
+          <input type="color" id="footer-controls-gradient-end" value="">
+        </div>
+
+        <button id="apply-footer-controls">Apply</button>
+      </div>
+    </div> 
+      <!------------------------------------------------------------------>
+      <!--   Customize Footer Input Text Background                     -->
+      <!------------------------------------------------------------------>
+
+    <div class="settings-box"> 
+
+      <div class="color-settings">
+        <h3>Customize input text background color in the footer</h3>
+        
+        <div class="setting-row">
+          <label>
+            <input type="radio" name="footer-input-bg-mode" value="solid" checked> Solid
+          </label>
+          <label>
+            <input type="radio" name="footer-input-bg-mode" value="gradient"> Gradient
+          </label>
+        </div>
+
+
+        <!-- Solid color picker -->
+        <div  id="footer-input-solid-picker" style="font-size: 14px;">
+          <label for="footer-input-solid-color" style="margin-right: 10px">Please pick a color:</label>
+          <input type="color" id="footer-input-solid-color" value="">
+        </div>
+
+        <!-- Gradient color pickers -->
+        <div class="color-settings" id="footer-input-gradient-picker" style="display:none;">
+          <label for="footer-input-gradient-start" style="font-size: 14px; margin-right: 5px">Start color:</label>
+          <input type="color" id="footer-input-gradient-start" value="">
+
+          <label for="footer-input-gradient-end" style="font-size: 14px; margin-right: 5px; margin-left: 5px">End color:</label>
+          <input type="color" id="footer-input-gradient-end" value="">
+        </div>
+
+        <button id="apply-footer-input-bg">Apply</button>
+      </div>
+
+    </div> 
+      <!------------------------------------------------------------------>
+      <!--   Customize Footer focus outline color                     -->
+      <!------------------------------------------------------------------>
+
+    <div class="settings-box">
+
+      <div class="color-settings">
+        <h3>Customize input text focus line when state is outline</h3>
+        
+        <div class="setting-row" id="operator-solid-picker">
+          <label for="footer-focus-outline-color">Please pick a color:</label>
+          <input type="color" id="footer-focus-outline-color" value={{footer_focus_outline_color}}>
+        </div>
+        <button id="apply-footer-focus-outline">Apply</button>
+      </div>
+    </div>
+      <!----------------------------------------------------------------->
+      <!--   Bot Avatar + User Message Background                      -->
+      <!----------------------------------------------------------------->
+
+    <div class="settings-box">
+      <div class="color-settings" data-css-vars="--bot-avatar-bg,--user-message-bg" data-backend-value="{{ primary_color }}">
+        <h3>Separately from the header customize the background color of the bot/agent avatar and the user message</h3>
+        <div style="font-size: 14px; margin-bottom: 20px;">
+          <label><input type="radio" name="bubble-mode" value="primary" checked> Header color</label>
+
+          <label>
+            <input type="radio" name="bubble-mode" value="solid"> Solid
+          </label>
+          <label>
+            <input type="radio" name="bubble-mode" value="gradient"> Gradient
+          </label>
+
+
+        </div>
+       
+        <!-- Solid -->
+        <div class="setting-row" id="bubble-solid-picker" class="setting-row">
+          <label for="solid-color">Please pick a color:</label>
+          <input type="color" id="bubble-solid-color">
+        </div>
+
+        <!-- Gradient -->
+        <div class="setting-row" id="bubble-gradient-picker" style="display:none;">
+          <label for="bubble-gradient-picker">Start color:</label>
+          <input type="color" id="bubble-gradient-start">
+          <label for="bubble-gradient-picker">End color:</label>
+          <input type="color" id="bubble-gradient-end">
+        </div>
+
+        <button id="apply-bubble-color">Apply</button>
+      </div>
+    </div>
+       <!--------------------------------->
+      <!-- Font Color BOT              -->
+      <!--------------------------------->
+    <div class="settings-box">
+      <div class="color-section">
+        <h4>Customize bot/agent font color</h4>
+
+          <!-- Solid color picker -->
+          <div class="setting-row" id="font-color-picker">
+            <label for="font-color-input">Please pick a color:</label>
+            <input type="color" id="font-color-input" value="#585858">
+          </div>
+
+          <button id="apply-font-color">Apply</button>
+      </div>
+    </div>
+      <!------------------------------------------------------------------>
+      <!-- Bot, user message font & small elements color stb -->
+      <!------------------------------------------------------------------>
+
+    <div class="settings-box">
+      <div class="color-section">
+        <h4>Customize colors for bot/agent icon, user font, header font & close button, small popup icon's close button & conversation bubble</h4>
+        <div class="setting-row" id="everything-white-picker">
+            <label for="everything-white-input">Please pick a color:</label>
+            <input type="color" id="everything-white-input" value="#ffffff">
+        </div>
+        <button id="apply-everything-white">Apply</button>
+      </div>
+     </div>
+
+       <!----------------------------------------------------------------->
+      <!--   Input message text footer                                  -->
+      <!----------------------------------------------------------------->
+
+
+    <div class="settings-box">
+      <div class="color-section">
+        <h4>Customize input message text color in the footer</h4>
+        <div class="color-settings" id="user-input-message">
+            <label for="user-input-message-color">Please pick a color:</label>
+            <input type="color" id="user-input-message-color" value="#585858">
+        </div>
+        <button id="apply-user-input-message-color">Apply</button>
+      </div>
+    </div>
+    <div class="settings-box">
+      <!----------------------------------------------------------------->
+      <!--   Customize footer outline                                  -->
+      <!----------------------------------------------------------------->
+
+
+
+
+      <div class="color-settings">
+        <h3>Customize footer text input outline without focus</h3>
+        <div class="setting-row">
+          <label for="footer-outline-solid-picke">Please pick a color:</label>
+          <input type="color" id="footer-outline-color" value="{{ footer_form_outline }}">
+        </div>
+    
+
+        <button id="apply-footer-outline">Apply</button>
+      </div>
+    </div>
+      <!----------------------------------------------------------------->
+      <!--   Scrollbar                                                 -->
+      <!----------------------------------------------------------------->
+    <div class="settings-box">
+
+
+
+      <div class="scrollbar-color-settings">
+          <h3>Scrollbar Color</h3>
+          <div class="setting-row">
+            <label>Please pick a color:</label>
+            <input type="color" id="scrollbar-color-picker" value="#ccccf5">
+          </div>
+          
+          <button id="apply-scrollbar-color">Apply</button>
+      </div>
+
+
+
+
+    </div>
+  </div>
+  
+
+  
+
+
+  
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <button id="chatbot-toggler">
+    <span class="material-symbols-rounded">mode_comment</span>
+    <span class="material-symbols-rounded">close</span>
+  </button>
+  <div class="chatbot-popup">
+    <!-- Chatbot Header -->
+    <div class="chat-header">
+      <div class="header-info">
+        <div class="chatbot-logo {% if not use_google_icon and icon_path %}image-logo{% else %}icon-logo{% endif %}">
+          {% if not use_google_icon and icon_path %}
+            <!-- Show client PNG logo -->
+            <img src="{{ icon_path }}" alt="Client Logo" />
+          {% else %}
+            
+            <!-- Fallback: Show Google Material Icon -->
+            
+            <span class="material-symbols-outlined google-chat-icon">chat</span>
+          {% endif %}
+                
+        </div>
+        <h2 class="logo-text">Automata és élő ügyintézés</h2>
+      </div>
+      <button id="close-chatbot" class="material-symbols-rounded"> keyboard_arrow_down </button>
+    </div>
+
+    <!-- Chatbot Body -->
+    <div class="chat-body">
+      {% if languages|length > 1 %}
+      <div id="language-selector" class="message bot-message">
+        <div class="bot-avatar" style="color: white">
+          <span class="material-symbols-outlined graph-icon">graph_6</span>
+        </div>
+        <div class="message-text">
+          <p>Please select your language / Kérlek válassz nyelvet:</p>
+          <div class="lang-buttons">
+            <button id="select-hu" class="lang-btn">🇭🇺 Hungarian</button>
+            <button id="select-en" class="lang-btn">🇬🇧 English</button>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div id="first-bot-message" class="message bot-message" style="display: none;">
+        <div class="bot-avatar" style="color: white">
+          <span class="material-symbols-outlined graph-icon">graph_6</span>
+        </div>
+        <div class="message-text"></div>
+      </div>
+      
+    </div>
+    <!-- Chat Footer -->
+    <div class="chat-footer">
+      <form action="#" class="chat-form">
+        <textarea placeholder="Üzenet..." class="message-input" required></textarea>
+        <div class="paste-preview"></div> <!-- new preview container -->
+        <div class="chat-controls">
+          <div class="tooltip">
+            <button type="button" id="ask-human" class="material-symbols-rounded">support_agent</button>   <!-- support_agent = icon name as we https://fonts.googleapis.com/css2?-->
+            <span class="tooltiptext">Ügyintéző</span>
+          </div>
+          <div class="tooltip">
+            <button type="button" id="emoji-picker" class="material-symbols-outlined">sentiment_satisfied</button>
+             <span class="tooltiptext">Emoji</span>
+          </div>
+          
+          <div class="file-upload-wrapper tooltip">
+            <input type="file" accept="images/*" id="file-input" hidden>
+            <img src="#">
+            <button type="button" id="file-upload" class="material-symbols-rounded">attach_file</button>
+            <div class="disabled-overlay"></div>
+            <button type="button" id="file-cancel" class="material-symbols-rounded">close</button>
+            <span class="tooltiptext">Melléklet <br> csak elő chat <br>esetén <br>elérhető</span>
+          </div>
+          
+
+          <button type="submit" id="send-message" class="material-symbols-rounded">arrow_upward</button>
+
+        </div>
+      </form>
+      <!-- Confirmation popup -->
+      <div id="human-confirm" class="human-confirm hidden">
+        <button id="close-confirm">×</button>
+        <p id="human-confirm-text" class="agentrequestfont">
+          <!-- will be set dynamically -->
+        </p>
+        <div class="confirm-buttons">
+          <button id="confirm-yes-hu" class="check-btn">
+            <span class="check-box">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="white">
+                <path d="M20.285 6.708l-11.31 11.31-5.657-5.657 1.414-1.414 4.243 4.243 9.896-9.896z"/>
+              </svg>
+            </span>
+            Igen
+          </button>
+          <button id="confirm-yes-en" class="check-btn">
+            <span class="check-box">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="white">
+                <path d="M20.285 6.708l-11.31 11.31-5.657-5.657 1.414-1.414 4.243 4.243 9.896-9.896z"/>
+              </svg>
+            </span>
+            Yes
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <!-- emoji -->
+  <script src="https://cdn.jsdelivr.net/npm/emoji-mart@latest/dist/browser.js"></script>
+  <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script>
+  const supportedLanguages = {{ languages | tojson }};
+  const supportsMultipleLanguages = supportedLanguages.length > 1;
+  console.log(supportedLanguages, supportsMultipleLanguages)
+
+  document.documentElement.style.setProperty('--primary-color', '{{ primary_color }}');
+  
+  const primaryColor = "{{ primary_color }}";
+  document.documentElement.style.setProperty('--primary-color', primaryColor);
+
+  // Extract the first color from the gradient
+  // This regex matches the first hex color (#xxxxxx or #xxx)
+  const firstColorMatch = primaryColor.match(/#([0-9a-fA-F]{3,6})/);
+
+  if (firstColorMatch) {
+    const firstColor = firstColorMatch[0]; // e.g., "#5061C4"
+    document.documentElement.style.setProperty('--primary-color-first-color', firstColor);
+  }
+  document.documentElement.style.setProperty('--border-radius', '{{ border_radius }}');
+  document.documentElement.style.setProperty('--font-color', '{{ font_color }}');
+  document.documentElement.style.setProperty('--border-radius', '{{ border_radius }}');
+  document.documentElement.style.setProperty('--border-width', '{{ border_width }}');
+  document.documentElement.style.setProperty('--operator-icon', '{{ operator_icon }}');
+  document.documentElement.style.setProperty('--everything-which-is-white', '{{ everything_which_is_white }}');
+  document.documentElement.style.setProperty('--user-input-message-color', '{{ user_input_message_color }}');
+  document.documentElement.style.setProperty('--popup-bg-color', '{{ popup_bg_color }}');
+  document.documentElement.style.setProperty('--footer-bg-color', '{{ footer_bg_color }}');
+  document.documentElement.style.setProperty('--footer-controls-bg', '{{ footer_controls_bg }}');
+  document.documentElement.style.setProperty('--footer-input-bg-color', '{{ footer_input_bg_color }}');
+  document.documentElement.style.setProperty('--footer-focus-outline-color', '{{ footer_focus_outline_color }}');
+  document.documentElement.style.setProperty('--footer-form-outline', '{{ footer_form_outline }}');
+  document.documentElement.style.setProperty('--scrollbar-color', '{{ scrollbar_color }}');
+  
+  //reply bubble background color
+  document.documentElement.style.setProperty('--reply-bg-color', '{{ reply_bg_color }}');
+  </script>
+  <script>
+    var userId = "{{ user_id }}";
+    var userIp= "{{ ip }}";
+    var client_initial_mode="{{ client_mode }}";
+    var client_code="{{ client_id_initial }}";
+
+    const translations = {
+    hu: {
+      logo_text: "Automata és élő ügyintézés",
+      sendPlaceholder: "Üzenet...",
+      humanSupport: "Ügyintéző",
+      emoji: "Emoji",
+      attachment: "Melléklet <br> csak élő chat <br> esetén <br>elérhető",
+      humanConfirmText: "Szeretne ügyintézővel beszélni?",
+      confirmYes: "Igen",
+      sendPlaceholder: "Üzenet..."
+    },
+    en: {
+      logo_text: "AI & Live Support",
+      sendPlaceholder: "Message...",
+      humanSupport: "Human support",
+      emoji: "Emoji",
+      attachment: "Attachement <br> active only in <br>human support",
+      humanConfirmText: "Would you like to talk to a colleague?",
+      confirmYes: "Yes",
+      sendPlaceholder: "Message..."
+    }
+  };
+
+
+
+  </script>
+
+  <script src="/static/graphic_design.js"></script>
+</body>
+</html>
