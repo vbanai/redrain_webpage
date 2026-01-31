@@ -52,26 +52,12 @@ document.addEventListener("DOMContentLoaded", function() {
 
 const urlParams = new URLSearchParams(window.location.search);
 let width = urlParams.get('iframeWidth') || 420; // Default to 420px
-let chatBodyHeight = urlParams.get('chatBodyHeight') || 300; // Default to 300px
-console.log("kezdőszélesség", width)
-console.log("kezdőhosszúság", chatBodyHeight)
+
 // Select elements
 const chatbotPopup = document.querySelector('.chatbot-popup');
 const chatBody = document.querySelector('.chat-body');
 
-function applyResizing(newWidth, newHeight) {
-  console.log("újszélesség", newWidth)
-  console.log("újhosszúság", newHeight)
-  if (chatbotPopup) {
-      chatbotPopup.style.width = `${newWidth-4.8}px`;
-  }
-  if (chatBody) {
-      chatBody.style.height = `${newHeight-7}px`;
-  }
-}
 
-// Set initial size on load
-applyResizing(width, chatBodyHeight);
 
 // Listen for size updates from the parent window  //közvetlenül a browsertől(iframet tartalmazó) kapjuk az adatokat
   // Listen for size updates from the parent window  //közvetlenül a browsertől(iframet tartalmazó) kapjuk az adatokat
@@ -80,11 +66,6 @@ applyResizing(width, chatBodyHeight);
                   //     { iframeWidth, chatBodyHeight }, The object { iframeWidth, chatBodyHeight } is the payload.
                   //     "*"
 
-window.addEventListener("message", function(event) {
-  if (event.data.iframeWidth && event.data.chatBodyHeight) {
-      requestAnimationFrame(() => applyResizing(event.data.iframeWidth, event.data.chatBodyHeight));
-  }
-});
 });
 //requestAnimationFrame make sure smooth transition when parameters changes
 
@@ -101,142 +82,6 @@ const fileCancelButton=document.querySelector("#file-cancel");
 const closeChatbot=document.querySelector("#close-chatbot");
 
 
-
-////////////////////////////////////////////////////////
-// Helper: Upload image to backend (same as admin app)
-////////////////////////////////////////////////////////
-async function uploadImage(blob) {
-  if (!userId || !user_org) {
-    console.error("Missing user_id or user_org");
-    throw new Error("Missing identifiers for upload");
-  }
-
-  const formData = new FormData();
-  formData.append("file", blob);
-  formData.append("org_id", user_org);
-  formData.append("user_id", userId);
-
-  const response = await fetch("/api/upload_image", {
-    method: "POST",
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Image upload failed: ${text}`);
-  }
-
-  const data = await response.json();
-  return data.image_url; // Azure permanent URL
-}
-
-////////////////////////////////////////////////////////
-// Handle Paste and Drag & Drop
-////////////////////////////////////////////////////////
-
-messageInput.addEventListener("paste", async (e) => {
-  if (botMode === 'automatic' || overallMode === 'automatic') {
-    showTempMessage("Váltson élő ügyintézőre a használathoz.<br>Available in agent chat.");
-    e.preventDefault();
-    return;
-  }
-  const items = e.clipboardData?.items;
-  if (!items) return;
-
-  for (const item of items) {
-    if (item.type.startsWith("image/")) {
-      e.preventDefault();
-      const file = item.getAsFile();
-      await handleImageUpload(file);
-    }
-  }
-});
-
-messageInput.addEventListener("drop", async (e) => {
-
-  if (botMode === 'automatic' || overallMode === 'automatic') {
-    showTempMessage("You can paste images when you switch to agent chat.");
-    e.preventDefault();
-    return;
-  }
-
-  e.preventDefault();
-  for (const file of e.dataTransfer?.files || []) {
-    if (file.type.startsWith("image/")) {
-      await handleImageUpload(file);
-    }
-  }
-});
-
-
-
-////////////////////////////////////////////////////////
-// Handle Attachment button
-////////////////////////////////////////////////////////
-
-
-
-fileInput.addEventListener("change", async () => {
-
-  if (botMode === 'automatic' || overallMode === 'automatic') {
-    showTempMessage("Váltson élő ügyintézőre a használathoz.<br>Available in agent chat.");
-    e.preventDefault();
-    return;
-  }
-
-  const file = fileInput.files[0];
-  if (!file) return;
-  await handleImageUpload(file);
-  fileInput.value = ""; // clear
-});
-
-fileCancelButton.addEventListener("click", () => {
-  userData.file = {};
-  fileUploadWrapper.classList.remove("file-uploaded");
-  fileUploadWrapper.querySelector("img").src = "#";
-});
-
-
-
-////////////////////////////////////////////////////////
-// Unified image upload + preview logic
-////////////////////////////////////////////////////////
-
-
-
-async function handleImageUpload(file) {
-  // Block uploads in automatic mode
-  if (botMode === 'automatic' || overallMode === 'automatic') {
-    showTempMessage("Váltson élő ügyintézőre a használathoz.<br>Available in agent chat.");
-    return;
-  }
-
-  const localUrl = URL.createObjectURL(file);
-
-  // Show local preview in the same preview spot as attachments
-  fileUploadWrapper.querySelector("img").src = localUrl;
-  fileUploadWrapper.classList.add("file-uploaded");
-
-  try {
-    // Upload to backend → Azure → get permanent URL
-    const permanentUrl = await uploadImage(file);
-
-    // Replace preview source with permanent URL
-    fileUploadWrapper.querySelector("img").src = permanentUrl;
-
-    // Store for sending later
-    userData.file = {
-      data: permanentUrl,
-      mime_type: file.type,
-    };
-  } catch (err) {
-    console.error("Upload failed:", err);
-    fileUploadWrapper.querySelector("img").alt = "Upload failed";
-  } finally {
-    // Free local object URL
-    URL.revokeObjectURL(localUrl);
-  }
-}
 
 function showTempMessage(text) {
   const footer = document.querySelector(".chat-footer");
@@ -289,10 +134,6 @@ const handleOutgoingMessage=(e)=>{
 e.preventDefault();
 userData.message=messageInput.value.trim()
 
-if (botMode === 'automatic' || overallMode === 'automatic') {
-  
-  lockInput();
-}
 
 if (!userData.message) return;
 // Send the message to the backend
@@ -356,8 +197,7 @@ botmessageContent=`
     const existingTyping = chatBody.querySelector(
     `.message.bot-message.thinking[data-user-id="${userId}"]`
   );
-  console.log("****   ******   ******")
-  console.log(existingTyping)
+  
   if (existingTyping) {
     existingTyping.remove();
   }
@@ -394,24 +234,6 @@ chatBody.scrollTo({ top: chatBody.scrollHeight, behavior: "smooth" });
 
 
 }
-
-
-
-function linkifyBrandNames(text, brandLinks) {
-  for (const brandName in brandLinks) {
-    // Escape the brand name to safely use in regex
-    const escapedBrand = brandName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`\\b${escapedBrand}\\b`, 'g');
-
-    const link = `<a href="${brandLinks[brandName]}" target="_blank" rel="noopener noreferrer">${brandName}</a>`;
-    text = text.replace(regex, link);
-  }
-  return text;
-}
-
-
-
-
 
 
 
@@ -532,17 +354,17 @@ updateUploadMode();
 
 
 document.addEventListener("DOMContentLoaded", () => {
+  document.body.classList.add("show-chatbot");
   const chatbotToggler = document.querySelector("#chatbot-toggler");
   const closeChatbot = document.querySelector("#close-chatbot");
 
   if (chatbotToggler) {
     chatbotToggler.addEventListener("click", () => {
       const isOpen = document.body.classList.toggle("show-chatbot");
-      console.log("[Chatbot] Toggler clicked. isOpen =", isOpen);
+    
       // .toggle() does two things at the same time: It adds OR removes the class And it RETURNS a value (true or false)
       const message = { chatbotOpen: isOpen };
-      console.log("[Chatbot] Sending message to parent:", message);
-
+    
       // Dynamically get the parent origin
       const parentOrigin = window.location !== window.parent.location 
         ? document.referrer 
@@ -554,114 +376,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const askHumanBtn = document.getElementById("ask-human");
     const confirmPanel = document.getElementById("human-confirm");
-    const confirmYesHu = document.getElementById("confirm-yes-hu");
-    const confirmYesEn = document.getElementById("confirm-yes-en");
+   
     const closeConfirm = document.getElementById("close-confirm");
 
-    // Toggle visibility of Ask Human icon
-    messageInput.addEventListener("input", () => {
-      askHumanBtn.style.display = messageInput.value.trim().length > 0 ? "none" : "inline-block";
-    });
-
-    // Show confirmation popup when clicked
-    askHumanBtn.addEventListener("click", () => {
-      confirmPanel.classList.toggle("hidden");
-    });
-
-    
-    // Add listeners for both Hungarian and English buttons
-    confirmYesHu.addEventListener("click", () => {
-      handleAgentRequest("Ügyintézőt kérek.", "Kérem várjon, megnézem van-e szabad kollégánk.");
-    });
-
-    confirmYesEn.addEventListener("click", () => {
-      handleAgentRequest("Please connect me to a colleague.", "Please wait, I'm checking if any colleagues are available.");
-    });
-
-    // Close confirmation panel
-    closeConfirm.addEventListener("click", () => {
-      confirmPanel.classList.add("hidden");
-    });
-
-    // Hide panel when clicking outside it
-    document.addEventListener("click", (e) => {
-      if (!confirmPanel.contains(e.target) && e.target !== askHumanBtn) {
-        confirmPanel.classList.add("hidden");
-      }
-    });
-
-
-  if (closeChatbot) {
-    closeChatbot.addEventListener("click", () => {
-      document.body.classList.remove("show-chatbot");
-      const message = { chatbotOpen: false };
-      console.log("[Chatbot] Close button clicked. Sending message to parent:", message);
-
-      const parentOrigin = window.location !== window.parent.location 
-      ? document.referrer 
-      : window.location.origin;
-
-      window.parent.postMessage(message, parentOrigin);
-    });
-  }
-});
-
-function lockInput() {
-  messageInput.disabled = true;
-  sendMessageButton.disabled = true;
-
-  // Optional: dim it visually
-  messageInput.classList.add("disabled");
-  sendMessageButton.classList.add("disabled");
-
-  // Optional: show placeholder feedback
-  messageInput.placeholder = "Please wait for the response...";
-}
-
-function unlockInput() {
-  messageInput.disabled = false;
-  sendMessageButton.disabled = false;
-  messageInput.classList.remove("disabled");
-  sendMessageButton.classList.remove("disabled");
-
-  // Restore placeholder
-  const t = translations[selectedLanguage || "hu"]; // default to hu if not set
-  messageInput.placeholder = t.sendPlaceholder;
-}
-
-
-const selectHU = document.getElementById("select-hu");
-const selectEN = document.getElementById("select-en");
-const languageSelector = document.getElementById("language-selector");
-const chatMessages = document.getElementById("chat-messages");
-let selectedLanguage = supportedLanguages[0];
-
-
-if (supportsMultipleLanguages) {
-    const selectHU = document.getElementById("select-hu");
-    const selectEN = document.getElementById("select-en");
-    const languageSelector = document.getElementById("language-selector");
-
-    selectHU.addEventListener("click", () => selectLanguage("hu"));
-    selectEN.addEventListener("click", () => selectLanguage("en"));
-
-    function selectLanguage(lang) {
-        selectedLanguage = lang;
-        showHumanConfirm(lang);
-        languageSelector.classList.add("hidden");
-
-        const firstMessage = document.getElementById("first-bot-message");
-        const messageText = firstMessage.querySelector(".message-text");
-        firstMessage.style.display = "flex";
-
-        messageText.textContent = lang === "hu"
-            ? "Üdvözöllek! Miben tudok segíteni?"
-            : "Welcome! How can I help you?";
-
-        updateUIText(lang);
-        firstMessage.scrollIntoView({ behavior: "smooth" });
-    }
-} else {
     // Only one language: just show first message immediately
     const firstMessage = document.getElementById("first-bot-message");
     const messageText = firstMessage.querySelector(".message-text");
@@ -674,44 +391,99 @@ if (supportsMultipleLanguages) {
 
     updateUIText(lang);
     firstMessage.scrollIntoView({ behavior: "smooth" });
-}
+
+    // Toggle visibility of Ask Human icon
+    messageInput.addEventListener("input", () => {
+      askHumanBtn.style.display = messageInput.value.trim().length > 0 ? "none" : "inline-block";
+    });
+
+    // Show confirmation popup when clicked
+    askHumanBtn.addEventListener("click", () => {
+      confirmPanel.classList.toggle("hidden");
+    });
+
+    
+   
+
+    // Close confirmation panel
+    closeConfirm.addEventListener("click", () => {
+      confirmPanel.classList.add("hidden");
+    });
+
+    // Hide panel when clicking outside it
+
+   
+
+
+  if (closeChatbot) {
+    closeChatbot.addEventListener("click", () => {
+      document.body.classList.remove("show-chatbot");
+      const message = { chatbotOpen: false };
+     
+      const parentOrigin = window.location !== window.parent.location 
+      ? document.referrer 
+      : window.location.origin;
+
+      window.parent.postMessage(message, parentOrigin);
+    });
+  }
+});
+
+
+
+
+const selectHU = document.getElementById("select-hu");
+const selectEN = document.getElementById("select-en");
+const languageSelector = document.getElementById("language-selector");
+const chatMessages = document.getElementById("chat-messages");
+
+
+let selectedLanguage = supportedLanguages[0];
+
+
+
+
+
+
+
 
 function updateUIText(lang) {
   const t = translations[lang];
 
-  // Footer buttons
-  document.querySelector("#ask-human + .tooltiptext").textContent = t.humanSupport;
-  document.querySelector("#emoji-picker + .tooltiptext").textContent = t.emoji;
-  document.querySelector(".file-upload-wrapper .tooltiptext").innerHTML = t.attachment;
+  document.getElementById("human-confirm-text").textContent = t.humanConfirmText;
+  document.querySelector(".confirm-label").textContent = t.confirmYes;
 
-
-  document.querySelector("#confirm-yes-hu").textContent = t.confirmYes // Igen or Yes
-  document.querySelector("#confirm-yes-en").textContent = t.confirmYes; 
   document.querySelector(".logo-text").textContent = t.logo_text;
-
-  // Textarea placeholder
   document.querySelector(".message-input").placeholder = t.sendPlaceholder;
 }
 
-function showHumanConfirm(lang) {
-  const popup = document.getElementById("human-confirm");
-  const textEl = document.getElementById("human-confirm-text");
-  const btnHU = document.getElementById("confirm-yes-hu");
-  const btnEN = document.getElementById("confirm-yes-en");
 
-  // show popup
-  popup.classList.remove("hidden");
+// function showHumanConfirm(lang) {
+//   const popup = document.getElementById("human-confirm");
+//   const textEl = document.getElementById("human-confirm-text");
+//   const btnHU = document.getElementById("confirm-yes-hu");
+//   const btnEN = document.getElementById("confirm-yes-en");
 
-  if (lang === "hu") {
-    textEl.textContent = "Szeretne ügyintézővel beszélni?"; //always appears on the left, because your CSS makes the popup display: flex
-    btnHU.style.display = "inline-flex";   // show Hungarian button
-    btnEN.style.display = "none";          // hide English button
-  } else {
-    textEl.textContent = "Would you like to talk to a colleague?";
-    btnHU.style.display = "none";          // hide Hungarian button
-    btnEN.style.display = "inline-flex";   // show English button
-  }
-}
+//   // show popup
+//   popup.classList.remove("hidden");
+
+//   if (lang === "hu") {
+//     textEl.textContent = "Szeretne ügyintézővel beszélni?"; //always appears on the left, because your CSS makes the popup display: flex
+//     btnHU.style.display = "inline-flex";   // show Hungarian button
+//     btnEN.style.display = "none";          // hide English button
+//   } else {
+//     textEl.textContent = "Would you like to talk to a colleague?";
+//     btnHU.style.display = "none";          // hide Hungarian button
+//     btnEN.style.display = "inline-flex";   // show English button
+//   }
+// }
+
+
+
+
+
+
+
 
 
 
@@ -837,6 +609,11 @@ const applyFooterOutlineBtn = document.getElementById("apply-footer-outline");
 // scrollbar
 const scrollbarColorPicker = document.getElementById("scrollbar-color-picker");
 const applyScrollbarBtn = document.getElementById("apply-scrollbar-color");
+
+// confirmation button
+const confirmationbuttonColorPicker = document.getElementById("confirmation-color-picker");
+const applyConfirmationBtn = document.getElementById("apply-confirmation-color");
+
 
 // ====================================================================
 // GENERIC INITIALIZER
@@ -1261,6 +1038,27 @@ window.addEventListener("DOMContentLoaded", () => {
     popupBorderWidthValue.textContent = popupBorderWidthInput.value + "px";
   });
 
+  //Footer outline not focued
+      applyFooterOutlineBtn.addEventListener("click", () => {
+        const color = footerOutlineInput.value;
+        document.documentElement.style.setProperty('--footer-form-outline', color);
+      });
+
+      // Scrollbar
+      applyScrollbarBtn.addEventListener("click", () => {
+          const color = scrollbarColorPicker.value;
+          document.documentElement.style.setProperty("--scrollbar-color", color);
+      });
+  
+
+
+       // Confirmation button
+      applyConfirmationBtn.addEventListener("click", () => {
+          const color = confirmationbuttonColorPicker.value;
+          document.documentElement.style.setProperty("--confirmation-button-bgcolor", color);
+      });
+    
+
   // Apply button
   applyPopupBorderBtn.addEventListener("click", () => {
     const color = popupBorderColorInput.value;
@@ -1337,20 +1135,52 @@ window.addEventListener("DOMContentLoaded", () => {
           }
       });
       
-      //Footer outline not focued
-      applyFooterOutlineBtn.addEventListener("click", () => {
-        const color = footerOutlineInput.value;
-        document.documentElement.style.setProperty('--footer-form-outline', color);
-      });
-
-      // Scrollbar
-      applyScrollbarBtn.addEventListener("click", () => {
-          const color = scrollbarColorPicker.value;
-          document.documentElement.style.setProperty("--scrollbar-color", color);
-      });
+      
+    
     }
 
+    
+
+
+     
+  
+
   window.addEventListener("DOMContentLoaded", initBotAvatarPicker);
+
+  let idleTimeout = 60 * 60 * 1000; // 1 hour
+  let lastActivity = Date.now();
+
+  function resetActivity() {
+      lastActivity = Date.now();
+  }
+
+  // Capture activity
+  document.addEventListener('mousemove', resetActivity);
+  document.addEventListener('keydown', resetActivity);
+  document.addEventListener('scroll', resetActivity);
+
+  // Heartbeat function
+  async function sendHeartbeat() {
+    const now = Date.now();
+    if (now - lastActivity < idleTimeout) {
+        try {
+            const resp = await fetch('/heartbeat', { method: 'POST', credentials: 'include' });
+            //Tells the browser to include cookies from the current site in the request, even for cross-origin requests.
+            // Body: You don’t send a body here, so nothing is explicitly sent in the request payload.
+            console.log("[Heartbeat] sent", resp.status);
+        } catch (e) {
+            console.error("[Heartbeat] failed", e);
+        }
+    } else {
+        console.log("[Heartbeat] idle, not sending");
+    }
+}
+
+  // Send heartbeat every 1 min
+  setInterval(sendHeartbeat, 60 * 1000);
+
+
+
 
 
  

@@ -11,548 +11,818 @@
 
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=swap" />
+  <style>
+  /* Base button styling */
+  .button_save,
+  .button_restore {
+    display: inline-flex;               /* Align icon + text */
+    align-items: center;
+    gap: 6px;                           /* Space between icon and text */
+    padding: 8px 14px;                  /* Comfortable click area */
+    font-size: 14px;
+    font-weight: 500;
+    color: #ffffff;                     /* Text color */
+    background-color: #7a85c5;          /* Base button color */
+    border: none;
+    border-radius: 15px;                 /* Rounded corners */
+    cursor: pointer;                     /* Pointer on hover */
+    transition: background-color 0.2s, transform 0.1s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+  }
+
+  /* Restore button different color */
+  .button_restore {
+    background-color: #519653;          /* Green for restore */
+  }
+
+  /* Hover effect */
+  .button_save:hover {
+    background-color: #3455ae;          /* Slightly darker */
+    transform: translateY(-1px);        /* Lift effect */
+  }
+
+
+  .button_restore:hover {
+    background-color: #19831e;          /* Slightly darker */
+    transform: translateY(-1px);        /* Lift effect */
+  }
+
+
+  /* Active effect */
+  .button_save:active,
+  .button_restore:active {
+    transform: translateY(1px);         /* Pressed down */
+  }
+
+  /* SVG icons inside buttons */
+  .button_save svg,
+  .button_restore svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;                 /* Matches text color */
+  }
+
+
+  
+  .circle-container {
+      position: relative;
+      display: inline-block;
+      z-index: 10001
+      
+  }
+
+.circle {
+    position: relative;
+    width: 40px; /* Adjust size of the circle */
+    height: 40px; /* Adjust size of the circle */
+    border: 1px solid white; /* White border */
+    border-radius: 50%; /* Make it a circle */
+    overflow: hidden;
+}
+
+.content {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgb(90, 93, 147), #110659);
+    color: white; /* Text color */
+    font-size: 20px; /* Adjust font size */
+    cursor: pointer; /* Change cursor to pointer */
+}
+
+ 
+    .circle-dropdown-content a + a,
+    .dropdown-content a + a {
+      border-top: 1px solid rgba(255, 255, 255, 0.5);
+    }
+  
+    .circle-dropdown-content a:first-child,
+    .dropdown-content a:first-child {
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+    }
+    .circle-dropdown-content a:last-child,
+    .dropdown-content a:last-child {
+      border-bottom-left-radius: 10px;
+      border-bottom-right-radius: 10px;
+    }
+ 
+    .circle-dropdown-content::before,
+    .circle-dropdown-content::after,
+    .dropdown-content::before,
+    .dropdown-content::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background-color: rgba(255, 255, 255, 0.5);
+      top: calc(100% - 1px);
+    }
+
+    .circle-dropdown-content::before,
+    .dropdown-content::before {
+      top: -1px;
+    }
+ 
+    .circle-dropdown-content a:hover,
+    .dropdown-content a:hover {
+      background-color: #ddd;
+    }
+    
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
+      min-width: 233px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+      z-index: 1;
+      border-radius: 10px;
+      overflow: hidden;
+      top: calc(100% + 5px);
+      left: 30%;
+      transform: translateX(-50%);
+    }
+
+    .circle-dropdown-content{
+      display: none;
+      position: fixed;
+      background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
+      min-width: 210px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+      z-index: 10001;
+      border-radius: 10px;
+      overflow: hidden;
+      top: calc(100% + 5px);
+      left: calc(50% - 90px);
+      transform: translateX(-50%);
+    }
+   
+
+    .circle-dropdown-content a,
+    .dropdown-content a {
+      color: rgb(9, 13, 44);
+      font-size: clamp(0.85rem, 1.2vw, 1.1rem);
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      transition: background 0.3s;
+    }
+</style>
+
+
 
 </head>
 <body>
-  
-  <div class="settings-grid">
-    <div class="settings-box">
-      <!---------------------------->
-      <!-- Customize Popup Border -->
-      <!---------------------------->
 
-      <div class="popup-border-settings">
-        <h3>Customize popup border</h3>
-
-        <!-- Border Color -->
-        <div class="setting-row">
-          <label for="popup-border-color">Color:</label>
-          <input type="color" id="popup-border-color" value="#C1C0C0">
-        </div>
-
-        <!-- Border Radius -->
-        <div class="setting-row">
-          <label for="popup-border-radius">Radius:</label>
-          <input type="range" id="popup-border-radius" min="0" max="100" value="40">
-          <span id="popup-border-radius-value">40px</span>
-        </div>
-
-        <!-- Border Width -->
-        <div class="setting-row">
-          <label for="popup-border-width">Width:</label>
-          <input type="range" id="popup-border-width" min="0" max="10" step="0.5" value="1.5">
-          <span id="popup-border-width-value">1.5px</span>
-        </div>
-
-        <button id="apply-popup-border">Apply</button>
-      </div>
-    </div>
-
-    <div class="settings-box">
+  <section class="home" id="home">
     
-
-      <!---------------------------->
-      <!-- Customize Chat Header  -->
-      <!---------------------------->
-
-
-      <div class="color-settings" data-css-var="--primary-color" data-backend-value="{{ primary_color }}">
-        <h3>Customize chat header + avatar, thinking indicator & user message background color </h3>
-
-        <!-- Mode toggle -->
-        <div class="setting-row">
-          <label><input type="radio" name="color-mode" value="solid" checked> Solid</label>
-          <label><input type="radio" name="color-mode" value="gradient"> Gradient</label>
-        </div>
-
-        <!-- Solid color picker -->
-        <div id="solid-picker" class="setting-row">
-          <label for="solid-color">Please pick a color:</label>
-          <input type="color" id="solid-color" value="" class="chat-header-rectangular">
-        </div>
-
-        <!-- Gradient color pickers -->
-        <div id="gradient-picker" class="setting-row" style="display:none;">
-          <label for="gradient-start">Start color:</label>
-          <input type="color" id="gradient-start" value="">
-          <label for="gradient-end">End color:</label>
-          <input type="color" id="gradient-end" value="">
-        </div>
-
-        <button id="apply-colors">Apply</button>
+  
+    <div class="header0">
+      <div class="left-section">
+        <img src="static/RedRainLogo8.png" alt="" class="hamburger">
       </div>
+      <div class="middle-section">
+        <ul>
+          <li class="nav_item">
+            <a href="/serviceselector" class="nav_link buttonsubscription" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" id="home" data-lang="dashboard">Dashboard</a>
+            <div id="navItem">
+              <button class="button_save" id="save-config">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17 3H7c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 
+                          3 1.34 3 3-1.34 3-3 3zm3-10H7V5h8v4z"/>
+                </svg>
+                <span style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" class="btn-text" data-lang="save"></span>
+              </button>
 
-    </div>
+              <button class="button_restore" id="restore-config">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M13 3a9 9 0 0 0-9 9H1l4 4 4-4H5a7 7 0 1 1 7 7v-2l4 4-4 4v-2a9 9 0 0 0 0-18z"/>
+                </svg>
+                <span style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" class="btn-text" data-lang="restore"></span>
+              </button>
+            </div>
+          </li>
+          
+        </ul>
+      </div>
+      <div class="right-section">
+        <div class="language-switcher">
+          <div class="language-switcher">
+            <a href="#" id="lang-en" class="language-link">
+              <img src="static/en-flag.png" alt="EN" />
+            </a><a href="#" id="lang-hu" class="language-link">
+              <img src="static/hu-flag.png" alt="HU" />
+            </a>
+          </div>
+        </div>
 
-      <!--------------------------------->
-      <!-- Customize Reply Background  -->
-      <!--------------------------------->
-
-    <div class="settings-box">
-      <div class="reply-color-settings" data-css-var="--primary-color" data-backend-value="{{ reply_bg_color }}">
-
-        <h3>Customize bot/agent message background color</h3>
-
-        <!-- Mode toggle -->
-        <div class="setting-row">
-          <label>
-            <input type="radio" name="reply-mode" value="solid" checked> Solid
-          </label>
-          <label>
-            <input type="radio" name="reply-mode" value="gradient"> Gradient
-          </label>
+        <div class="circle-container">
+          <div class="circle" id="circleDropdown">
+            <div class="content">
+              {{first_character}} <!-- Your character or content here -->
+            </div>
+          </div>
+          
         </div>
         
-        <!-- Solid color picker -->
-        <div id="reply-solid-picker" class="setting-row">
-          <label for="reply-solid-color">Please pick a color:</label>
-          <input type="color" id="reply-solid-color" value="">
-        </div>
-
-        <!-- Gradient pickers -->
-        <div class="setting-row" id="reply-gradient-picker" style="display:none;">
-          <label for="reply-gradient-start">Start color:</label>
-          <input type="color" id="reply-gradient-start" value="">
-
-          <label for="reply-gradient-end">End color:</label>
-          <input type="color" id="reply-gradient-end" value="">
-        </div>
-
-        <button id="apply-reply-color">Apply</button>
-
-      </div>
-    </div>
-      <!----------------------------------------------------------------->
-      <!-- Customize operator, emoji & attachment icons color          -->
-      <!----------------------------------------------------------------->
-
-    <div class="settings-box">
-      <div class="color-section">
-        <h4>Customize operator, emoji & attachment icons color</h4>
-
-        <!-- Solid color only -->
-        <div class="setting-row" id="operator-solid-picker">
-          <label for="operator-icon-color">Please pick a color:</label>
-          <input type="color" id="operator-icon-color" value="{{ operator_icon }}">
-        </div>
-
-        <button id="apply-operator-icon">Apply</button>
-      </div> 
-    </div>
-      <!------------------------------------------------------------------>
-      <!-- Customize Popup Background                                   -->
-      <!------------------------------------------------------------------>
-    <div class="settings-box">
-
-      <div class="color-settings">
-        <h3>Customize popup body background color</h3>
-
-        <div class="setting-row">
-          <label>
-            <input type="radio" name="popup-bg-mode" value="solid" checked> Solid
-          </label>
-          <label>
-            <input type="radio" name="popup-bg-mode" value="gradient"> Gradient
-          </label>
-        </div>
-
-        <div class="setting-row" id="popup-solid-picker">
-          <label for="popup-solid-color">Please pick a color:</label>
-          <input type="color" id="popup-solid-color" value="#fbfafa">
-        </div>
-
-        <div class="setting-row" id="popup-gradient-picker" style="display:none;">
-          <label for="popup-gradient-start">Start color:</label>
-          <input type="color" id="popup-gradient-start" value="#fbfafa">
-          <label for="popup-gradient-end">End color:</label>
-          <input type="color" id="popup-gradient-end" value="#e0e0e0">
-        </div>
-
-        <button id="apply-popup-bg">Apply</button>
-      </div>
-    </div>
-    <div class="settings-box">
-
-      <!------------------------------------------------------------------>
-      <!-- Customize Footer Background                                  -->
-      <!------------------------------------------------------------------>
-
-
-
-
-      <div class="color-settings">
-        <h3>Customize footer background color</h3>
+        <!-- <a href="#home" class="buttonlogout" id="form-open">Logout</a> -->
         
-        <div class="setting-row">
-          <label>
-            <input type="radio" name="footer-bg-mode" value="solid" checked> Solid
-          </label>
-          <label>
-            <input type="radio" name="footer-bg-mode" value="gradient"> Gradient
-          </label>
-        </div>
-
-        <div class="setting-row" id="footer-solid-picker">
-          <label for="footer-solid-color">Please pick a color:</label>
-          <input type="color" id="footer-solid-color" value="#ffffff">
-        </div>
-
-        <div class="setting-row" id="footer-gradient-picker" style="display:none;">
-          <label for="footer-gradient-start">Start color:</label>
-          <input type="color" id="footer-gradient-start" value="#ffffff">
-          <label for="footer-gradient-end">End color:</label>
-          <input type="color" id="footer-gradient-end" value="#f0f0f0">
-        </div>
-
-        <button id="apply-footer-bg">Apply</button>
-      </div>
-    </div> 
-
-      <!------------------------------------------------------------------>
-      <!--   Customize Footer Controls background                       -->
-      <!------------------------------------------------------------------>
-    <div class="settings-box"> 
-
-      <div class="color-settings">
-        <h3>Customize the background color of the agent, emoji and attachement icons in the footer</h3>
-        <div class="setting-row">
-          <label>
-            <input type="radio" name="footer-controls-mode" value="solid" checked> Solid
-          </label>
-          <label>
-            <input type="radio" name="footer-controls-mode" value="gradient"> Gradient
-          </label>
-        </div>
-
-        <div class="color-settings" id="footer-controls-solid-picker" style="font-size: 14px;">
-            <label for="footer-controls-solid-color" style="margin-right: 10px">Please pick a color:</label>
-          <input type="color" id="footer-controls-solid-color" value="">
-        </div>
-
-        <div class="color-settings" id="footer-controls-gradient-picker" style="display:none;">
-          <label for="footer-controls-gradient-start" style="font-size: 14px; margin-right: 5px">Start color:</label>
-          <input type="color" id="footer-controls-gradient-start" value="">
-          <label for="footer-controls-gradient-end" style="font-size: 14px; margin-right: 5px; margin-left: 5px">End color:</label>
-          <input type="color" id="footer-controls-gradient-end" value="">
-        </div>
-
-        <button id="apply-footer-controls">Apply</button>
-      </div>
-    </div> 
-      <!------------------------------------------------------------------>
-      <!--   Customize Footer Input Text Background                     -->
-      <!------------------------------------------------------------------>
-
-    <div class="settings-box"> 
-
-      <div class="color-settings">
-        <h3>Customize input text background color in the footer</h3>
-        
-        <div class="setting-row">
-          <label>
-            <input type="radio" name="footer-input-bg-mode" value="solid" checked> Solid
-          </label>
-          <label>
-            <input type="radio" name="footer-input-bg-mode" value="gradient"> Gradient
-          </label>
-        </div>
-
-
-        <!-- Solid color picker -->
-        <div  id="footer-input-solid-picker" style="font-size: 14px;">
-          <label for="footer-input-solid-color" style="margin-right: 10px">Please pick a color:</label>
-          <input type="color" id="footer-input-solid-color" value="">
-        </div>
-
-        <!-- Gradient color pickers -->
-        <div class="color-settings" id="footer-input-gradient-picker" style="display:none;">
-          <label for="footer-input-gradient-start" style="font-size: 14px; margin-right: 5px">Start color:</label>
-          <input type="color" id="footer-input-gradient-start" value="">
-
-          <label for="footer-input-gradient-end" style="font-size: 14px; margin-right: 5px; margin-left: 5px">End color:</label>
-          <input type="color" id="footer-input-gradient-end" value="">
-        </div>
-
-        <button id="apply-footer-input-bg">Apply</button>
-      </div>
-
-    </div> 
-      <!------------------------------------------------------------------>
-      <!--   Customize Footer focus outline color                     -->
-      <!------------------------------------------------------------------>
-
-    <div class="settings-box">
-
-      <div class="color-settings">
-        <h3>Customize input text focus line when state is outline</h3>
-        
-        <div class="setting-row" id="operator-solid-picker">
-          <label for="footer-focus-outline-color">Please pick a color:</label>
-          <input type="color" id="footer-focus-outline-color" value={{footer_focus_outline_color}}>
-        </div>
-        <button id="apply-footer-focus-outline">Apply</button>
       </div>
     </div>
-      <!----------------------------------------------------------------->
-      <!--   Bot Avatar + User Message Background                      -->
-      <!----------------------------------------------------------------->
-
-    <div class="settings-box">
-      <div class="color-settings" data-css-vars="--bot-avatar-bg,--user-message-bg" data-backend-value="{{ primary_color }}">
-        <h3>Separately from the header customize the background color of the bot/agent avatar and the user message</h3>
-        <div style="font-size: 14px; margin-bottom: 20px;">
-          <label><input type="radio" name="bubble-mode" value="primary" checked> Header color</label>
-
-          <label>
-            <input type="radio" name="bubble-mode" value="solid"> Solid
-          </label>
-          <label>
-            <input type="radio" name="bubble-mode" value="gradient"> Gradient
-          </label>
-
-
-        </div>
-       
-        <!-- Solid -->
-        <div class="setting-row" id="bubble-solid-picker" class="setting-row">
-          <label for="solid-color">Please pick a color:</label>
-          <input type="color" id="bubble-solid-color">
-        </div>
-
-        <!-- Gradient -->
-        <div class="setting-row" id="bubble-gradient-picker" style="display:none;">
-          <label for="bubble-gradient-picker">Start color:</label>
-          <input type="color" id="bubble-gradient-start">
-          <label for="bubble-gradient-picker">End color:</label>
-          <input type="color" id="bubble-gradient-end">
-        </div>
-
-        <button id="apply-bubble-color">Apply</button>
-      </div>
+    <div class="circle-dropdown-content" id="circleDropdownContent">
+      {% if chat_control_access %}
+        <a href="#service1" id="circleDashboardLink0" data-lang="chatcontrol">Chat Control</a>
+      {% endif %}
+      {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
+        <a href="{{ url_for('dashboard_vbanai') }}" data-lang="metrics">ChatBot Metrics & Insights</a>
+      {% endif %}
+      {% if advanced_ai_access and user_role in ['Manager', 'Team Leader'] %}
+        <a href="{{ url_for('predictive_dashboard') }}" data-lang="prediction">Advanced AI Predictive Solutions</a>
+      {% endif %}
+        <a href="#logout" id="logout" action="{{ url_for('logout') }}" method="post" data-lang="logout">Logout</a>
     </div>
-       <!--------------------------------->
-      <!-- Font Color BOT              -->
-      <!--------------------------------->
-    <div class="settings-box">
-      <div class="color-section">
-        <h4>Customize bot/agent font color</h4>
+    <div id="flash-messages"></div>
+    <div class="settings-grid">
+      <div class="settings-box">
+        <!---------------------------->
+        <!-- Customize Popup Border -->
+        <!---------------------------->
+
+        <div class="popup-border-settings">
+          <h3 data-lang="popupborder">Customize popup border</h3>
+
+          <!-- Border Color -->
+          <div class="setting-row">
+            <label data-lang="color" for="popup-border-color">Color:</label>
+            <input type="color"  id="popup-border-color" value="#C1C0C0">
+          </div>
+
+          <!-- Border Radius -->
+          <div class="setting-row">
+            <label style="font-size:13px;" data-lang="radius" for="popup-border-radius">Radius:</label>
+            <input type="range" id="popup-border-radius" min="0" max="100" value="40">
+            <span id="popup-border-radius-value">40px</span>
+          </div>
+
+          <!-- Border Width -->
+          <div class="setting-row">
+            <label style="font-size:13px;" data-lang="width" for="popup-border-width">Width:</label>
+            <input type="range" id="popup-border-width" min="0" max="10" step="0.5" value="1.5">
+            <span id="popup-border-width-value">1.5px</span>
+          </div>
+
+          <button data-lang="apply" id="apply-popup-border">Apply</button>
+        </div>
+      </div>
+
+      <div class="settings-box">
+      
+
+        <!---------------------------->
+        <!-- Customize Chat Header  -->
+        <!---------------------------->
+
+
+        <div class="color-settings" data-css-var="--primary-color" data-backend-value="{{ primary_color }}">
+          <h3 data-lang="header_avatar_thinking_bgcol">Customize chat header + avatar, thinking indicator & user message background color </h3>
+
+          <!-- Mode toggle -->
+          <div class="setting-row">
+            <label>
+              <input type="radio" name="color-mode" value="solid" checked> 
+              <span data-lang="solid">Solid</span>
+            </label>
+            <label>
+              <input type="radio" name="color-mode" value="gradient">
+              <span data-lang="gradient">Gradient</span>
+            </label>
+          </div>
 
           <!-- Solid color picker -->
-          <div class="setting-row" id="font-color-picker">
-            <label for="font-color-input">Please pick a color:</label>
-            <input type="color" id="font-color-input" value="#585858">
+          <div id="solid-picker" class="setting-row">
+            <label  data-lang="pickacolor" for="solid-color">Please pick a color:</label>
+            <input type="color" id="solid-color" value="" class="chat-header-rectangular">
           </div>
 
-          <button id="apply-font-color">Apply</button>
+          <!-- Gradient color pickers -->
+          <div id="gradient-picker" class="setting-row" style="display:none;">
+            <label data-lang="start" for="gradient-start">Start color:</label>
+            <input type="color" id="gradient-start" value="">
+            <label data-lang="end" for="gradient-end">End color:</label>
+            <input type="color" id="gradient-end" value="">
+          </div>
+
+          <button data-lang="apply" id="apply-colors">Apply</button>
+        </div>
+
+      </div>
+
+        <!--------------------------------->
+        <!-- Customize Reply Background  -->
+        <!--------------------------------->
+
+      <div class="settings-box">
+        <div class="reply-color-settings" data-css-var="--primary-color" data-backend-value="{{ reply_bg_color }}">
+
+          <h3 data-lang="bot_agent_message_bc">Customize bot/agent message background color</h3>
+
+          <!-- Mode toggle -->
+          <div class="setting-row">
+            <label>
+              <input type="radio" name="reply-mode" value="solid" checked> 
+              <span data-lang="solid">Solid</span>
+            </label>
+            <label>
+              <input type="radio" name="reply-mode" value="gradient">
+              <span data-lang="gradient">Gradient</span>
+            </label>
+          </div>
+          
+          <!-- Solid color picker -->
+          <div id="reply-solid-picker" class="setting-row">
+            <label data-lang="pickacolor" for="reply-solid-color">Please pick a color:</label>
+            <input type="color" id="reply-solid-color" value="">
+          </div>
+
+          <!-- Gradient pickers -->
+          <div class="setting-row" id="reply-gradient-picker" style="display:none;">
+            <label data-lang="start" for="reply-gradient-start">Start color:</label>
+            <input type="color" id="reply-gradient-start" value="">
+
+            <label data-lang="end" for="reply-gradient-end">End color:</label>
+            <input type="color" id="reply-gradient-end" value="">
+          </div>
+
+          <button data-lang="apply" id="apply-reply-color">Apply</button>
+
+        </div>
+      </div>
+        <!----------------------------------------------------------------->
+        <!-- Customize operator, emoji & attachment icons color          -->
+        <!----------------------------------------------------------------->
+
+      <div class="settings-box">
+        <div class="color-section">
+          <h4 data-lang="footer_icon_colors">Customize operator, emoji & attachment icons color</h4>
+
+          <!-- Solid color only -->
+          <div class="setting-row" id="operator-solid-picker">
+            <label data-lang="pickacolor" for="operator-icon-color">Please pick a color:</label>
+            <input type="color" id="operator-icon-color" value="{{ operator_icon }}">
+          </div>
+
+          <button data-lang="apply" id="apply-operator-icon">Apply</button>
+        </div> 
+      </div>
+        <!------------------------------------------------------------------>
+        <!-- Customize Popup Background                                   -->
+        <!------------------------------------------------------------------>
+      <div class="settings-box">
+
+        <div class="color-settings">
+          <h3 data-lang="popup_body">Customize popup body background color</h3>
+
+          <div class="setting-row">
+            <label>
+              <input type="radio" name="popup-bg-mode" value="solid" checked>
+              <span data-lang="solid">Solid</span>
+            </label>
+            <label>
+              <input type="radio" name="popup-bg-mode" value="gradient">
+              <span data-lang="gradient">Gradient</span>
+            </label>
+          </div>
+
+          <div class="setting-row" id="popup-solid-picker">
+            <label data-lang="pickacolor" for="popup-solid-color">Please pick a color:</label>
+            <input type="color" id="popup-solid-color" value="#fbfafa">
+          </div>
+
+          <div class="setting-row" id="popup-gradient-picker" style="display:none;">
+            <label data-lang="start" for="popup-gradient-start">Start color:</label>
+            <input type="color" id="popup-gradient-start" value="#fbfafa">
+            <label data-lang="end" for="popup-gradient-end">End color:</label>
+            <input type="color" id="popup-gradient-end" value="#e0e0e0">
+          </div>
+
+          <button data-lang="apply" id="apply-popup-bg">Apply</button>
+        </div>
+      </div>
+      <div class="settings-box">
+
+        <!------------------------------------------------------------------>
+        <!-- Customize Footer Background                                  -->
+        <!------------------------------------------------------------------>
+
+
+
+
+        <div class="color-settings">
+          <h3 data-lang="footer_bc">Customize footer background color</h3>
+          
+          <div class="setting-row">
+            <label>
+              <input type="radio" name="footer-bg-mode" value="solid" checked>
+              <span data-lang="solid">Solid</span>
+            </label>
+            <label>
+              <input type="radio" name="footer-bg-mode" value="gradient">
+              <span data-lang="gradient">Gradient</span>
+            </label>
+          </div>
+
+          <div class="setting-row" id="footer-solid-picker">
+            <label data-lang="pickacolor" for="footer-solid-color">Please pick a color:</label>
+            <input type="color" id="footer-solid-color" value="#ffffff">
+          </div>
+
+          <div class="setting-row" id="footer-gradient-picker" style="display:none;">
+            <label data-lang="start" for="footer-gradient-start">Start color:</label>
+            <input type="color" id="footer-gradient-start" value="#ffffff">
+            <label data-lang="end" for="footer-gradient-end">End color:</label>
+            <input type="color" id="footer-gradient-end" value="#f0f0f0">
+          </div>
+
+          <button data-lang="apply" id="apply-footer-bg">Apply</button>
+        </div>
+      </div> 
+
+        <!------------------------------------------------------------------>
+        <!--   Customize Footer Controls background                       -->
+        <!------------------------------------------------------------------>
+      <div class="settings-box"> 
+
+        <div class="color-settings">
+          <h3 data-lang="bc_agent_emoji_attachement">Customize the background color of the agent, emoji and attachement icons in the footer</h3>
+          <div class="setting-row">
+            <label>
+              <input type="radio" name="footer-controls-mode" value="solid" checked>
+              <span data-lang="solid">Solid</span>
+            </label>
+            <label>
+              <input type="radio" name="footer-controls-mode" value="gradient">
+              <span data-lang="gradient">Gradient</span>
+            </label>
+          </div>
+
+          <div class="color-settings" id="footer-controls-solid-picker" style="font-size: 14px;">
+              <label data-lang="pickacolor" for="footer-controls-solid-color" style="margin-right: 10px">Please pick a color:</label>
+            <input type="color" id="footer-controls-solid-color" value="">
+          </div>
+
+          <div class="color-settings" id="footer-controls-gradient-picker" style="display:none;">
+            <label data-lang="start" for="footer-controls-gradient-start" style="font-size: 14px; margin-right: 5px">Start color:</label>
+            <input type="color" id="footer-controls-gradient-start" value="">
+            <label data-lang="end" for="footer-controls-gradient-end" style="font-size: 14px; margin-right: 5px; margin-left: 5px">End color:</label>
+            <input type="color" id="footer-controls-gradient-end" value="">
+          </div>
+
+          <button data-lang="apply" id="apply-footer-controls">Apply</button>
+        </div>
+      </div> 
+        <!------------------------------------------------------------------>
+        <!--   Customize Footer Input Text Background                     -->
+        <!------------------------------------------------------------------>
+
+      <div class="settings-box"> 
+
+        <div class="color-settings">
+          <h3 data-lang="input_text_bc">Customize input text background color in the footer</h3>
+          
+          <div class="setting-row">
+            <label>
+              <input type="radio" name="footer-input-bg-mode" value="solid" checked>
+              <span data-lang="solid">Solid</span>
+            </label>
+            <label>
+              <input type="radio" name="footer-input-bg-mode" value="gradient">
+              <span data-lang="gradient">Gradient</span>
+            </label>
+          </div>
+
+
+          <!-- Solid color picker -->
+          <div  id="footer-input-solid-picker" style="font-size: 14px;">
+            <label data-lang="pickacolor" for="footer-input-solid-color" style="margin-right: 10px">Please pick a color:</label>
+            <input type="color" id="footer-input-solid-color" value="">
+          </div>
+
+          <!-- Gradient color pickers -->
+          <div class="color-settings" id="footer-input-gradient-picker" style="display:none;">
+            <label lang-data="start" for="footer-input-gradient-start" style="font-size: 14px; margin-right: 5px">Start color:</label>
+            <input type="color" id="footer-input-gradient-start" value="">
+
+            <label lang-data="end" for="footer-input-gradient-end" style="font-size: 14px; margin-right: 5px; margin-left: 5px">End color:</label>
+            <input type="color" id="footer-input-gradient-end" value="">
+          </div>
+
+          <button data-lang="apply" id="apply-footer-input-bg">Apply</button>
+        </div>
+
+      </div> 
+        <!------------------------------------------------------------------>
+        <!--   Customize Footer focus outline color                     -->
+        <!------------------------------------------------------------------>
+
+      <div class="settings-box">
+
+        <div class="color-settings">
+          <h3 data-lang="focusline">Customize input text entry focus line</h3>
+          
+          <div class="setting-row" id="operator-solid-picker">
+            <label data-lang="pickacolor" for="footer-focus-outline-color">Please pick a color:</label>
+            <input type="color" id="footer-focus-outline-color" value={{footer_focus_outline_color}}>
+          </div>
+          <button data-lang="apply" id="apply-footer-focus-outline">Apply</button>
+        </div>
+      </div>
+        <!----------------------------------------------------------------->
+        <!--   Bot Avatar + User Message Background                      -->
+        <!----------------------------------------------------------------->
+
+      <div class="settings-box">
+        <div class="color-settings" data-css-vars="--bot-avatar-bg,--user-message-bg" data-backend-value="{{ primary_color }}">
+          <h3 data-lang="Separately_bot_agent_user_message">Separately from the header customize the background color of the bot/agent avatar and the user message</h3>
+          <div style="font-size: 14px; margin-bottom: 20px;">
+            <label data-lang="headercolorseparate"><input type="radio" name="bubble-mode" value="primary" checked> Header color</label>
+
+            <label>
+              <input type="radio" name="bubble-mode" value="solid">
+              <span data-lang="solid">Solid</span>
+            </label>
+            <label>
+              <input type="radio" name="bubble-mode" value="gradient">
+              <span data-lang="gradient">Gradient</span>
+            </label>
+
+
+          </div>
+        
+          <!-- Solid -->
+          <div class="setting-row" id="bubble-solid-picker" class="setting-row">
+            <label data-lang="pickacolor" for="solid-color">Please pick a color:</label>
+            <input type="color" id="bubble-solid-color">
+          </div>
+
+          <!-- Gradient -->
+          <div class="setting-row" id="bubble-gradient-picker" style="display:none;">
+            <label lang-data="start" for="bubble-gradient-picker">Start color:</label>
+            <input type="color" id="bubble-gradient-start">
+            <label lang-data="end" for="bubble-gradient-picker">End color:</label>
+            <input type="color" id="bubble-gradient-end">
+          </div>
+
+          <button data-lang="apply" id="apply-bubble-color">Apply</button>
+        </div>
+      </div>
+        <!--------------------------------->
+        <!-- Font Color BOT              -->
+        <!--------------------------------->
+      <div class="settings-box">
+        <div class="color-section">
+          <h4 data-lang="bot_agent_font_color">Customize bot/agent font color</h4>
+
+            <!-- Solid color picker -->
+            <div class="setting-row" id="font-color-picker">
+              <label data-lang="pickacolor" for="font-color-input">Please pick a color:</label>
+              <input type="color" id="font-color-input" value="#585858">
+            </div>
+
+            <button data-lang="apply" id="apply-font-color">Apply</button>
+        </div>
+      </div>
+        <!------------------------------------------------------------------>
+        <!-- Bot, user message font & small elements color stb -->
+        <!------------------------------------------------------------------>
+
+      <div class="settings-box">
+        <div class="color-section">
+          <h4 data-lang="smallparts">Customize colors for bot/agent icon, user font, header font & close button, small popup icon's close button & conversation bubble</h4>
+          <div class="setting-row" id="everything-white-picker">
+              <label data-lang="pickacolor" for="everything-white-input">Please pick a color:</label>
+              <input type="color" id="everything-white-input" value="#ffffff">
+          </div>
+          <button data-lang="apply" id="apply-everything-white">Apply</button>
+        </div>
+      </div>
+
+        <!----------------------------------------------------------------->
+        <!--   Input message text footer                                  -->
+        <!----------------------------------------------------------------->
+
+
+      <div class="settings-box">
+        <div class="color-section">
+          <h4 data-lang="input_text_color">Customize input message text color in the footer</h4>
+          <div class="color-settings" id="user-input-message">
+              <label data-lang="pickacolor" for="user-input-message-color">Please pick a color:</label>
+              <input type="color" id="user-input-message-color" value="#585858">
+          </div>
+          <button data-lang="apply" id="apply-user-input-message-color">Apply</button>
+        </div>
+      </div>
+      <div class="settings-box">
+        <!----------------------------------------------------------------->
+        <!--   Customize footer outline                                  -->
+        <!----------------------------------------------------------------->
+
+
+
+
+        <div class="color-settings">
+          <h3 data-lang="without_focus">Customize footer text input outline without focus</h3>
+          <div class="setting-row">
+            <label data-lang="pickacolor" for="footer-outline-solid-picke">Please pick a color:</label>
+            <input type="color" id="footer-outline-color" value="{{ footer_form_outline }}">
+          </div>
+      
+
+          <button data-lang="apply" id="apply-footer-outline">Apply</button>
+        </div>
+      </div>
+        <!----------------------------------------------------------------->
+        <!--   Scrollbar                                                 -->
+        <!----------------------------------------------------------------->
+      <div class="settings-box">
+        <div class="scrollbar-color-settings">
+            <h3 lang-data="scrollbar">Customize the scrollbar color</h3>
+            <div class="setting-row">
+              <label  data-lang="pickacolor">Please pick a color:</label>
+              <input type="color" id="scrollbar-color-picker" value="#ccccf5">
+            </div>
+            
+            <button data-lang="apply" id="apply-scrollbar-color">Apply</button>
+        </div>
+      </div>
+
+        <!----------------------------------------------------------------->
+        <!--   Confirmaton button background color                       -->
+        <!----------------------------------------------------------------->
+      <div class="settings-box">
+        <div class="confirmationbutton-color-settings">
+            <h3 lang-data="bc_confirmation_langugeselector">Customize confirmation button & language selector button background color for agent intervention</h3>
+            <div class="setting-row">
+              <label data-lang="pickacolor">Please pick a color:</label>
+              <input type="color" id="confirmation-color-picker" value="#ccccf5">
+            </div>
+            
+            <button data-lang="apply" id="apply-confirmation-color">Apply</button>
+        </div>
       </div>
     </div>
-      <!------------------------------------------------------------------>
-      <!-- Bot, user message font & small elements color stb -->
-      <!------------------------------------------------------------------>
-
-    <div class="settings-box">
-      <div class="color-section">
-        <h4>Customize colors for bot/agent icon, user font, header font & close button, small popup icon's close button & conversation bubble</h4>
-        <div class="setting-row" id="everything-white-picker">
-            <label for="everything-white-input">Please pick a color:</label>
-            <input type="color" id="everything-white-input" value="#ffffff">
-        </div>
-        <button id="apply-everything-white">Apply</button>
-      </div>
-     </div>
-
-       <!----------------------------------------------------------------->
-      <!--   Input message text footer                                  -->
-      <!----------------------------------------------------------------->
-
-
-    <div class="settings-box">
-      <div class="color-section">
-        <h4>Customize input message text color in the footer</h4>
-        <div class="color-settings" id="user-input-message">
-            <label for="user-input-message-color">Please pick a color:</label>
-            <input type="color" id="user-input-message-color" value="#585858">
-        </div>
-        <button id="apply-user-input-message-color">Apply</button>
-      </div>
-    </div>
-    <div class="settings-box">
-      <!----------------------------------------------------------------->
-      <!--   Customize footer outline                                  -->
-      <!----------------------------------------------------------------->
-
-
-
-
-      <div class="color-settings">
-        <h3>Customize footer text input outline without focus</h3>
-        <div class="setting-row">
-          <label for="footer-outline-solid-picke">Please pick a color:</label>
-          <input type="color" id="footer-outline-color" value="{{ footer_form_outline }}">
-        </div>
     
 
-        <button id="apply-footer-outline">Apply</button>
-      </div>
-    </div>
-      <!----------------------------------------------------------------->
-      <!--   Scrollbar                                                 -->
-      <!----------------------------------------------------------------->
-    <div class="settings-box">
+    
+
+
+    
+
+  
 
 
 
-      <div class="scrollbar-color-settings">
-          <h3>Scrollbar Color</h3>
-          <div class="setting-row">
-            <label>Please pick a color:</label>
-            <input type="color" id="scrollbar-color-picker" value="#ccccf5">
+
+
+
+
+
+
+
+
+
+
+    <button id="chatbot-toggler">
+      <span class="material-symbols-rounded">mode_comment</span>
+      <span class="material-symbols-rounded">close</span>
+    </button>
+    <div class="chatbot-popup">
+      <!-- Chatbot Header -->
+      <div class="chat-header">
+        <div class="header-info">
+          <div class="chatbot-logo {% if not use_google_icon and icon_path %}image-logo{% else %}icon-logo{% endif %}">
+            {% if not use_google_icon and icon_path %}
+              <!-- Show client PNG logo -->
+              <img src="{{ icon_path }}" alt="Client Logo" />
+            {% else %}
+              
+              <!-- Fallback: Show Google Material Icon -->
+              
+              <span class="material-symbols-outlined google-chat-icon">chat</span>
+            {% endif %}
+                  
           </div>
-          
-          <button id="apply-scrollbar-color">Apply</button>
+          <h2 data-lang="Ai_livesupport" class="logo-text">Automata és élő ügyintézés</h2>
+        </div>
+        <button id="close-chatbot" class="material-symbols-rounded"> keyboard_arrow_down </button>
       </div>
 
-
-
-
-    </div>
-  </div>
-  
-
-  
-
-
-  
-
- 
-
-
-
-
-
-
-
-
-
-
-
-
-
-  <button id="chatbot-toggler">
-    <span class="material-symbols-rounded">mode_comment</span>
-    <span class="material-symbols-rounded">close</span>
-  </button>
-  <div class="chatbot-popup">
-    <!-- Chatbot Header -->
-    <div class="chat-header">
-      <div class="header-info">
-        <div class="chatbot-logo {% if not use_google_icon and icon_path %}image-logo{% else %}icon-logo{% endif %}">
-          {% if not use_google_icon and icon_path %}
-            <!-- Show client PNG logo -->
-            <img src="{{ icon_path }}" alt="Client Logo" />
-          {% else %}
-            
-            <!-- Fallback: Show Google Material Icon -->
-            
-            <span class="material-symbols-outlined google-chat-icon">chat</span>
-          {% endif %}
-                
-        </div>
-        <h2 class="logo-text">Automata és élő ügyintézés</h2>
-      </div>
-      <button id="close-chatbot" class="material-symbols-rounded"> keyboard_arrow_down </button>
-    </div>
-
-    <!-- Chatbot Body -->
-    <div class="chat-body">
-      {% if languages|length > 1 %}
-      <div id="language-selector" class="message bot-message">
-        <div class="bot-avatar" style="color: white">
-          <span class="material-symbols-outlined graph-icon">graph_6</span>
-        </div>
-        <div class="message-text">
-          <p>Please select your language / Kérlek válassz nyelvet:</p>
-          <div class="lang-buttons">
-            <button id="select-hu" class="lang-btn">🇭🇺 Hungarian</button>
-            <button id="select-en" class="lang-btn">🇬🇧 English</button>
-          </div>
-        </div>
-      </div>
-      {% endif %}
-
-      <div id="first-bot-message" class="message bot-message" style="display: none;">
-        <div class="bot-avatar" style="color: white">
-          <span class="material-symbols-outlined graph-icon">graph_6</span>
-        </div>
-        <div class="message-text"></div>
-      </div>
+      <!-- Chatbot Body -->
+      <div class="chat-body">
       
-    </div>
-    <!-- Chat Footer -->
-    <div class="chat-footer">
-      <form action="#" class="chat-form">
-        <textarea placeholder="Üzenet..." class="message-input" required></textarea>
-        <div class="paste-preview"></div> <!-- new preview container -->
-        <div class="chat-controls">
-          <div class="tooltip">
-            <button type="button" id="ask-human" class="material-symbols-rounded">support_agent</button>   <!-- support_agent = icon name as we https://fonts.googleapis.com/css2?-->
-            <span class="tooltiptext">Ügyintéző</span>
+        <div id="language-selector" class="message bot-message">
+          <div class="bot-avatar" style="color: white">
+            <span class="material-symbols-outlined graph-icon">graph_6</span>
           </div>
-          <div class="tooltip">
-            <button type="button" id="emoji-picker" class="material-symbols-outlined">sentiment_satisfied</button>
-             <span class="tooltiptext">Emoji</span>
-          </div>
-          
-          <div class="file-upload-wrapper tooltip">
-            <input type="file" accept="images/*" id="file-input" hidden>
-            <img src="#">
-            <button type="button" id="file-upload" class="material-symbols-rounded">attach_file</button>
-            <div class="disabled-overlay"></div>
-            <button type="button" id="file-cancel" class="material-symbols-rounded">close</button>
-            <span class="tooltiptext">Melléklet <br> csak elő chat <br>esetén <br>elérhető</span>
-          </div>
-          
+          <div class="message-text">
+            <p>Please select your language / Kérlek válassz nyelvet:</p>
+            <div class="lang-buttons">
+               <button id="select-hu" class="lang-btn">
+              <img src="/static/flags/hu-flag.png" alt="HU" class="flag-icon">
+                Magyar
+              </button>
 
-          <button type="submit" id="send-message" class="material-symbols-rounded">arrow_upward</button>
+              <button id="select-en" class="lang-btn">
+                <img src="/static/flags/en-flag.png" alt="GB" class="flag-icon">
+                English
+              </button>
+            </div>
+          </div>
+        </div>
+       
 
+        <div id="first-bot-message" class="message bot-message" style="display: none;">
+          <div class="bot-avatar" style="color: white">
+            <span class="material-symbols-outlined graph-icon">graph_6</span>
+          </div>
+          <div lang-data="greeting" class="message-text"></div>
         </div>
-      </form>
-      <!-- Confirmation popup -->
-      <div id="human-confirm" class="human-confirm hidden">
-        <button id="close-confirm">×</button>
-        <p id="human-confirm-text" class="agentrequestfont">
-          <!-- will be set dynamically -->
-        </p>
-        <div class="confirm-buttons">
-          <button id="confirm-yes-hu" class="check-btn">
-            <span class="check-box">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="white">
-                <path d="M20.285 6.708l-11.31 11.31-5.657-5.657 1.414-1.414 4.243 4.243 9.896-9.896z"/>
-              </svg>
-            </span>
-            Igen
-          </button>
-          <button id="confirm-yes-en" class="check-btn">
-            <span class="check-box">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="white">
-                <path d="M20.285 6.708l-11.31 11.31-5.657-5.657 1.414-1.414 4.243 4.243 9.896-9.896z"/>
-              </svg>
-            </span>
-            Yes
-          </button>
-        </div>
+        
       </div>
+      <!-- Chat Footer -->
+      <div class="chat-footer">
+        <form action="#" class="chat-form">
+          <textarea data-lang="sendPlaceholder" data-lang-attr="placeholder" class="message-input" required></textarea>
+          <div class="paste-preview"></div> <!-- new preview container -->
+          <div class="chat-controls">
+            <div class="tooltip">
+              <button type="button" id="ask-human" class="material-symbols-rounded">support_agent</button>   <!-- support_agent = icon name as we https://fonts.googleapis.com/css2?-->
+              <span data-lang="agent" class="tooltiptext">Ügyintéző</span>
+            </div>
+            <div class="tooltip">
+              <button type="button" id="emoji-picker" class="material-symbols-outlined">sentiment_satisfied</button>
+              <span data-lang="emoji" class="tooltiptext">Emoji</span>
+            </div>
+            
+            <div class="file-upload-wrapper tooltip">
+              <input type="file" accept="images/*" id="file-input" hidden>
+              <img src="#">
+              <button type="button" id="file-upload" class="material-symbols-rounded">attach_file</button>
+              <div class="disabled-overlay"></div>
+              <button type="button" id="file-cancel" class="material-symbols-rounded">close</button>
+              <span data-lang="attachment" class="tooltiptext">Melléklet <br> csak elő chat <br>esetén <br>elérhető</span>
+            </div>
+            
 
+            <button type="submit" id="send-message" class="material-symbols-rounded">arrow_upward</button>
+
+          </div>
+        </form>
+        <!-- Confirmation popup -->
+        <div id="human-confirm" class="human-confirm">
+          <button id="close-confirm">×</button>
+          <p data-lang="humanConfirmText" id="human-confirm-text" class="agentrequestfont">
+            <!-- will be set dynamically -->
+          </p>
+          <div class="confirm-buttons">
+            <button id="confirm-yes" class="check-btn">
+              <span class="check-box">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="white">
+                  <path d="M20.285 6.708l-11.31 11.31-5.657-5.657 1.414-1.414 4.243 4.243 9.896-9.896z"/>
+                </svg>
+              </span>
+              <span data-lang="confirmYes" class="confirm-label"></span>
+            </button>
+            
+          </div>
+        </div>
+
+      </div>
     </div>
-  </div>
+  </section>
   <!-- emoji -->
   <script src="https://cdn.jsdelivr.net/npm/emoji-mart@latest/dist/browser.js"></script>
   <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script>
+
   const supportedLanguages = {{ languages | tojson }};
   const supportsMultipleLanguages = supportedLanguages.length > 1;
-  console.log(supportedLanguages, supportsMultipleLanguages)
+  
+
+  
+  const agent_icon = "{{ agent_icon }}"
+  const emoji_icon = "{{ emoji_icon }}"
+  const attachement_icon = "{{ attachement_icon }}"
+
+  const userLanguage = "{{ language }}";
+  if (userLanguage) {
+    localStorage.setItem('language', userLanguage);
+  }
+
 
   document.documentElement.style.setProperty('--primary-color', '{{ primary_color }}');
   
@@ -566,10 +836,10 @@
   if (firstColorMatch) {
     const firstColor = firstColorMatch[0]; // e.g., "#5061C4"
     document.documentElement.style.setProperty('--primary-color-first-color', firstColor);
+    
   }
   document.documentElement.style.setProperty('--border-radius', '{{ border_radius }}');
   document.documentElement.style.setProperty('--font-color', '{{ font_color }}');
-  document.documentElement.style.setProperty('--border-radius', '{{ border_radius }}');
   document.documentElement.style.setProperty('--border-width', '{{ border_width }}');
   document.documentElement.style.setProperty('--operator-icon', '{{ operator_icon }}');
   document.documentElement.style.setProperty('--everything-which-is-white', '{{ everything_which_is_white }}');
@@ -581,6 +851,34 @@
   document.documentElement.style.setProperty('--footer-focus-outline-color', '{{ footer_focus_outline_color }}');
   document.documentElement.style.setProperty('--footer-form-outline', '{{ footer_form_outline }}');
   document.documentElement.style.setProperty('--scrollbar-color', '{{ scrollbar_color }}');
+  document.documentElement.style.setProperty('--confirmation-button-bgcolor', {{ confirmation_button_bgcolor | tojson }});
+  document.documentElement.style.setProperty('--header-font-weight', '{{ header_font_weight }}');
+  document.documentElement.style.setProperty('--header-font-size', '{{ header_font_size }}');
+  document.documentElement.style.setProperty('--general-body-font-size', '{{ general_body_font_size }}');
+  document.documentElement.style.setProperty('--general-body-font-size2', '{{ general_body_font_size2 }}');
+
+  const language_selector={{ language_selector | tojson }};
+  const language_hu_logo_text = {{ language_hu_logo_text | tojson }};
+  const language_en_logo_text = {{ language_en_logo_text | tojson }};
+  const greeting_message_hu = {{ greeting_message_hu | tojson }};
+  const greeting_message_en = {{ greeting_message_en | tojson }};
+
+  const agent_request_confirmation_hu = {{ agent_request_confirmation_hu | tojson }};
+  const agent_request_confirmation_en = {{ agent_request_confirmation_en | tojson }};
+
+
+ 
+
+  const headerFontFamily = {{ font_header_text | tojson }};
+  document.documentElement.style.setProperty('--font-header-text', headerFontFamily);
+
+  const fontGeneral = {{ font_general | tojson }};
+  document.documentElement.style.setProperty('--font-general', fontGeneral);
+
+  
+  //reply bubble background color
+  document.documentElement.style.setProperty('--reply-bg-color', '{{ reply_bg_color }}');
+
   
   //reply bubble background color
   document.documentElement.style.setProperty('--reply-bg-color', '{{ reply_bg_color }}');
@@ -591,28 +889,475 @@
     var client_initial_mode="{{ client_mode }}";
     var client_code="{{ client_id_initial }}";
 
+    document.addEventListener("DOMContentLoaded", () => {
+      const header = document.querySelector('.header0');
+
+      if (!header) return; // safety check
+
+      function handleScroll() {
+        if (window.scrollY > 0) {
+          header.style.backgroundColor = 'rgba(0, 0, 0, 1)';
+        } else {
+          header.style.backgroundColor = 'rgba(0, 0, 0, 0.3)';
+        }
+      }
+
+      window.addEventListener('scroll', handleScroll);
+
+      // run once in case page is already scrolled on load
+      handleScroll();
+    });
+
+
     const translations = {
     hu: {
-      logo_text: "Automata és élő ügyintézés",
-      sendPlaceholder: "Üzenet...",
+      
+      dashboard: "Kezelőfelület",
+      save: "Mentés",
+      restore: "Előző állapot",
+      popupborder:"A chatablak keretének szerkesztése",
+      color: "Szín:",
+      radius: "Rádiusz:",
+      width: "Vastagság:",
+      apply: "Alkalmaz",
+      header_avatar_thinking_bgcol:"Fejléc, ikonok, gondolkozó pontok és felhasználói üzenet buborék háttérszínének beállítása",
+      solid:"Egy szín",
+      gradient: "Átmenetes kevert szín", 
+      pickacolor: "Válassz színt:",
       humanSupport: "Ügyintéző",
       emoji: "Emoji",
-      attachment: "Melléklet <br> csak élő chat <br> esetén <br>elérhető",
+      attachment: "Melléklet <br> csak elő chat <br>esetén <br>elérhető",
       humanConfirmText: "Szeretne ügyintézővel beszélni?",
       confirmYes: "Igen",
-      sendPlaceholder: "Üzenet..."
+      sendPlaceholder: "Üzenet...",
+      waitResponse: "Kérem, várjon...",
+      logo_text:"Automata és élő ügyintézés",
+      start: "Kezdő szín:",
+      end: "Záró szín:",
+      footer_icon_colors:"Operátor, emoji és csatolmány iconok színeinek megváltoztatása",
+      bot_agent_message_bc:"Operátor/AI válasz buborék háttérszínénk megváltoztatása",
+      popup_body:"A popup üzenetmező háttérszínének beállítása",
+      footer_bc:"Az alsó inputblokk háttérszínének beállítása",
+      input_text_bc:"Az alsó inputblokkhoz tartozó szövegmező hátterszínének beállítása",
+      focusline:"Az input mezőhöz tartozó fókuszkeret színének beállítása",
+      Separately_bot_agent_user_message:"Az operátor/AI icon és a felhasználói üzenet háttérszínének beállítása függetlenül a fejléctől",
+      bc_agent_emoji_attachement: "Az alsó blokkban lévő operátor, emoji és csatolás iconok háttérszíneinek beállítása",
+      bot_agent_font_color:"Az operátor/AI választ megjelenítő betűk színének beállítása",
+      smallparts:"Színbeállítás: operator/AI icon, felhasználó üzenetét megjelenítő betűk a középső chatfelületen, fejléc betűk, küldés nyíl, popup bezáró ikon (fent, lent)",
+      input_text_color:"Az üzenet betűszínének beállítása az alsó blokkban",
+      without_focus:"Az input mezőhöz tartozó keret színének beállítása (nem fókuszálási keret)",
+      scrollbar:"Scrollcsúszka színének beállítása",
+      bc_confirmation_langugeselector:"Az agent kérő megerősítő és a nyelvi választó gomb háttérszínének beállítása",
+      headercolorseparate:"Fejléc szín",
+      Ai_livesupport:"Automata és élő ügyintézés",
+      agent:"Ügyintéző",
+      emoji: "Emoji",
+      attachment: "Melléklet <br> csak elő chat <br>esetén <br>elérhető",
+      greeting:"Üdvözöllek! Miben tudok segíteni?"
     },
     en: {
-      logo_text: "AI & Live Support",
+      logo_text:"AI & Live Support",
+      dashboard:"Dashboard",
+      save: "Save",
+      restore: "Previous state", 
+      popupborder:"Customize popup border",
+      color:"Color:",
+      radius: "Radius:",
+      width:"Width:",
+      apply: "Apply",
+      header_avatar_thinking_bgcol:"Customize header, icon, thinking indicator and user message bubble background color",
+      solid:"Solid",
+      gradient:"Gradient",
+      pickacolor:"Please pick a color:",
       sendPlaceholder: "Message...",
       humanSupport: "Human support",
       emoji: "Emoji",
-      attachment: "Attachement <br> active only in <br>human support",
+      attachment: "Attachment <br> available in <br> human chat",
       humanConfirmText: "Would you like to talk to a colleague?",
       confirmYes: "Yes",
-      sendPlaceholder: "Message..."
-    }
+      waitResponse: "Please wait...",
+      start: "Start color:",
+      end:"End color:",
+      footer_icon_colors:"Customize operator, emoji & attachment icons color",
+      bot_agent_message_bc:"Customize bot/agent message background color",
+      popup_body:"Customize popup body background color",
+      footer_bc:"Customize footer background color",
+      input_text_bc:"Customize input text background color in the footer",
+      focusline:"Customize the color of the input text focus line",
+      Separately_bot_agent_user_message:"Separately from the header customize the background color of the bot/agent avatar and the user message",
+      bc_agent_emoji_attachment:"Customize the background color of the agent, emoji and attachement icons in the footer",
+      bot_agent_font_color:"Customize bot/agent font color",
+      smallparts:"Customize colors for bot/agent icon, user font, header font & close buttons, message sending arrow",
+      input_text_color:"Customize input message text color in the footer",
+      without_focus:"Customize footer text input outline without focus",
+      scrollbar:"Customize the scrollbar color",
+      bc_confirmation_langugeselector: "Customize confirmation button & language selector button background color for agent intervention",
+      headercolorseparate:"Header color",
+      Ai_livesupport:"AI & Live Support",
+      agent:"Human Support",
+      emoji: "Emoji",
+      attachment: "Attachment <br> available in <br> human chat",
+      greeting:""
+    } 
   };
+
+
+// MANAGE THE THE GRAPHICAL LAYOUT CHANGE
+
+
+  document.getElementById("save-config").addEventListener("click", () => {
+    const language = localStorage.getItem('language') || 'hu';
+
+    const message = language === 'hu'
+        ? "Biztosan el akarja menteni a jelenlegi konfigurációt?\n\nEz felülírja az aktív kliens konfigurációját."
+        : "Are you sure you want to save the current configuration?\n\nThis will overwrite the active client configuration.";
+
+    const confirmed = confirm(message);
+    console.log("User confirmed save:", confirmed);
+    if (!confirmed) return;
+
+    saveCurrentConfig();
+  });
+
+  function getCssVar(name) {
+      return getComputedStyle(document.documentElement)
+        .getPropertyValue(name)
+        .trim() || null;
+    }
+
+  function collectClientConfig() {
+    return {
+      primary_color: getCssVar("--primary-color"),
+      border_radius: getCssVar("--border-radius"),
+      border_width: getCssVar("--border-width"),
+      border_color: getCssVar("--border-color"),
+
+      reply_bg_color: getCssVar("--reply-bg-color"),
+      operator_icon: getCssVar("--operator-icon"),
+      font_color: getCssVar("--font-color"),
+      everything_which_is_white: getCssVar("--everything-which-is-white"),
+      user_input_message_color: getCssVar("--user-input-message-color"),
+
+      popup_bg_color: getCssVar("--popup-bg-color"),
+      footer_bg_color: getCssVar("--footer-bg-color"),
+      footer_controls_bg: getCssVar("--footer-controls-bg"),
+      footer_input_bg_color: getCssVar("--footer-input-bg-color"),
+      footer_focus_outline_color: getCssVar("--footer-focus-outline-color"),
+
+      scrollbar_color: getCssVar("--scrollbar-color"),
+      confirmation_button_bgcolor: getCssVar("--confirmation-button-bgcolor")
+    };
+  }
+
+  async function saveCurrentConfig() {
+    const language = localStorage.getItem('language') || 'hu';
+
+
+    // Collect the current config from the page
+    const payload = collectClientConfig();
+    const API_BASE = "https://redrain1230.loophole.site";
+
+    try {
+        const response = await fetch(`${API_BASE}/api/client/config/manage_previous_layout`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        const flashMessages = document.getElementById("flash-messages");
+
+        if (!flashMessages) {
+            console.warn("Flash messages container not found!");
+            return;
+        }
+
+        // Render flash messages from the backend
+        if (data.messages) {
+            data.messages.forEach(message => {
+                const div = document.createElement("div");
+                div.className = `flash ${message.category || "info"}`;
+
+                // Localized text fallback
+                div.textContent =
+                    message[`text_${language}`] ||
+                    message.text_en ||
+                    message.text ||
+                    "Notification";
+
+                flashMessages.appendChild(div);
+
+                // Start fade-out after 3.5s
+                setTimeout(() => {
+                    div.classList.add("fade-out");
+                }, 3500);
+
+                // Remove from DOM after transition
+                div.addEventListener("transitionend", () => div.remove());
+            });
+        }
+
+    } catch (err) {
+        console.error(err);
+
+        // Display error flash if something goes wrong
+        const flashMessages = document.getElementById("flash-messages");
+        if (flashMessages) {
+            const div = document.createElement("div");
+            div.className = "flash danger";
+            div.textContent = "Error saving configuration";
+            flashMessages.appendChild(div);
+
+            setTimeout(() => div.classList.add("fade-out"), 3500);
+            div.addEventListener("transitionend", () => div.remove());
+        }
+    }
+}
+
+// MANAGE RESTORATION
+
+document.getElementById("restore-config").addEventListener("click", () => {
+  const language = localStorage.getItem("language") || "hu";
+
+  const message =
+    language === "hu"
+      ? "Biztosan vissza szeretné állítani az előző konfigurációt?\n\nEz törli az aktuális beállításokat."
+      : "Are you sure you want to restore the previous configuration?\n\nThis will erase the current settings.";
+
+  const confirmed = confirm(message);
+  console.log("User confirmed restore:", confirmed);
+
+  if (!confirmed) return;
+
+  restorePreviousConfig();
+});
+
+async function restorePreviousConfig() {
+  const language = localStorage.getItem("language") || "hu";
+  const API_BASE = "https://redrain1230.loophole.site";
+
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/client/config/restore_previous_layout`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    const data = await response.json();
+    const flashMessages = document.getElementById("flash-messages");
+
+    if (!flashMessages) return;
+
+    if (data.messages) {
+      data.messages.forEach(message => {
+        const div = document.createElement("div");
+        div.className = `flash ${message.category || "info"}`;
+        div.textContent =
+          message[`text_${language}`] ||
+          message.text_en ||
+          message.text ||
+          "Notification";
+
+
+
+        flashMessages.appendChild(div);
+
+        setTimeout(() => div.classList.add("fade-out"), 3500);
+        div.addEventListener("transitionend", () => div.remove());
+      });
+    }
+
+    // Optional: reload page to apply restored CSS
+    if (data.success) {
+      setTimeout(() => window.location.reload(), 3500);
+    }
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+const langEnBtn = document.getElementById('lang-en');
+if (langEnBtn) {
+  langEnBtn.addEventListener('click', function() {
+    const newLang = 'en';
+    localStorage.setItem('language', newLang);
+    setLanguage(newLang);
+
+    fetch('/update_language', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ language: newLang }),
+      credentials: 'include'
+    });
+  });
+}
+
+const langHuBtn = document.getElementById('lang-hu');
+if (langHuBtn) {
+  langHuBtn.addEventListener('click', function() {
+    const newLang = 'hu';
+    localStorage.setItem('language', newLang);
+    setLanguage(newLang);
+
+    fetch('/update_language', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ language: newLang }),
+      credentials: 'include'
+    });
+  });
+}
+
+// Set language on page load
+window.onload = function() {
+    if (typeof translations !== 'undefined') {
+        // Use backend-provided language if available, otherwise use localStorage, otherwise default to 'hu'
+        const backendLang = "{{ language }}"; // Jinja variable
+        const storedLang = localStorage.getItem('language');
+        const language = backendLang && backendLang !== "" ? backendLang : (storedLang || 'hu');
+
+        setLanguage(language);
+    }
+};
+
+
+
+
+
+function setLanguage(language) {
+  document.querySelectorAll('[data-lang]').forEach(element => {
+    const langKey = element.getAttribute('data-lang');
+    const translation = translations[language][langKey];
+
+    if (translation) {
+      if (element.hasAttribute('placeholder')) {
+        // For inputs like <input placeholder="...">
+        element.setAttribute('placeholder', translation);
+      } else {
+        // For regular elements like <div>, <span>, etc.
+        element.innerHTML = translation;
+      }
+    }
+  });
+}
+
+function hideButtonTextOnMobile() {
+  const isMobile = window.innerWidth <= 600; // mobile breakpoint
+  document.querySelectorAll('.btn-text').forEach(span => {
+    if (isMobile) {
+      span.style.display = 'none'; // hide on mobile
+    } else {
+      span.style.display = '';     // show on desktop
+    }
+  });
+}
+
+// Run on page load
+hideButtonTextOnMobile();
+
+// Run on resize
+window.addEventListener('resize', hideButtonTextOnMobile);
+
+
+  window.addEventListener("DOMContentLoaded", () => {
+  var circleDropdownContent = document.getElementById('circleDropdownContent');
+  var circleDropdown = document.getElementById('circleDropdown');
+  var circleDashboardLink0= document.getElementById('circleDashboardLink0');
+  var circleDashboardLink= document.getElementById('circleDashboardLink');
+  var circleDashboardLink2= document.getElementById('circleDashboardLink2');
+  var logoutButton = document.querySelector("#logout"); 
+  
+  function showDropdown() {
+    const rect = circleDropdown.getBoundingClientRect();
+    circleDropdownContent.style.top = `${rect.bottom + 5}px`;
+    circleDropdownContent.style.left = `${rect.left + rect.width / 2-75}px`;
+    circleDropdownContent.style.display = 'block';
+}
+
+  function hideDropdown(dropdown, button) {
+      dropdown.style.display = 'none';
+      button.classList.remove('active');
+  }
+
+
+  if (circleDropdown){
+    // For V character dropdown
+    circleDropdown.addEventListener('mouseenter', function() {
+      showDropdown(circleDropdownContent, circleDropdown);
+    });
+  }
+  if (circleDropdown){
+    circleDropdown.addEventListener('mouseleave', function() {
+        setTimeout(function() {
+            if (!circleDropdownContent.matches(':hover') && !circleDropdown.matches(':hover')) {
+                hideDropdown(circleDropdownContent, circleDropdown);
+            }
+        }, 200); // Delay to ensure dropdown doesn't vanish immediately
+    });
+  }
+  if (circleDropdownContent){
+    circleDropdownContent.addEventListener('mouseleave', function() {
+        setTimeout(function() {
+            if (!circleDropdown.matches(':hover')) {
+                hideDropdown(circleDropdownContent, circleDropdown);
+            }
+        }, 200); // Delay to ensure dropdown doesn't vanish immediately
+    });
+  }
+    circleDropdownContent.addEventListener('mouseenter', function() {
+        showDropdown(circleDropdownContent, circleDropdown);
+    });
+
+    logoutButton.addEventListener("click", function() {
+        // Navigate to the "/logout" route
+        window.location.href = "/logout";
+    });
+
+    
+    if (circleDashboardLink0){
+circleDashboardLink0.addEventListener("click", function() {
+    event.preventDefault();
+    const firstCharacterElement = document.querySelector("#circleDropdown .content");
+    
+    if (!firstCharacterElement) {
+        console.error("circleDropdown .content NOT found.");
+        return;
+    }
+
+    const firstCharacter = firstCharacterElement.innerText.trim();
+    console.log("Sending firstCharacter:", firstCharacter);
+
+    // Append first_character as a query parameter to the URL
+    const url = `/chatAdminPage?first_character=${encodeURIComponent(firstCharacter)}`;
+
+    // Redirect to the URL
+    if (isMobile()) {
+        // Mobile → same tab
+        window.location.href = url;
+    } else {
+        // 🖥 Desktop → new tab
+        window.open(url, "_blank", "noopener,noreferrer");
+    }
+});
+    }
+
+ 
+
+ });
+
+
+
+
+
+
+
 
 
 

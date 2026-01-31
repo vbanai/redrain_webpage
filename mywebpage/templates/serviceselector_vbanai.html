@@ -793,16 +793,17 @@ select {
           <div id="navItem">
             <a href="#services" class="buttonsubscription" id="buttonSubscription" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" data-lang="chatwidget">Chat widget</a>
             <div class="dropdown-content" id="dropdownContent">
-              {% if chat_control_access %}
+              {% if user_role in ['Manager', 'Team Leader']  %}
                 <a href="#service1" id="dashboardLink0" data-lang="design">Design</a>
               {% endif %}
-              {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
+              {% if user_role in ['Manager', 'Team Leader'] %}
                 <a href="#service1" id="dashboardLink" data-lang="settings">Settings</a>
               {% endif %}
-              {% if advanced_ai_access and user_role in ['Manager', 'Team Leader'] %}
-                <a href="{{ url_for('predictive_dashboard') }}" data-lang="sample">Sample</a>
+              {% if user_role in ['Manager', 'Team Leader'] %}
+                <a href="#service1" id="dashboardLink" data-lang="currentpopup">Popup</a>
               {% endif %}
-              </div>
+
+            </div>
           </div>
           <!-- <a href="#services" class="nav_link buttonsubscription" id="form-open">Resource Management</a> -->
           {% if user_role in ['Manager', 'Team Leader'] %}
@@ -841,11 +842,14 @@ select {
           {% if chat_control_access %}
             <a href="#service1" id="circleDashboardLink0" data-lang="chatcontrol">Chat Control</a>
           {% endif %}
-          {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
+          {% if basic_metrics_access and user_role in ['Manager', 'Team Leader'] %}
             <a href="{{ url_for('dashboard_vbanai') }}" data-lang="metrics">ChatBot Metrics & Insights</a>
           {% endif %}
           {% if advanced_ai_access and user_role in ['Manager', 'Team Leader'] %}
             <a href="{{ url_for('predictive_dashboard') }}" data-lang="prediction">Advanced AI Predictive Solutions</a>
+          {% endif %}
+          {% if user_role in ['Manager', 'Team Leader'] %}
+            <a href="/subscription" data-lang="subscription">Subscription</a>
           {% endif %}
             <a href="#logout" id="logout" action="{{ url_for('logout') }}" method="post" data-lang="logout">Logout</a>
         </div>
@@ -1042,7 +1046,7 @@ select {
               {% endif %}
               
               <!-- Chatbot Metrics & Insights: Accessible to Manager and Team Leader with Basic, Gold, or Platinum subscriptions -->
-              {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
+              {% if basic_metrics_access and user_role in ['Manager', 'Team Leader'] %}
                   <a href="/dashboard_vbanai" class="container-chat-grid">
                       <p class="chatbot-title" style="color: white; margin-top: 5px; font-size: clamp(10px, 1.4vw, 17px);" data-lang="metrics" >Chatbot Metrics & Insights</p>
                       <div class="image-link">
@@ -1075,7 +1079,7 @@ select {
     localStorage.setItem('language', userLanguage);
 }
   </script>
-  <script src="\static\inactivitytimeout.js"></script>
+
 
   <!-- <iframe id="chatIframe" src="https://chatbothungarianbv.azurewebsites.net" frameborder="0"></iframe> -->
   <!-- <script src="static/scriptform.js"></script> -->
@@ -1719,11 +1723,7 @@ select {
 
 
     // For My Services dropdown
-  console.log("_____________________")
-  console.log("navItem:", navItem);
-  console.log("buttonSubscription:", buttonSubscription);
-  console.log("dropdownContent:", dropdownContent);
-  console.log("_____________________")
+
 
   if (navItem){
     navItem.addEventListener('mouseenter', function() {
@@ -1813,7 +1813,7 @@ select {
     if (dashboardLink0){
     dashboardLink0.addEventListener("click", function() {
     event.preventDefault();
-    console.log("++++++++++++++++ kokl++++++++++++++++++")
+
     const firstCharacterElement = document.querySelector("#circleDropdown .content");
 
     if (!firstCharacterElement) {
@@ -1894,12 +1894,33 @@ chatGridLink.addEventListener("click", function() {
 });
     }
 
-    if (dashboardLink){
+       if (dashboardLink){
     dashboardLink.addEventListener("click", function() {
-        // Navigate to the "/dashboard" route
-        window.location.href = "/dashboard";
-    });
-  }
+    event.preventDefault();
+
+    const firstCharacterElement = document.querySelector("#circleDropdown .content");
+
+    if (!firstCharacterElement) {
+        console.error("circleDropdown .content NOT found.");
+        return;
+    }
+
+    const firstCharacter = firstCharacterElement.innerText.trim();
+    console.log("Sending firstCharacter:", firstCharacter);
+
+    // Append first_character as a query parameter to the URL
+    const url = `/popup_settings?first_character=${encodeURIComponent(firstCharacter)}`;
+    window.location.href = url;
+    // Redirect to the URL
+    // if (isMobile()) {
+    //     // Mobile → same tab
+    //     window.location.href = url;
+    // } else {
+    //     // 🖥 Desktop → new tab
+    //     window.open(url, "_blank", "noopener,noreferrer");
+    // }
+});
+    }
   if (dashboardLink2){
     dashboardLink2.addEventListener("click", function() {
         // Navigate to the "/dashboard" route
@@ -1946,7 +1967,7 @@ const translations = {
       home: "Home",
       chatwidget: "Chat widget",
       chatcontrol:"Chat Control",
-      settings:"Settings",
+      settings:"Text & Fonts",
       metrics:"ChatBot Metrics & Insights",
       prediction:"Predictive AI Solutions",
       resourcemanagement:"Resources",
@@ -1974,6 +1995,7 @@ const translations = {
       greeting: "Hello {{name}} from {{client_name}}, Welcome to your subscription!",
       greeting2: "Please select a service",
       sample:"Sample widget",
+      subscription:"Subscription",
 
 
       
@@ -1986,8 +2008,8 @@ const translations = {
       chatwidget: "Chatablak",
       chatcontrol:"Chat irányítópult",
       sample:"Minta ablak",
-      settings:"Alapbeállítások",
-      design:"Megjelenés modosítása",
+      settings:"Szövegek és betűk",
+      design:"Színek és dizájn",
       metrics:"Chatbot mutatók és elemzések", 
       prediction:"Prediktív AI-megoldások",
       resourcemanagement:"Adminkezelés",
@@ -2013,7 +2035,7 @@ const translations = {
       removeresourceh2:"A felhasználó eltávolítása",
       greeting: "Helló {{name}} a(z) {{client_name}}-től, Üdvözlünk a platformon!",
       greeting2: "Kérlek válassz egy szolgáltatást!",
-
+      subscription:"Előfizetés",
       
        
         
@@ -2045,7 +2067,7 @@ document.getElementById('lang-hu').addEventListener('click', function() {
   fetch('/update_language', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({language: newLang}),
+    body: JSON.stringify({user_id: currentUserId, language: newLang}),
     credentials: 'include'
   });
 });
@@ -2095,6 +2117,43 @@ function getCookie(name) {
 document.querySelectorAll('input[name="csrf_access_token"]').forEach(input => {
     input.value = getCookie('csrf_access_token');
 });
+
+
+  let idleTimeout = 60 * 60 * 1000; // 1 hour
+  let lastActivity = Date.now();
+
+  function resetActivity() {
+      lastActivity = Date.now();
+  }
+
+  // Capture activity
+  document.addEventListener('mousemove', resetActivity);
+  document.addEventListener('keydown', resetActivity);
+  document.addEventListener('scroll', resetActivity);
+
+  // Heartbeat function
+  async function sendHeartbeat() {
+    const now = Date.now();
+    if (now - lastActivity < idleTimeout) {
+        try {
+            const resp = await fetch('/heartbeat', { method: 'POST', credentials: 'include' });
+            //Tells the browser to include cookies from the current site in the request, even for cross-origin requests.
+            // Body: You don’t send a body here, so nothing is explicitly sent in the request payload.
+            console.log("[Heartbeat] sent", resp.status);
+        } catch (e) {
+            console.error("[Heartbeat] failed", e);
+        }
+    } else {
+        console.log("[Heartbeat] idle, not sending");
+    }
+}
+
+  // Send heartbeat every 1 min
+  setInterval(sendHeartbeat, 60 * 1000);
+
+
+
+
 
 
 

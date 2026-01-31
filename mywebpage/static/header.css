@@ -13,7 +13,7 @@
   border-bottom-width: 1px;
   border-bottom-style: solid;
  
-  z-index: 1005;
+  z-index: 10001;
   transition: background-color 0.3s ease; /* Smooth transition */
 
 }

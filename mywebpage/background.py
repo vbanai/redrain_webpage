@@ -4,7 +4,7 @@ import aioredis
 import json
 from mywebpage.socketio_app import sio
 from mywebpage.db import async_session_scope
-from sqlalchemy import text, select, desc
+from sqlalchemy import text, select, desc, delete
 from mywebpage.elephantsql import Client, ChatHistory, OrgEventLog
 from azure.storage.blob.aio import BlobServiceClient
 import os
@@ -12,7 +12,8 @@ from datetime import datetime, timezone
 from sqlalchemy import update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.exc import OperationalError  #catch db op error
-
+import time
+from fastapi import HTTPException
 
 
 INACTIVITY_TIMEOUT_SECONDS = 30
@@ -604,3 +605,94 @@ async def send_admin_heartbeat(fastapi_app):
 
 
 
+
+
+
+async def logout_user(app, *, session_id: str, reason: str = "manual"):
+    redis = app.state.redis_client
+
+    session_key = f"session:{session_id}"
+    user_data = await redis.hgetall(session_key)
+    if not user_data:
+        return False  # already logged out
+
+    user_id = user_data.get("user_id")
+    org_id = user_data.get("user_org")
+
+
+
+    org_id_int = int(org_id) if org_id else None
+
+    # --- Redis cleanup ---
+    await redis.delete(session_key)
+
+    if user_id and org_id:
+        await redis.delete(f"online:{org_id}:{user_id}")
+        await redis.srem(f"org:{org_id}:connections", session_id)
+        await redis.delete(f"connection:{session_id}")
+
+        # Notify remaining org connections
+        sids = list(await redis.smembers(f"org:{org_id}:connections"))
+
+
+        await asyncio.gather(
+            *(
+                sio.emit(
+                    "user_online_status_changed",
+                    {"user_id": user_id, "is_online": False},
+                    to=sid
+                )
+                for sid in sids
+            ),
+            return_exceptions=True
+        )
+
+        # --- DB cleanup when last user leaves ---
+        if not sids and org_id_int:
+            async with async_session_scope() as db:
+                await db.execute(
+                    delete(OrgEventLog).where(OrgEventLog.org_id == org_id_int)
+                )
+                await db.execute(
+                    update(Client)
+                    .where(Client.id == org_id_int)
+                    .values(
+                        mode="automatic",
+                        last_manualmode_triggered_by=None
+                    )
+                )
+
+    return True
+
+
+IDLE_TIMEOUT = 60 * 60  # ennek összhangban kell lenni a frontendek idleTimeout jaival
+
+async def cleanup_idle_sessions(app):
+    redis = app.state.redis_client
+    # this redis object comes from your lifespan context manager:
+
+    while True:
+        now = int(time.time())
+        session_keys = await redis.keys("session:*")
+
+        for key in session_keys:
+            # key is like "session:abc123"
+            session_id = key.split(":", 1)[1]
+
+            user_data = await redis.hgetall(key)
+            if not user_data:
+                continue
+
+            last_active = int(user_data.get("last_active") or 0)
+            print(
+                f"[IdleCheck] session={session_id} "
+                f"last_active={last_active} "
+                f"idle_for={now - last_active}s"
+            )
+
+            if now - last_active > IDLE_TIMEOUT:
+                print(f"[IdleLogout] Expiring session {session_id}")
+                await logout_user(app, session_id=session_id, reason="expired")
+
+        # Wait before next check
+        await asyncio.sleep(60)

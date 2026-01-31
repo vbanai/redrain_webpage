@@ -1,0 +1,1898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatBot</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,400,0,0&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@48,400,1,0" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:opsz,wght@14..32,100..900&display=swap" rel="stylesheet">
+
+<!-- New fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Lobster&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:opsz,wght@14..32,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:opsz,wght@14..32,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/popup_settings.css">
+
+  <style>
+  /* Base button styling */
+  .button_save,
+  .button_restore {
+    display: inline-flex;               /* Align icon + text */
+    align-items: center;
+    gap: 6px;                           /* Space between icon and text */
+    padding: 8px 14px;                  /* Comfortable click area */
+    font-size: 14px;
+    font-weight: 500;
+    color: #ffffff;                     /* Text color */
+    background-color: #7a85c5;          /* Base button color */
+    border: none;
+    border-radius: 15px;                 /* Rounded corners */
+    cursor: pointer;                     /* Pointer on hover */
+    transition: background-color 0.2s, transform 0.1s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+  }
+
+  /* Restore button different color */
+  .button_restore {
+    background-color: #519653;          /* Green for restore */
+  }
+
+  /* Hover effect */
+  .button_save:hover {
+    background-color: #3455ae;          /* Slightly darker */
+    transform: translateY(-1px);        /* Lift effect */
+  }
+
+
+  .button_restore:hover {
+    background-color: #19831e;          /* Slightly darker */
+    transform: translateY(-1px);        /* Lift effect */
+  }
+
+
+  /* Active effect */
+  .button_save:active,
+  .button_restore:active {
+    transform: translateY(1px);         /* Pressed down */
+  }
+
+  /* SVG icons inside buttons */
+  .button_save svg,
+  .button_restore svg {
+    width: 18px;
+    height: 18px;
+    fill: #ffffff;                  /* Matches text color */
+  }
+
+
+  .circle-container {
+      position: relative;
+      display: inline-block;
+      z-index: 10001
+      
+  }
+
+.circle {
+    position: relative;
+    width: 40px; /* Adjust size of the circle */
+    height: 40px; /* Adjust size of the circle */
+    border: 1px solid white; /* White border */
+    border-radius: 50%; /* Make it a circle */
+    overflow: hidden;
+}
+
+.content {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgb(90, 93, 147), #110659);
+    color: white; /* Text color */
+    font-size: 20px; /* Adjust font size */
+    cursor: pointer; /* Change cursor to pointer */
+}
+
+ 
+    .circle-dropdown-content a + a,
+    .dropdown-content a + a {
+      border-top: 1px solid rgba(255, 255, 255, 0.5);
+    }
+  
+    .circle-dropdown-content a:first-child,
+    .dropdown-content a:first-child {
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+    }
+    .circle-dropdown-content a:last-child,
+    .dropdown-content a:last-child {
+      border-bottom-left-radius: 10px;
+      border-bottom-right-radius: 10px;
+    }
+ 
+    .circle-dropdown-content::before,
+    .circle-dropdown-content::after,
+    .dropdown-content::before,
+    .dropdown-content::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background-color: rgba(255, 255, 255, 0.5);
+      top: calc(100% - 1px);
+    }
+
+    .circle-dropdown-content::before,
+    .dropdown-content::before {
+      top: -1px;
+    }
+ 
+    .circle-dropdown-content a:hover,
+    .dropdown-content a:hover {
+      background-color: #ddd;
+    }
+    
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
+      min-width: 233px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+      z-index: 1;
+      border-radius: 10px;
+      overflow: hidden;
+      top: calc(100% + 5px);
+      left: 30%;
+      transform: translateX(-50%);
+    }
+
+    .circle-dropdown-content{
+      display: none;
+      position: fixed;
+      background: linear-gradient(to right, rgb(152, 160, 180), #cbd1dd);
+      min-width: 210px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+      z-index: 10001;
+      border-radius: 10px;
+      overflow: hidden;
+      top: calc(100% + 5px);
+      left: calc(50% - 90px);
+      transform: translateX(-50%);
+    }
+   
+
+    .circle-dropdown-content a,
+    .dropdown-content a {
+      color: rgb(9, 13, 44);
+      font-size: clamp(0.85rem, 1.2vw, 1.1rem);
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      transition: background 0.3s;
+    }
+</style>
+
+
+
+</head>
+<body>
+
+  <section class="home" id="home">
+    
+  
+    <div class="header0">
+      <div class="left-section">
+        <img src="static/RedRainLogo8.png" alt="" class="hamburger">
+      </div>
+      <div class="middle-section">
+        <ul>
+          <li class="nav_item">
+            <a href="/serviceselector" class="nav_link buttonsubscription" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" id="home" data-lang="dashboard">Dashboard</a>
+            <div id="navItem">
+              <button class="button_save" id="save-config">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17 3H7c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 
+                          3 1.34 3 3-1.34 3-3 3zm3-10H7V5h8v4z"/>
+                </svg>
+                <span style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" class="btn-text" data-lang="save"></span>
+              </button>
+
+              <button class="button_restore" id="restore-config">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M13 3a9 9 0 0 0-9 9H1l4 4 4-4H5a7 7 0 1 1 7 7v-2l4 4-4 4v-2a9 9 0 0 0 0-18z"/>
+                </svg>
+                <span style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" class="btn-text" data-lang="restore"></span>
+              </button>
+
+            </div>
+          </li>
+          
+        </ul>
+      </div>
+      <div class="right-section">
+        <div class="language-switcher">
+          <div class="language-switcher">
+            <a href="#" id="lang-en" class="language-link">
+              <img src="static/en-flag.png" alt="EN" />
+            </a><a href="#" id="lang-hu" class="language-link">
+              <img src="static/hu-flag.png" alt="HU" />
+            </a>
+          </div>
+        </div>
+
+        <div class="circle-container">
+          <div class="circle" id="circleDropdown">
+            <div class="content">
+              {{first_character}} <!-- Your character or content here -->
+            </div>
+          </div>
+        </div>
+        
+        
+        
+        <!-- <a href="#home" class="buttonlogout" id="form-open">Logout</a> -->
+        
+      </div>
+    </div>
+    <div class="circle-dropdown-content" id="circleDropdownContent">
+          {% if chat_control_access %}
+            <a href="#service1" id="circleDashboardLink0" data-lang="chatcontrol">Chat Control</a>
+          {% endif %}
+          {% if metrics_access and user_role in ['Manager', 'Team Leader'] %}
+            <a href="{{ url_for('dashboard_vbanai') }}" data-lang="metrics">ChatBot Metrics & Insights</a>
+          {% endif %}
+          {% if advanced_ai_access and user_role in ['Manager', 'Team Leader'] %}
+            <a href="{{ url_for('predictive_dashboard') }}" data-lang="prediction">Advanced AI Predictive Solutions</a>
+          {% endif %}
+            <a href="#logout" id="logout" action="{{ url_for('logout') }}" method="post" data-lang="logout">Logout</a>
+    </div>
+    <div id="flash-messages"></div>
+    <div class="settings-grid">
+
+
+
+      
+      <div class="settings-box">
+        <!---------------------------->
+        <!-- Customize Header Text  -->
+        <!---------------------------->
+
+        <div class="">
+          <h3 data-lang="headertext">Customize header text</h3>
+
+          <!-- Loop over available languages -->
+          {% for lang in languages %}
+            <div class="setting-row">
+              <label data-lang="currenttext" data-lang-dynamic="{{ lang }}">
+                Current text ({{ lang }}):
+              </label>
+              <div
+                class="current-text-preview"
+                id="current-header-text-{{ lang }}"
+                style="
+                  font-family: {{ header_font_family or '"Inter", sans-serif' }};
+                  font-weight: {{ header_font_weight or 400 }};
+                "
+              >
+                {% if lang == "hu" %}{{ language_hu_logo_text }}{% elif lang == "en" %}{{ language_en_logo_text }}{% endif %}
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <label data-lang="newtext" data-lang-dynamic="{{ lang }}" for="header-text-input-{{ lang }}">
+                New text ({{ lang }}):
+              </label>
+              <input
+                type="text"
+                id="header-text-input-{{ lang }}"
+                data-lang-placeholder="placeholder_newheadertext"
+                maxlength="60"
+              >
+            </div>
+          {% endfor %}
+
+          <!-- Font family selector -->
+          <div class="setting-row">
+            <label data-lang="fontfamily" style="font-size:13px;">
+              Font family:
+            </label>
+            <select id="header-font-family">
+              <option value="&quot;Inter&quot;, sans-serif" {% if header_font_family == '"Inter", sans-serif' %}selected{% endif %}>Inter</option>
+              <option value='Arial, sans-serif' {% if header_font_family == 'Arial, sans-serif' %}selected{% endif %}>Arial</option>
+              <option value='&quot;Segoe UI&quot;, sans-serif' {% if header_font_family == '"Segoe UI", sans-serif' %}selected{% endif %}>Segoe UI</option>
+              <option value='&quot;Roboto&quot;, sans-serif' {% if header_font_family == '"Roboto", sans-serif' %}selected{% endif %}>Roboto</option>
+              
+              <!-- New distinct fonts -->
+              <option value='"Lobster", cursive' style="font-family: 'Lobster', cursive;">Lobster</option>
+              <option value='&quot;Montserrat&quot;, sans-serif' style="font-family: 'Montserrat', sans-serif;">Montserrat</option>
+              <option value='&quot;Playfair Display&quot;, serif' style="font-family: 'Playfair Display', serif;">Playfair Display</option>
+              <option value='&quot;Courier New&quot;, monospace' style="font-family: 'Courier New', monospace;">Courier New</option>
+            </select>
+          </div>
+
+          <!-- Font size -->
+          <div class="setting-row" style="margin-top: 10px;">
+            <label style="font-size:13px;" data-lang="fontsize">Font size:</label>
+            <input
+              type="range"
+              id="header-font-size"
+              min="0.5"
+              max="3"
+              step="0.05"
+              value="{{ header_font_size | default('1.1') }}"
+            >
+            <span id="header-font-size-value">{{ header_font_size | default('1.1') }}</span>
+          </div>
+
+
+          <!-- Font weight -->
+          <div class="setting-row" style="margin-top: 10px;">
+            <label style="font-size:13px;" data-lang="fontweight">Font weight:</label>
+            <input
+              type="range"
+              id="header-font-weight"
+              min="100"
+              max="1000"
+              step="100"
+              value="{{ header_font_weight or 600 }}"
+            >
+            <span id="header-font-weight-value">{{ header_font_weight or 400 }}</span>
+          </div>
+
+          
+        </div>
+
+      </div>
+
+
+      <!---------- Body texts ------------->
+
+      <div class="settings-box">
+        <div>
+          <h3 data-lang="customizemessagetext">Customize Messages Text</h3>
+
+          <!-- LANGUAGE SELECTOR  -->
+        
+          <div class="setting-row">
+            <label data-lang="languagetext">Language selector text:</label>
+            <div
+              class="current-languagetext-preview"
+              id="current-language-text"
+              style="
+                font-family: {{ body_font_family or '"Inter", sans-serif' }};
+                font-weight: {{ body_font_weight or 400 }};
+              "
+            >
+              {{ language_selector }}
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <label data-lang="newlanguageselectortext" for="language-text-input">
+              New language seletor text:
+            </label>
+            <input
+              type="text"
+              data-lang-placeholder="placeholder_newlanguageselectortext"
+              id="language-text-input"
+              maxlength="60"
+            >
+          </div>
+
+
+
+          <!-- GREETING MESSAGE  -->
+          {% for lang in languages %}
+            <div class="setting-row">
+              <label data-lang="greetingtext" data-lang-dynamic="{{ lang }}">
+                Greeting text ({{ lang }}):
+              </label>
+              <div
+                class="current-greetingtext-preview"
+                id="current-greeting-text-{{ lang }}"
+                style="
+                  font-family: {{ body_font_family or '"Inter", sans-serif' }};
+                  font-weight: {{ body_font_weight or 400 }};
+                "
+              >
+                {% if lang == "hu" %}{{ greeting_message_hu }}{% elif lang == "en" %}{{ greeting_message_en }}{% endif %}
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <label data-lang="newgreetingtext" data-lang-dynamic="{{ lang }}">
+                New greeting text ({{ lang }}):
+              </label>
+              <input
+                type="text"
+                id="greeting-text-input-{{ lang }}"
+                data-lang-placeholder="placeholder_newgreetingtext"
+                maxlength="60"
+              >
+            </div>
+          {% endfor %}
+
+          <!-- AGENT REQUEST TEXT  -->
+          {% for lang in languages %}
+            <div class="setting-row">
+              <label data-lang="agentrequesttext" data-lang-dynamic="{{ lang }}"></label>
+              <div
+                class="current-agentrequesttext-preview"
+                id="current-agentrequesttext-text-{{ lang }}"
+                style="
+                  font-family: {{ body_font_family or '"Inter", sans-serif' }};
+                  font-weight: {{ body_font_weight or 400 }};
+                "
+              >
+                {% if lang == "hu" %}{{ agent_request_confirmation_hu }}{% elif lang == "en" %}{{ agent_request_confirmation_en }}{% endif %}
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <label data-lang="newagentrequesttext" data-lang-dynamic="{{ lang }}">
+                New text ({{ lang }}):
+              </label>
+              <input
+                type="text"
+                id="agent-text-input-{{ lang }}"
+                data-lang-placeholder="placeholder_newagentrequesttext"
+                maxlength="60"
+              >
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+        
+
+
+
+
+      <div class="settings-box">
+      
+
+        <!----------------------------------------->
+        <!-- Customize chatbody and footer font  -->
+        <!----------------------------------------->
+
+
+        <div>
+          <h3 data-lang="bodytext">Customize fonts in the chatbody</h3>
+
+          <!-- Font family -->
+          <div class="setting-row">
+            <label data-lang="fontfamily" style="font-size:13px;">Font family:</label>
+            <select id="body-font-family">
+              <option value="&quot;Inter&quot;, sans-serif" {% if font_general == '"Inter", sans-serif' %}selected{% endif %}>Inter</option>
+              <option value='Arial, sans-serif' {% if font_general == 'Arial, sans-serif' %}selected{% endif %}>Arial</option>
+              <option value='&quot;Segoe UI&quot;, sans-serif' {% if font_general == '"Segoe UI", sans-serif' %}selected{% endif %}>Segoe UI</option>
+              <option value='&quot;Roboto&quot;, sans-serif' {% if font_general == '"Roboto", sans-serif' %}selected{% endif %}>Roboto</option>
+              
+              <option value='&quot;Lobster&quot;, cursive' style="font-family: 'Lobster', cursive;">Lobster</option>
+              <option value='&quot;Montserrat&quot;, sans-serif'>Montserrat</option>
+              <option value='&quot;Playfair Display&quot;, serif'>Playfair Display</option>
+              <option value='&quot;Courier New&quot;, monospace'>Courier New</option>
+            </select>
+          </div>
+
+          <!-- Font size -->
+          <div class="setting-row" style="margin-top:10px;">
+            <label data-lang="fontsize" style="font-size:13px;">Font size:</label>
+            <input
+              type="range"
+              id="body-font-size"
+              min="10"
+              max="16"
+              step="1"
+              value="{{ general_body_font_size | default(14) }}"
+            >
+            <span id="body-font-size-value">
+              {{ general_body_font_size | default(12.5) }}
+            </span>
+          </div>
+
+          <div class="setting-row" style="margin-top: 10px;">
+            <label  style="font-size:13px;" data-lang="confirmationtextsize">
+              Confirmation text size:
+            </label>
+            <input
+              type="range"
+              id="confirmation-font-size"
+              min="10"
+              max="20"
+              step="1"
+              value="{{ (general_body_font_size2 | default(14))}}"
+            >
+            <span id="confirmation-font-size-value">
+              {{ general_body_font_size2 | default(14) }}
+            </span>
+          </div>
+
+
+
+        </div>
+
+      </div>
+
+        <!--------------------------------->
+        <!--      Customize Icons        -->
+        <!--------------------------------->
+      <div class="settings-box">
+        <div>
+          <h3 style="margin-bottom: 40px;" data-lang="footericons">Footer Icons Visibility</h3>
+
+          <!-- Ask Human -->
+          <div style="margin-bottom: 20px;" class="setting-row">
+            <input type="checkbox" id="toggle-ask-human" checked>
+            <label for="toggle-ask-human" data-lang="askhuman">Ask Human</label>
+          </div>
+
+          <!-- Emoji -->
+          <div style="margin-bottom: 20px;" class="setting-row">
+            <input type="checkbox" id="toggle-emoji" checked>
+            <label for="toggle-emoji" data-lang="emoji">Emoji</label>
+          </div>
+
+          <!-- File Upload -->
+          <div style="margin-bottom: 20px;" class="setting-row">
+            <input type="checkbox" id="toggle-file-upload" checked>
+            <label for="toggle-file-upload" data-lang="fileupload">File Upload</label>
+          </div>
+
+        </div>
+      </div>
+
+
+   
+        <!-------------------------------->
+        <!-- Language selector          -->
+        <!-------------------------------->
+      
+        <div class="settings-box">
+          <div>
+            <h3 style="margin-bottom: 40px;" data-lang="languages">Available languages</h3>
+
+            <!-- Hungarian -->
+            <div style="margin-bottom: 20px;" class="setting-row">
+              <input type="checkbox" id="toggle-lang-hu">
+              <label data-lang="togglelanghu" for="toggle-lang-hu">Magyar</label>
+            </div>
+
+            <!-- English -->
+            <div style="margin-bottom: 20px;" class="setting-row">
+              <input type="checkbox" id="toggle-lang-en">
+              <label data-lang="togglelangen" for="toggle-lang-en">Angol</label>
+            </div>
+          </div>
+        </div>
+   
+        <!------------------------------------------------------------------>
+        <!-- Customize Popup Background                                   -->
+        <!------------------------------------------------------------------>
+      
+        <!------------------------------------------------------------------>
+        <!-- Customize Footer Background                                  -->
+        <!------------------------------------------------------------------>
+
+
+
+
+       
+        <!------------------------------------------------------------------>
+        <!--   Customize Footer Controls background                       -->
+        <!------------------------------------------------------------------>
+     
+        <!------------------------------------------------------------------>
+        <!--   Customize Footer Input Text Background                     -->
+        <!------------------------------------------------------------------>
+
+     
+        <!------------------------------------------------------------------>
+        <!--   Customize Footer focus outline color                     -->
+        <!------------------------------------------------------------------>
+
+      
+    </div>
+    
+
+    
+
+
+    
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <button id="chatbot-toggler">
+      <span class="material-symbols-rounded">mode_comment</span>
+      <span class="material-symbols-rounded">close</span>
+    </button>
+    <div class="chatbot-popup">
+      <!-- Chatbot Header -->
+      <div class="chat-header">
+        <div class="header-info">
+          <div class="chatbot-logo {% if not use_google_icon and icon_path %}image-logo{% else %}icon-logo{% endif %}">
+            {% if not use_google_icon and icon_path %}
+              <!-- Show client PNG logo -->
+              <img src="{{ icon_path }}" alt="Client Logo" />
+            {% else %}
+              
+              <!-- Fallback: Show Google Material Icon -->
+              
+              <span class="material-symbols-outlined google-chat-icon">chat</span>
+            {% endif %}
+                  
+          </div>
+          <h2 data-lang="Ai_livesupport" class="logo-text">Automata és élő ügyintézés</h2>
+        </div>
+        <button id="close-chatbot" class="material-symbols-rounded"> keyboard_arrow_down </button>
+      </div>
+
+      <!-- Chatbot Body -->
+      <div class="chat-body">
+      
+        <div id="language-selector" class="message bot-message">
+          <div class="bot-avatar" style="color: white">
+            <span class="material-symbols-outlined graph-icon">graph_6</span>
+          </div>
+          <div class="message-text">
+            <p id="select-language-text">{{ language_selector }}</p>
+            <div class="lang-buttons">
+               <button id="select-hu" class="lang-btn">
+              <img src="/static/flags/hu-flag.png" alt="HU" class="flag-icon">
+                <span class="lang-btn-text">Magyar</span>
+              </button>
+
+              <button id="select-en" class="lang-btn">
+                <img src="/static/flags/en-flag.png" alt="GB" class="flag-icon">
+                English
+              </button>
+            </div>
+          </div>
+        </div>
+       
+
+        <div id="first-bot-message" class="message bot-message" style="display: none;">
+          <div class="bot-avatar" style="color: white">
+            <span class="material-symbols-outlined graph-icon">graph_6</span>
+          </div>
+          <div data-lang="greeting" class="message-text"></div>
+        </div>
+        
+      </div>
+
+
+      <!-- Chat Footer -->
+
+      <div class="chat-footer">
+        <form action="#" class="chat-form">
+          <textarea data-lang="sendPlaceholder" data-lang-attr="placeholder" class="message-input" required></textarea>
+          <div class="paste-preview"></div> <!-- new preview container -->
+          <div class="chat-controls">
+            <div class="tooltip">
+              <button type="button" id="ask-human" class="material-symbols-rounded">support_agent</button>   <!-- support_agent = icon name as we https://fonts.googleapis.com/css2?-->
+              <span data-lang="agent" class="tooltiptext">Ügyintéző</span>
+            </div>
+            <div class="tooltip">
+              <button type="button" id="emoji-picker" class="material-symbols-outlined">sentiment_satisfied</button>
+              <span data-lang="emoji" class="tooltiptext">Emoji</span>
+            </div>
+            
+            <div class="file-upload-wrapper tooltip">
+              <input type="file" accept="images/*" id="file-input" hidden>
+              <img src="#">
+              <button type="button" id="file-upload" class="material-symbols-rounded">attach_file</button>
+              <div class="disabled-overlay"></div>
+              <button type="button" id="file-cancel" class="material-symbols-rounded">close</button>
+              <span data-lang="attachment" class="tooltiptext">Melléklet <br> csak elő chat <br>esetén <br>elérhető</span>
+            </div>
+            
+
+            <button type="submit" id="send-message" class="material-symbols-rounded">arrow_upward</button>
+
+          </div>
+        </form>
+        <!-- Confirmation popup -->
+        <div id="human-confirm" class="human-confirm">
+          <button id="close-confirm">×</button>
+          <p data-lang="humanConfirmText" id="human-confirm-text" class="agentrequestfont">
+            <!-- will be set dynamically -->
+          </p>
+          <div class="confirm-buttons">
+            <button id="confirm-yes" class="check-btn">
+              <span class="check-box">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="white">
+                  <path d="M20.285 6.708l-11.31 11.31-5.657-5.657 1.414-1.414 4.243 4.243 9.896-9.896z"/>
+                </svg>
+              </span>
+              <span data-lang="confirmYes" class="confirm-label"></span>
+            </button>
+            
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+  <!-- emoji -->
+  <script src="https://cdn.jsdelivr.net/npm/emoji-mart@latest/dist/browser.js"></script>
+  <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script>
+  
+  const supportedLanguages = {{ languages | tojson }};
+  const supportsMultipleLanguages = supportedLanguages.length > 1;
+  
+
+  
+  const agent_icon = "{{ agent_icon }}"
+  const emoji_icon = "{{ emoji_icon }}"
+  const attachement_icon = "{{ attachement_icon }}"
+
+  const userLanguage = "{{ language }}";
+  if (userLanguage) {
+    localStorage.setItem('language', userLanguage);
+  }
+
+
+  document.documentElement.style.setProperty('--primary-color', '{{ primary_color }}');
+  
+  const primaryColor = "{{ primary_color }}";
+  document.documentElement.style.setProperty('--primary-color', primaryColor);
+
+  // Extract the first color from the gradient
+  // This regex matches the first hex color (#xxxxxx or #xxx)
+  const firstColorMatch = primaryColor.match(/#([0-9a-fA-F]{3,6})/);
+
+  if (firstColorMatch) {
+    const firstColor = firstColorMatch[0]; // e.g., "#5061C4"
+    document.documentElement.style.setProperty('--primary-color-first-color', firstColor);
+    
+  }
+  document.documentElement.style.setProperty('--border-radius', '{{ border_radius }}');
+  document.documentElement.style.setProperty('--font-color', '{{ font_color }}');
+  document.documentElement.style.setProperty('--border-width', '{{ border_width }}');
+  document.documentElement.style.setProperty('--operator-icon', '{{ operator_icon }}');
+  document.documentElement.style.setProperty('--everything-which-is-white', '{{ everything_which_is_white }}');
+  document.documentElement.style.setProperty('--user-input-message-color', '{{ user_input_message_color }}');
+  document.documentElement.style.setProperty('--popup-bg-color', '{{ popup_bg_color }}');
+  document.documentElement.style.setProperty('--footer-bg-color', '{{ footer_bg_color }}');
+  document.documentElement.style.setProperty('--footer-controls-bg', '{{ footer_controls_bg }}');
+  document.documentElement.style.setProperty('--footer-input-bg-color', '{{ footer_input_bg_color }}');
+  document.documentElement.style.setProperty('--footer-focus-outline-color', '{{ footer_focus_outline_color }}');
+  document.documentElement.style.setProperty('--footer-form-outline', '{{ footer_form_outline }}');
+  document.documentElement.style.setProperty('--scrollbar-color', '{{ scrollbar_color }}');
+  document.documentElement.style.setProperty('--confirmation-button-bgcolor', '{{ confirmation_button_bgcolor }}');
+  document.documentElement.style.setProperty('--header-font-weight', '{{ header_font_weight }}');
+  document.documentElement.style.setProperty('--header-font-size', '{{ header_font_size }}');
+  document.documentElement.style.setProperty('--general-body-font-size', '{{ general_body_font_size }}');
+  document.documentElement.style.setProperty('--general-body-font-size2', '{{ general_body_font_size2 }}');
+  
+  const language_selector={{ language_selector | tojson }};
+  const language_hu_logo_text = {{ language_hu_logo_text | tojson }};
+  const language_en_logo_text = {{ language_en_logo_text | tojson }};
+  const greeting_message_hu = {{ greeting_message_hu | tojson }};
+  const greeting_message_en = {{ greeting_message_en | tojson }};
+
+  const agent_request_confirmation_hu = {{ agent_request_confirmation_hu | tojson }};
+  const agent_request_confirmation_en = {{ agent_request_confirmation_en | tojson }};
+
+
+ 
+
+  const headerFontFamily = {{ font_header_text | tojson }};
+  document.documentElement.style.setProperty('--font-header-text', headerFontFamily);
+
+  const fontGeneral = {{ font_general | tojson }};
+  document.documentElement.style.setProperty('--font-general', fontGeneral);
+
+  
+  //reply bubble background color
+  document.documentElement.style.setProperty('--reply-bg-color', '{{ reply_bg_color }}');
+  console.log("--------------------------------------1")
+  
+  </script>
+  <script>
+    console.log("--------------------------------------2")
+    var userId = "{{ user_id }}";
+    var client_initial_mode="{{ client_mode }}";
+    var client_code="{{ client_id_initial }}";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const header = document.querySelector('.header0');
+
+      if (!header) return; // safety check
+
+      function handleScroll() {
+        if (window.scrollY > 0) {
+          header.style.backgroundColor = 'rgba(0, 0, 0, 1)';
+        } else {
+          header.style.backgroundColor = 'rgba(0, 0, 0, 0.3)';
+        }
+      }
+
+      window.addEventListener('scroll', handleScroll);
+
+      // run once in case page is already scrolled on load
+      handleScroll();
+    });
+    
+ 
+    const translations = {
+    hu: {
+      
+      dashboard: "Kezelőfelület",
+      save: "Mentés",
+      restore: "Előző beállítás",
+      popupborder:"A chatablak keretének szerkesztése",
+      color: "Szín:",
+      radius: "Rádiusz:",
+      width: "Vastagság:",
+      apply: "Alkalmaz",
+      header_avatar_thinking_bgcol:"Fejléc, ikonok, gondolkozó pontok és felhasználói üzenet buborék háttérszínének beállítása",
+      solid:"Egy szín",
+      gradient: "Átmenetes kevert szín", 
+      pickacolor: "Válassz színt:",
+      humanSupport: "Ügyintéző",
+      emoji: "Emoji",
+      attachment: "Melléklet <br> csak elő chat <br>esetén <br>elérhető",
+      
+      confirmYes: "Igen",
+      sendPlaceholder: "Üzenet...",
+      waitResponse: "Kérem, várjon...",
+      start: "Kezdő szín:",
+      end: "Záró szín:",
+      footer_icon_colors:"Operátor, emoji és csatolmány iconok színeinek megváltoztatása",
+      bot_agent_message_bc:"Operátor/AI válasz buborék háttérszínénk megváltoztatása",
+      popup_body:"A popup üzenetmező háttérszínének beállítása",
+      footer_bc:"Az alsó inputblokk háttérszínének beállítása",
+      input_text_bc:"Az alsó inputblokkhoz tartozó szövegmező hátterszínének beállítása",
+      focusline:"Az input mezőhöz tartozó fókuszkeret színének, és a popupbezáró icon háttérszínének beállítása",
+      Separately_bot_agent_user_message:"Az operátor/AI icon és a felhasználói üzenet háttérszínének beállítása függetlenül a fejléctől",
+      bc_agent_emoji_attachement: "Az alsó blokkban lévő operátor, emoji és csatolás iconok háttérszíneinek beállítása",
+      bot_agent_font_color:"Az operátor/AI választ megjelenítő betűk színének beállítása",
+      smallparts:"Színbeállítás: operator/AI icon, felhasználó üzenetét megjelenítő betűk a középső chatfelületen, fejléc betűk, küldés nyíl, popup bezáró ikon (fent, lent)",
+      input_text_color:"Az üzenet betűszínének beállítása az alsó blokkban",
+      without_focus:"Az input mezőhöz tartozó keret színének beállítása (nem fókuszálási keret)",
+      scrollbar:"Scrollcsúszka színének beállítása",
+      bc_confirmation_langugeselector:"Az agent kérő megerősítő és a nyelvi választó gomb háttérszínének beállítása",
+      headercolorseparate:"Fejléc szín",
+      Ai_livesupport: language_hu_logo_text,
+      greeting: greeting_message_hu,
+      humanConfirmText: agent_request_confirmation_hu,
+  
+      agent:"Ügyintéző",
+      emoji: "Emoji",
+      attachment: "Melléklet <br> csak elő chat <br>esetén <br>elérhető",
+
+      headertext:"A fejléc szövegének szerkesztése",
+      currenttext: "Jelenlegi szöveg",
+      newtext:"Új szöveg",
+      fontfamily:"Betűtípus:",
+      fontsize:"Betűméret:",
+      fontweight:"Betűvastagság:",
+      customizemessagetext:"Előre megírt szövegek módosítása",
+      placeholder_newheadertext:"Írja be az új fejléc szövegét...",
+      languagetext:"Nyelvválasztás:",
+      languages: "Választható nyelvek",
+      newlanguageselectortext: "Új nyelvválasztó utasítás:",
+      placeholder_newlanguageselectortext:"Írja be az új utasítást...",
+      greetingtext:"Üdvözlés",
+      agentrequesttext:"Élő ügyéfélszolgálat kérés",
+      placeholder_newgreetingtext:"Írja be az új üdvözlő szöveget...",
+      newgreetingtext:"Új üdvözlés",
+      newagentrequesttext:"Élő ügyfélszolgálat kérés - új",
+      placeholder_newagentrequesttext:"Írja be az új élő ügyfélszolgálat kérő szöveget...",
+      bodytext:"A betűk paramétereinek módosítása a csevegőfelületen",
+      confirmationtextsize:"Megerősítés szöveg betűmérete:",
+      footericons:"Ikonok láthatóságának szerkesztése",
+      fileupload:"File csatolás",
+      askhuman:"Élő ügyintéző",
+      emoji:"Emoji",
+      togglelanghu:"Magyar",
+      togglelangen:"Angol",
+      
+
+      
+    
+    },
+    en: {
+      logo_text:"AI & Live Support",
+      dashboard:"Dashboard",
+      save: "Save",
+      restore: "Previous state", 
+      popupborder:"Customize popup border",
+      color:"Color:",
+      radius: "Radius:",
+      width:"Width:",
+      apply: "Apply",
+      header_avatar_thinking_bgcol:"Customize header, icon, thinking indicator and user message bubble background color",
+      solid:"Solid",
+      gradient:"Gradient",
+      pickacolor:"Please pick a color:",
+      sendPlaceholder: "Message...",
+      humanSupport: "Human support",
+      emoji: "Emoji",
+      attachment: "Attachment <br> available in <br> human chat",
+     
+      confirmYes: "Yes",
+      waitResponse: "Please wait...",
+      start: "Start color:",
+      end:"End color:",
+      footer_icon_colors:"Customize operator, emoji & attachment icons color",
+      bot_agent_message_bc:"Customize bot/agent message background color",
+      popup_body:"Customize popup body background color",
+      footer_bc:"Customize footer background color",
+      input_text_bc:"Customize input text background color in the footer",
+      focusline:"Customize the color of the input text focus line and the backgroundcolor of the popup closing button",
+      Separately_bot_agent_user_message:"Separately from the header customize the background color of the bot/agent avatar and the user message",
+      bc_agent_emoji_attachment:"Customize the background color of the agent, emoji and attachement icons in the footer",
+      bot_agent_font_color:"Customize bot/agent font color",
+      smallparts:"Customize colors for bot/agent icon, user font, header font & close buttons, message sending arrow",
+      input_text_color:"Customize input message text color in the footer",
+      without_focus:"Customize footer text input outline without focus",
+      scrollbar:"Customize the scrollbar color",
+      bc_confirmation_langugeselector: "Customize confirmation button & language selector button background color for agent intervention",
+      Ai_livesupport: language_en_logo_text,
+      greeting: greeting_message_en,
+      humanConfirmText: agent_request_confirmation_en,
+      
+      agent:"Human Support",
+      emoji: "Emoji",
+      attachment: "Attachment <br> available in <br> human chat",
+
+      headertext:"Customize header text",
+      currenttext:"Current text",
+      newtext:"New text",
+      fontfamily:"Font family:",
+      fontsize:"Font size:",
+      fontweight:"Font weight:",
+      customizemessagetext:"Customize predefined texts",
+      placeholder_newheadertext: "Enter new header text...",
+      languagetext:"Language selector text:",
+      languages: "Available languages",
+      newlanguageselectortext: "New language selector text:",
+      placeholder_newlanguageselectortext:"Enter new language selector text...",
+      greetingtext:"Greeting",
+      agentrequesttext:"Human agent request text",
+      placeholder_newgreetingtext:"Enter new greeting text...",
+      newgreetingtext:"New greeting",
+      newagentrequesttext:"New human agent request",
+      placeholder_newagentrequesttext:"Enter new human agent request text...",
+      bodytext:"Customize fonts in the chatbody",
+      confirmationtextsize:"Confirmation text size:",
+      footericons:"Footer Icons Visibility",
+      fileupload:"File upload",
+      askhuman:"Human support",
+      emoji:"Emoji",
+      togglelanghu:"Hungarian",
+      togglelangen:"English",
+      
+     
+    
+    } 
+  };
+
+
+// MANAGE THE THE TEXT FONT CHANGE
+
+
+ document.getElementById("save-config").addEventListener("click", () => {
+    const language = localStorage.getItem('language') || 'hu';
+
+    const message = language === 'hu'
+        ? "Biztosan el akarja menteni a jelenlegi konfigurációt?\n\nEz felülírja az aktív kliens konfigurációját."
+        : "Are you sure you want to save the current configuration?\n\nThis will overwrite the active client configuration.";
+
+    const confirmed = confirm(message);
+    console.log("User confirmed save:", confirmed);
+    if (!confirmed) return;
+
+    saveCurrentConfig();
+  });
+
+  ///////////////////////////////////////////////////////
+  //  PREPARATION FOR COLLECTION DIFFERENT VALUES   ////
+  //////////////////////////////////////////////////////
+  
+  //  Collect texts
+  // body texts
+
+  
+ 
+
+  function collectLangTexts(prefix, languages) {
+    const result = {};
+
+    languages.forEach(lang => {
+      const el = document.getElementById(`${prefix}-${lang}`);
+      result[lang] = el ? el.value.trim() : null;
+    });
+
+    return result;
+  }
+
+
+
+  // language selector text
+  function getInputValue(id) {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : null;
+  }
+  
+  const languageSelectorText = getInputValue("language-text-input");
+
+
+
+
+
+  //  boleans (icons)
+
+  function getCheckbox(id) {
+    const el = document.getElementById(id);
+    return el ? el.checked : false;
+  }
+
+  const toggles = {
+    agent_icon: getCheckbox("toggle-ask-human"),
+    emoji_icon: getCheckbox("toggle-emoji"),
+    attachment_icon: getCheckbox("toggle-file-upload"),
+  };
+
+
+
+  // Languages
+  function collectLanguages() {
+    const langs = [];
+
+    if (document.getElementById("toggle-lang-hu")?.checked) {
+      langs.push("hu");
+    }
+    if (document.getElementById("toggle-lang-en")?.checked) {
+      langs.push("en");
+    }
+
+    return langs;
+  }
+
+  function formatLanguagesForDb(langs) {
+    return `{${langs.join(", ")}}`;
+  }
+
+
+
+  function getCssVar(name) {
+    return getComputedStyle(document.documentElement)
+      .getPropertyValue(name)
+      .trim() || null;
+  }
+
+  function collectClientConfig() {
+    const enabledLangs = collectLanguages(); // ["hu", "en"]
+
+    // Collect multilingual text blocks
+    const headerTexts = collectLangTexts("header-text-input", enabledLangs);
+    const greetingTexts = collectLangTexts("greeting-text-input", enabledLangs);
+    const agentTexts = collectLangTexts("agent-text-input", enabledLangs);
+
+    return {
+      // ===== styles =====
+      font_header_text: getCssVar("--font-header-text"),
+      header_font_weight: getCssVar("--header-font-weight"),
+      header_font_size: getCssVar("--header-font-size"),
+      font_general:getCssVar("--font-general"),
+      general_body_font_size: getCssVar("--general-body-font-size"),
+      general_body_font_size2: getCssVar("--general-body-font-size2"),
+      
+      // ===== texts (mapped explicitly for DB) =====
+      language_hu_logo_text: headerTexts.hu ?? null,
+      language_en_logo_text: headerTexts.en ?? null,
+
+      greeting_message_hu: greetingTexts.hu ?? null,
+      greeting_message_en: greetingTexts.en ?? null,
+
+      agent_request_confirmation_hu: agentTexts.hu ?? null,
+      agent_request_confirmation_en: agentTexts.en ?? null,
+
+      language_selector: getInputValue("language-text-input"),
+
+      // ===== toggles =====
+      agent_icon: getCheckbox("toggle-ask-human"),
+      emoji_icon: getCheckbox("toggle-emoji"),
+      attachment_icon: getCheckbox("toggle-file-upload"),
+
+      // ===== languages =====
+      languages: enabledLangs,
+    };
+  }
+
+
+  async function saveCurrentConfig() {
+    const language = localStorage.getItem('language') || 'hu';
+
+
+    // Collect the current config from the page
+    const payload = collectClientConfig();
+    console.log("Collected payload:", payload);
+    const API_BASE = "https://redrain1230.loophole.site";
+
+    try {
+        const response = await fetch(`${API_BASE}/api/client/config/manage_layout_textfont`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        const flashMessages = document.getElementById("flash-messages");
+
+        if (!flashMessages) {
+            console.warn("Flash messages container not found!");
+            return;
+        }
+
+        // Render flash messages from the backend
+        if (data.messages) {
+            data.messages.forEach(message => {
+                const div = document.createElement("div");
+                div.className = `flash ${message.category || "info"}`;
+
+                // Localized text fallback
+                div.textContent =
+                    message[`text_${language}`] ||
+                    message.text_en ||
+                    message.text ||
+                    "Notification";
+
+                flashMessages.appendChild(div);
+
+                // Start fade-out after 3.5s
+                setTimeout(() => {
+                    div.classList.add("fade-out");
+                }, 3500);
+
+                // Remove from DOM after transition
+                div.addEventListener("transitionend", () => div.remove());
+            });
+        }
+
+    } catch (err) {
+        console.error(err);
+
+        // Display error flash if something goes wrong
+        const flashMessages = document.getElementById("flash-messages");
+        if (flashMessages) {
+            const div = document.createElement("div");
+            div.className = "flash danger";
+            div.textContent = "Error saving configuration";
+            flashMessages.appendChild(div);
+
+            setTimeout(() => div.classList.add("fade-out"), 3500);
+            div.addEventListener("transitionend", () => div.remove());
+        }
+    }
+}
+
+// MANAGE RESTORATION
+
+document.getElementById("restore-config").addEventListener("click", () => {
+  const language = localStorage.getItem("language") || "hu";
+
+  const message =
+    language === "hu"
+      ? "Biztosan vissza szeretné állítani az előző konfigurációt?\n\nEz törli az aktuális beállításokat."
+      : "Are you sure you want to restore the previous configuration?\n\nThis will erase the current settings.";
+
+  const confirmed = confirm(message);
+  console.log("User confirmed restore:", confirmed);
+
+  if (!confirmed) return;
+
+  restorePreviousConfig();
+});
+
+async function restorePreviousConfig() {
+  const language = localStorage.getItem("language") || "hu";
+  const API_BASE = "https://redrain1230.loophole.site";
+
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/client/config/restore_previous_layout_textfont`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    const data = await response.json();
+    const flashMessages = document.getElementById("flash-messages");
+
+    if (!flashMessages) return;
+
+    if (data.messages) {
+      data.messages.forEach(message => {
+        const div = document.createElement("div");
+        div.className = `flash ${message.category || "info"}`;
+        div.textContent =
+          message[`text_${language}`] ||
+          message.text_en ||
+          message.text ||
+          "Notification";
+
+
+
+        flashMessages.appendChild(div);
+
+        setTimeout(() => div.classList.add("fade-out"), 3500);
+        div.addEventListener("transitionend", () => div.remove());
+      });
+    }
+
+    // Optional: reload page to apply restored CSS
+    if (data.success) {
+      setTimeout(() => window.location.reload(), 3500);
+    }
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+const langEnBtn = document.getElementById('lang-en');
+if (langEnBtn) {
+  langEnBtn.addEventListener('click', function() {
+    const newLang = 'en';
+    localStorage.setItem('language', newLang);
+    setLanguage(newLang);
+
+    fetch('/update_language', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ language: newLang }),
+      credentials: 'include'
+    });
+  });
+}
+
+const langHuBtn = document.getElementById('lang-hu');
+if (langHuBtn) {
+  langHuBtn.addEventListener('click', function() {
+    const newLang = 'hu';
+    localStorage.setItem('language', newLang);
+    setLanguage(newLang);
+
+    fetch('/update_language', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ language: newLang }),
+      credentials: 'include'
+    });
+  });
+}
+
+// Set language on page load
+window.onload = function() {
+    if (typeof translations !== 'undefined') {
+        // Use backend-provided language if available, otherwise use localStorage, otherwise default to 'hu'
+        const backendLang = "{{ language }}"; // Jinja variable
+        const storedLang = localStorage.getItem('language');
+        const language = backendLang && backendLang !== "" ? backendLang : (storedLang || 'hu');
+
+        setLanguage(language);
+    }
+};
+
+
+
+
+
+function setLanguage(language) {
+
+  /* ---------------------------
+     1. Normal text translations
+     --------------------------- */
+  document.querySelectorAll('[data-lang]').forEach(element => {
+  const langKey = element.dataset.lang;
+  const dynamicCode = element.dataset.langDynamic;
+  const translation = translations[language][langKey];
+
+  if (!translation) return;
+
+  if (dynamicCode) {
+    element.innerHTML = `${translation} (${dynamicCode}):`;
+  } else {
+    element.innerHTML = translation;
+  }
+});
+
+
+  /* ---------------------------
+     2. Placeholder translations
+     --------------------------- */
+  document.querySelectorAll('[data-lang-placeholder]').forEach(input => {
+    const placeholderKey = input.dataset.langPlaceholder;
+    const placeholderTranslation = translations[language][placeholderKey];
+
+    if (placeholderTranslation) {
+      input.setAttribute('placeholder', placeholderTranslation);
+    }
+  });
+
+}
+
+
+
+
+//////////////////////////////
+///  HEADER TEXT EDITING  ///
+/////////////////////////////
+
+
+
+
+window.addEventListener("DOMContentLoaded", () => {
+
+  const fontFamilySelect = document.getElementById("header-font-family");
+  const fontWeightRange = document.getElementById("header-font-weight");
+  const fontWeightValue = document.getElementById("header-font-weight-value");
+
+  const languageInputs = {};
+  const languagePreviews = {};
+
+
+  {% for lang in languages %}
+    languageInputs["{{ lang }}"] = document.getElementById("header-text-input-{{ lang }}");
+    languagePreviews["{{ lang }}"] = document.getElementById("current-header-text-{{ lang }}");
+
+    // Live preview on typing
+    languageInputs["{{ lang }}"].addEventListener("input", () => {
+      const value = languageInputs["{{ lang }}"].value;
+      languagePreviews["{{ lang }}"].textContent = value;
+
+      // Update chatbot header text in real time
+      const chatHeader = document.querySelector(".chat-header .logo-text");
+      if (chatHeader) {
+        chatHeader.textContent = value; // only one header, no language attr
+      }
+    });
+  {% endfor %}
+
+  // Font family live update
+  fontFamilySelect.addEventListener("change", () => {
+    const family = fontFamilySelect.value;
+    
+    // Update CSS variable globally
+    document.documentElement.style.setProperty('--font-header-text', family);
+
+    // Update previews too
+    Object.values(languagePreviews).forEach(preview => {
+      preview.style.fontFamily = family;
+    });
+  });
+
+  const fontSizeRange = document.getElementById("header-font-size");
+  const fontSizeValue = document.getElementById("header-font-size-value");
+
+  fontSizeRange.addEventListener("input", () => {
+    const size = fontSizeRange.value;
+    fontSizeValue.textContent = size + "rem";
+
+    // Update CSS variable globally
+    document.documentElement.style.setProperty('--header-font-size', size + "rem");
+
+    // Update previews
+    Object.values(languagePreviews).forEach(preview => {
+      preview.style.fontSize = size + "rem";
+    });
+
+    // Update chatbot header
+    const chatHeader = document.querySelector(".chat-header .logo-text");
+    if (chatHeader) {
+      chatHeader.style.fontSize = size + "rem";
+    }
+  });
+
+
+
+  // Font weight live update
+  fontWeightRange.addEventListener("input", () => {
+    const weight = fontWeightRange.value;
+    fontWeightValue.textContent = weight;
+
+    // Update CSS variable globally
+    document.documentElement.style.setProperty('--header-font-weight', weight);
+
+    // Update previews too
+    Object.values(languagePreviews).forEach(preview => {
+      preview.style.fontWeight = weight;
+    });
+  });
+
+});
+
+
+
+
+
+////////////////////////////////
+///  CHATBODY TEXT EDITING  ///
+///////////////////////////////
+
+/* ----------     LANGUAGE      ---------- */
+
+window.addEventListener("DOMContentLoaded", () => {
+
+  const fontFamilySelect = document.getElementById("body-font-family");
+  const fontSizeRange = document.getElementById("body-font-size");
+  const fontSizeValue = document.getElementById("body-font-size-value");
+
+  const languageSelectorInput = document.getElementById("language-text-input");
+  const languageSelectorPreview = document.querySelector(".current-languagetext-preview");
+  const languageSelect = document.getElementById("select-language-text");
+
+
+
+
+  
+  /* ---------- TEXT LIVE UPDATE ---------- */
+  languageSelectorInput.addEventListener("input", () => {
+    const value = languageSelectorInput.value;
+
+    if (languageSelectorPreview) {
+      languageSelectorPreview.textContent = value;
+    }
+
+    if (languageSelect) {
+      languageSelect.textContent = value;
+    }
+  });
+
+  /* ---------- FONT FAMILY LIVE UPDATE ---------- */
+  fontFamilySelect.addEventListener("change", () => {
+    const family = fontFamilySelect.value;
+
+    document.documentElement.style.setProperty('--font-general', family);
+
+    if (languageSelectorPreview) {
+      languageSelectorPreview.style.fontFamily = family;
+    }
+
+    if (languageSelect) {
+      languageSelect.style.fontFamily = family;
+    }
+  });
+
+  /* ---------- FONT SIZE LIVE UPDATE ---------- */
+  fontSizeRange.addEventListener("input", () => {
+    const size = fontSizeRange.value;
+    fontSizeValue.textContent = size + "px";
+
+    document.documentElement.style.setProperty('--general-body-font-size', size + "px");
+
+    if (languageSelectorPreview) {
+      languageSelectorPreview.style.fontSize = size + "px";
+    }
+
+    if (languageSelect) {
+      languageSelect.style.fontSize = size + "px";
+    }
+  });
+
+});
+
+/* ----------     GREETING TEXT      ---------- */
+
+window.addEventListener("DOMContentLoaded", () => {
+
+  const fontFamilySelect = document.getElementById("body-font-family");
+  const fontSizeRange = document.getElementById("body-font-size");
+  const fontSizeValue = document.getElementById("body-font-size-value");
+  
+  const languageInputs = {};
+  const languagePreviews = {};
+
+
+  {% for lang in languages %}
+    languageInputs["{{ lang }}"] = document.getElementById("greeting-text-input-{{ lang }}");
+    languagePreviews["{{ lang }}"] = document.getElementById("current-greeting-text-{{ lang }}");
+
+    // Live preview on typing
+    languageInputs["{{ lang }}"].addEventListener("input", () => {
+      const value = languageInputs["{{ lang }}"].value;
+      languagePreviews["{{ lang }}"].textContent = value;
+
+      // Update chatbot header text in real time
+      const firstBotMessage = document.querySelector("#first-bot-message .message-text");
+      if (firstBotMessage) {
+        firstBotMessage.textContent = value; // only one header, no language attr
+      }
+
+      
+    });
+  {% endfor %}
+
+  // Font family live update
+  fontFamilySelect.addEventListener("change", () => {
+    const family = fontFamilySelect.value;
+    
+    // Update CSS variable globally
+    document.documentElement.style.setProperty('--font-general', family);
+
+
+    // Update previews too
+    Object.values(languagePreviews).forEach(preview => {
+      preview.style.fontFamily = family;
+    });
+  });
+
+ 
+  fontSizeRange.addEventListener("input", () => {
+    const size = fontSizeRange.value;
+    fontSizeValue.textContent = size + "px";
+
+    // Update CSS variable globally
+    document.documentElement.style.setProperty('--general-body-font-size', size + "px");
+
+    // Update previews
+    Object.values(languagePreviews).forEach(preview => {
+      preview.style.fontSize = size + "px";
+    });
+
+    // Update chatbot header
+    const firstBotMessage = document.querySelector("#first-bot-message .message-text")
+    if (firstBotMessage) {
+      firstBotMessage.style.fontSize = size + "px";
+    }
+  });
+
+});
+
+/* ----------     AGENT REQUEST TEXT      ---------- */
+
+
+window.addEventListener("DOMContentLoaded", () => {
+
+  const fontFamilySelect = document.getElementById("body-font-family");
+  const fontSizeRange = document.getElementById("body-font-size");
+  const fontSizeValue = document.getElementById("body-font-size-value");
+  
+  const languageInputs = {};
+  const languagePreviews = {};
+
+
+  {% for lang in languages %}
+languageInputs["{{ lang }}"] = document.getElementById("agent-text-input-{{ lang }}");
+languagePreviews["{{ lang }}"] = document.getElementById("current-agentrequesttext-text-{{ lang }}");
+
+// Live preview on typing
+languageInputs["{{ lang }}"].addEventListener("input", () => {
+  const value = languageInputs["{{ lang }}"].value;
+
+  // Update the live preview
+  languagePreviews["{{ lang }}"].textContent = value;
+
+  // Update the popup message
+  const agentRequestMessage = document.querySelector("#human-confirm-text");
+  if (agentRequestMessage) {
+    agentRequestMessage.textContent = value;
+  }
+
+  // Update the confirm button text based on language
+  const confirmBtnLabel = document.querySelector(".confirm-label");
+  if (confirmBtnLabel) {
+    if ("{{ lang }}" === "en") {
+      confirmBtnLabel.textContent = "Yes";
+    } else if ("{{ lang }}" === "hu") {
+      confirmBtnLabel.textContent = "Igen";
+    }
+  }
+});
+{% endfor %}
+
+  // Font family live update
+  fontFamilySelect.addEventListener("change", () => {
+    const family = fontFamilySelect.value;
+    
+    // Update CSS variable globally
+    document.documentElement.style.setProperty('--font-general', family);
+
+
+    // Update previews too
+    Object.values(languagePreviews).forEach(preview => {
+      preview.style.fontFamily = family;
+    });
+  });
+
+ 
+  fontSizeRange.addEventListener("input", () => {
+    const size = fontSizeRange.value;
+    fontSizeValue.textContent = size + "px";
+
+    // Update CSS variable globally
+    document.documentElement.style.setProperty('--general-body-font-size', size + "px");
+
+    // Update previews
+    Object.values(languagePreviews).forEach(preview => {
+      preview.style.fontSize = size + "px";
+    });
+
+    // Update chatbot header
+    const agentRequestMessage = document.querySelector("#human-confirm-text");
+    if (agentRequestMessage) {
+      agentRequestMessage.style.fontSize = size + "px";
+    }
+  });
+
+
+
+});
+
+//////////////////////////////////////////
+/// CHATBODY AND FOOTER TEXT EDITING  ///
+////////////////////////////////////////
+
+const bodyFontFamilySelect = document.getElementById("body-font-family");
+const bodyFontSizeRange = document.getElementById("body-font-size");
+const bodyFontSizeValue = document.getElementById("body-font-size-value");
+const confirmationFontSizeRange = document.getElementById("confirmation-font-size");
+const confirmationFontSizeValue = document.getElementById("confirmation-font-size-value");
+
+
+// Font family live update
+bodyFontFamilySelect.addEventListener("change", () => {
+  const family = bodyFontFamilySelect.value;
+
+  document.documentElement.style.setProperty(
+    '--font-general',
+    family
+  );
+});
+
+// Font size live update
+bodyFontSizeRange.addEventListener("input", () => {
+  const size = bodyFontSizeRange.value;
+  bodyFontSizeValue.textContent = size + "px";
+
+  document.documentElement.style.setProperty(
+    '--general-body-font-size',
+    size + "px"
+  );
+});
+
+
+confirmationFontSizeRange.addEventListener("input", () => {
+  const size = confirmationFontSizeRange.value;
+  console.log("BENT", size)
+  // Update the display next to the slider
+  confirmationFontSizeValue.textContent = size + "px";
+
+  // Update CSS variable globally
+  document.documentElement.style.setProperty(
+    '--general-body-font-size2',
+    size + "px"
+  );
+
+
+});
+
+
+window.addEventListener("DOMContentLoaded", () => {
+  // Footer icon toggles
+  const askHumanCheckbox = document.getElementById("toggle-ask-human");
+  const emojiCheckbox = document.getElementById("toggle-emoji");
+  const fileUploadCheckbox = document.getElementById("toggle-file-upload");
+
+  const askHumanBtn = document.getElementById("ask-human").parentElement; // tooltip wrapper
+  const emojiBtn = document.getElementById("emoji-picker").parentElement; // tooltip wrapper
+  const fileUploadWrapper = document.querySelector(".file-upload-wrapper");
+
+  // Human confirm panel
+  const humanConfirm = document.getElementById("human-confirm");
+
+  // Function to update visibility without breaking layout
+  const updateVisibility = () => {
+    const showAskHuman = askHumanCheckbox.checked;
+
+    askHumanBtn.style.display = showAskHuman ? "flex" : "none";
+    emojiBtn.style.display = emojiCheckbox.checked ? "flex" : "none";
+    fileUploadWrapper.style.display = fileUploadCheckbox.checked ? "flex" : "none";
+
+    // Ask Human controls human-confirm too
+    humanConfirm.style.display = showAskHuman ? "block" : "none";
+  };
+
+  // Initialize visibility on page load
+  updateVisibility();
+
+  // Add event listeners
+  askHumanCheckbox.addEventListener("change", updateVisibility);
+  emojiCheckbox.addEventListener("change", updateVisibility);
+  fileUploadCheckbox.addEventListener("change", updateVisibility);
+});
+
+
+
+
+  window.addEventListener("DOMContentLoaded", () => {
+    const huCheckbox = document.getElementById("toggle-lang-hu");
+    const enCheckbox = document.getElementById("toggle-lang-en");
+    
+    const languageSelector = document.getElementById("language-selector");
+    const huButton = document.getElementById("select-hu");
+    const enButton = document.getElementById("select-en");
+
+    // Normalize backend value
+    const langs = Array.isArray(supportedLanguages)
+      ? supportedLanguages
+      : supportedLanguages.split(",").map(l => l.trim());
+
+    // Init from DB
+    huCheckbox.checked = langs.includes("hu");
+    enCheckbox.checked = langs.includes("en");
+
+    // Safety fallback (should never happen, but just in case)
+    if (!huCheckbox.checked && !enCheckbox.checked) {
+      huCheckbox.checked = true;
+    }
+
+    const updateLanguageUI = () => {
+      const huEnabled = huCheckbox.checked;
+      const enEnabled = enCheckbox.checked;
+
+      huButton.style.display = huEnabled ? "inline-flex" : "none";
+      enButton.style.display = enEnabled ? "inline-flex" : "none";
+
+      // Show selector ONLY if both enabled
+      languageSelector.style.display =
+        huEnabled && enEnabled ? "flex" : "none";
+    };
+
+  const guardAtLeastOneChecked = (changedCheckbox, otherCheckbox) => {
+      if (!changedCheckbox.checked && !otherCheckbox.checked) {
+        // Block untick
+        changedCheckbox.checked = true;
+        return false;
+      }
+      return true;
+    };
+
+    huCheckbox.addEventListener("change", () => {
+      if (!guardAtLeastOneChecked(huCheckbox, enCheckbox)) return;
+      updateLanguageUI();
+    });
+
+    enCheckbox.addEventListener("change", () => {
+      if (!guardAtLeastOneChecked(enCheckbox, huCheckbox)) return;
+      updateLanguageUI();
+    });
+
+    // Init UI
+    updateLanguageUI();
+  });
+  
+  window.addEventListener("DOMContentLoaded", () => {
+  var circleDropdownContent = document.getElementById('circleDropdownContent');
+  var circleDropdown = document.getElementById('circleDropdown');
+  var circleDashboardLink0= document.getElementById('circleDashboardLink0');
+  var circleDashboardLink= document.getElementById('circleDashboardLink');
+  var circleDashboardLink2= document.getElementById('circleDashboardLink2');
+  var logoutButton = document.querySelector("#logout"); 
+  
+  function showDropdown() {
+    const rect = circleDropdown.getBoundingClientRect();
+    circleDropdownContent.style.top = `${rect.bottom + 5}px`;
+    circleDropdownContent.style.left = `${rect.left + rect.width / 2-75}px`;
+    circleDropdownContent.style.display = 'block';
+}
+
+  function hideDropdown(dropdown, button) {
+      dropdown.style.display = 'none';
+      button.classList.remove('active');
+  }
+
+
+  if (circleDropdown){
+    // For V character dropdown
+    circleDropdown.addEventListener('mouseenter', function() {
+      showDropdown(circleDropdownContent, circleDropdown);
+    });
+  }
+  if (circleDropdown){
+    circleDropdown.addEventListener('mouseleave', function() {
+        setTimeout(function() {
+            if (!circleDropdownContent.matches(':hover') && !circleDropdown.matches(':hover')) {
+                hideDropdown(circleDropdownContent, circleDropdown);
+            }
+        }, 200); // Delay to ensure dropdown doesn't vanish immediately
+    });
+  }
+  if (circleDropdownContent){
+    circleDropdownContent.addEventListener('mouseleave', function() {
+        setTimeout(function() {
+            if (!circleDropdown.matches(':hover')) {
+                hideDropdown(circleDropdownContent, circleDropdown);
+            }
+        }, 200); // Delay to ensure dropdown doesn't vanish immediately
+    });
+  }
+    circleDropdownContent.addEventListener('mouseenter', function() {
+        showDropdown(circleDropdownContent, circleDropdown);
+    });
+
+    logoutButton.addEventListener("click", function() {
+        // Navigate to the "/logout" route
+        window.location.href = "/logout";
+    });
+
+    
+    if (circleDashboardLink0){
+circleDashboardLink0.addEventListener("click", function() {
+    event.preventDefault();
+    const firstCharacterElement = document.querySelector("#circleDropdown .content");
+    
+    if (!firstCharacterElement) {
+        console.error("circleDropdown .content NOT found.");
+        return;
+    }
+
+    const firstCharacter = firstCharacterElement.innerText.trim();
+    console.log("Sending firstCharacter:", firstCharacter);
+
+    // Append first_character as a query parameter to the URL
+    const url = `/chatAdminPage?first_character=${encodeURIComponent(firstCharacter)}`;
+
+    // Redirect to the URL
+    if (isMobile()) {
+        // Mobile → same tab
+        window.location.href = url;
+    } else {
+        // 🖥 Desktop → new tab
+        window.open(url, "_blank", "noopener,noreferrer");
+    }
+});
+    }
+
+ 
+
+ });
+
+ function hideButtonTextOnMobile() {
+  const isMobile = window.innerWidth <= 480; // mobile breakpoint
+  document.querySelectorAll('.btn-text').forEach(span => {
+    if (isMobile) {
+      span.style.display = 'none'; // hide on mobile
+    } else {
+      span.style.display = '';     // show on desktop
+    }
+  });
+}
+
+// Run on page load
+hideButtonTextOnMobile();
+
+
+
+  </script>
+
+  <script src="/static/popup_settings.js"></script>
+</body>
+</html>

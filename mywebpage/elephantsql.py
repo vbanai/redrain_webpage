@@ -7,7 +7,7 @@ from itsdangerous.url_safe import URLSafeTimedSerializer as Serializer
 #from sqlalchemy.orm import relationship, backref
 from mywebpage.db import async_session_scope
 from sqlalchemy.future import select
-from sqlalchemy import text, Column,UnicodeText, Boolean, JSON, DateTime, String, Float, Integer, NVARCHAR, ForeignKey, CheckConstraint, Unicode
+from sqlalchemy import Text, text, Column,UnicodeText, Boolean, JSON, DateTime, String, Float, Integer, NVARCHAR, ForeignKey, CheckConstraint, Unicode
 import json
 from sqlalchemy.orm import declarative_base
 from contextlib import contextmanager
@@ -59,11 +59,39 @@ class Subscription(Base):
     name = Column(Unicode(50), unique=True, nullable=False)
     description = Column(Unicode(255))
     can_access_chat_control = Column(Boolean, default=False)
-    can_access_chatbot_metrics = Column(Boolean, default=False)
+    can_access_basic_metrics = Column(Boolean, default=False)        # weekly summary
+    can_access_enhanced_metrics = Column(Boolean, default=False)     # hierarchical charts / advanced analysis
     can_access_advanced_ai = Column(Boolean, default=False)
+    base_seats = Column(Integer, nullable=False)
+
+
+    # Stripe integration
+    stripe_product_id = Column(String(255), nullable=True)  # Stripe Product ID pl prod_NJ2fXk9kL5wQd
+    stripe_price_id = Column(String(255), nullable=True)    # Stripe Price ID (monthly) pl.price_1N1k4L2aCzXyA7 means: Basic: $50/month
+
+    # Optional usage quotas
+    max_chats_per_month = Column(Integer, default=0)
+
 
     # Relationships
     clients = relationship("Client", back_populates="subscription")
+
+
+# it tartom nyilván, hogy mik éppen az aktív árak, de megőrzi a régebbi árakat is
+class SubscriptionPrice(Base):
+    __tablename__ = "subscription_prices"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    subscription_id = Column(Integer, ForeignKey("subscriptions.id", ondelete="CASCADE"), nullable=False)
+    stripe_price_id = Column(String(255), nullable=False)   # Stripe Price ID
+    amount = Column(Integer, nullable=False)               # price in minor units (e.g., HUF cents)
+    currency = Column(String(10), default="HUF", nullable=False)
+    active = Column(Boolean, default=True)                 # only one active per subscription at a time
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+
+    subscription = relationship("Subscription", backref="prices")
+
 
 class Client(Base):
     __tablename__ = 'clients'
@@ -79,28 +107,65 @@ class Client(Base):
     mode = Column(Unicode(20), nullable=False, default='automatic')
     last_manualmode_triggered_by = Column(Unicode(255), nullable=True)
     timezone = Column(Unicode(100), default='UTC') 
-    primary_color = Column(UnicodeText, nullable=True)  # Accepts gradients like 'linear-gradient(...)'
+    billing_email = Column(String(255), nullable=True)
+
+    icon_path = Column(UnicodeText, nullable=True)       # static URL path to icon
+    use_google_icon = Column(Boolean, default=True)      # fallback if no custom icon
+    agent_icon = Column(Boolean, nullable=False, default=True)
+    emoji_icon = Column(Boolean, nullable=False, default=True)
+    attachment_icon = Column(Boolean, nullable=False, default=True)
+    auto_upgrade = Column(Boolean, default=False, nullable=False)
+    seats = Column(Integer, nullable=False, default=0)
+
+
+    languages = Column(ARRAY(String), nullable=False, server_default=text('ARRAY["hu"]'))
+    
+    primary_color = Column(Text)  # Accepts gradients like 'linear-gradient(...)'
     border_radius = Column(Unicode(20), nullable=True)  # e.g., '40px'
     border_width = Column(Unicode(10), nullable=True)   # e.g., '1px'
     border_color = Column(Unicode(50), nullable=True)   # e.g., 'rgb(193, 192, 192)'
-    icon_path = Column(UnicodeText, nullable=True)       # static URL path to icon
-    use_google_icon = Column(Boolean, default=True)      # fallback if no custom icon
+    reply_bg_color = Column(Text)
+    operator_icon=Column(String(50), nullable=True)
+    font_color = Column(Text)
+    font_header_text = Column(Unicode(100), nullable=False, server_default='"Inter", sans-serif')
+    header_font_weight=Column(Unicode(20))
+    header_font_size = Column(Unicode(10), nullable=False, server_default=text('"1.1rem"'))
+    font_general = Column(Unicode(100), nullable=False, server_default='"Inter", sans-serif')
+    general_body_font_size = Column(Unicode(10), nullable=False, server_default=text('"12.5px"'))
+    general_body_font_size2 = Column(Unicode(10), nullable=False, server_default=text('"11px"'))
 
-    languages = Column(ARRAY(String), nullable=False, server_default=text('ARRAY["hu"]'))
-    reply_bg_color=Column(String(20), nullable=True)
-    operator_icon=Column(String(20), nullable=True)
-    font_color=Column(String(20), nullable=True)
-    everything_which_is_white=Column(String(20), nullable=True)
-    user_input_message_color=Column(String(20), nullable=True)
-    popup_bg_color=Column(String(20), nullable=True)
-    footer_bg_color=Column(String(20), nullable=True)
-    footer_controls_bg=Column(String(20), nullable=True)
-    footer_input_bg_color=Column(String(20), nullable=True)
-    footer_focus_outline_color=Column(String(20), nullable=True)
-    scrollbar_color=Column(String(20), nullable=True)
+
+    everything_which_is_white = Column(Text)
+    user_input_message_color = Column(Text)
+    popup_bg_color = Column(Text)
+    footer_bg_color = Column(Text)
+    footer_controls_bg = Column(Text)
+    footer_input_bg_color = Column(Text)
+    footer_focus_outline_color = Column(Text)
+    scrollbar_color = Column(Text)
+    confirmation_button_bgcolor = Column(Text)
+
     config_updated_by = Column(String(255), nullable=True)
     config_updated_at = Column(DateTime(timezone=True), nullable=True)
+    language_hu_logo_text = Column(String, default="Automata és élő ügyintézés")
+    language_en_logo_text = Column(String, default="AI & Live Support")
+    language_selector=Column(String, default="Please select your language / Kérlek válassz nyelvet:")
+    greeting_message_hu=Column(String, default="Üdvözöllek! Miben tudok segíteni?")
+    greeting_message_en=Column(String, default="Welcome! How can I help you?")
+    agent_request_confirmation_hu=Column(String, default="Szeretne ügyintézővel beszélni?")
+    agent_request_confirmation_en=Column(String, default="Would you like to talk to a colleague?")
+    textfont_updated_by = Column(String(255), nullable=True)
+    textfont_updated_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Stripe integration
+    stripe_customer_id = Column(String(255), nullable=True)   #unique ID that Stripe assigns to my customer, client in my system that wants to pay or subscribe gets a Stripe customer.
+    stripe_subscription_id = Column(String(255), nullable=True)  # ID of the active subscription in Stripe for this customer, To know which subscription tier the client has (Basic / Gold / Platinum)
+    subscription_start_date = Column(DateTime(timezone=True), nullable=True)
+    subscription_end_date = Column(DateTime(timezone=True), nullable=True)
 
+
+
+    
     __table_args__ = (
         CheckConstraint("mode IN ('automatic', 'manual')", name='check_mode'),
     )
@@ -112,15 +177,11 @@ class Client(Base):
     mode_overrides = relationship("UserModeOverride", back_populates="client", cascade="all, delete-orphan")
     connections = relationship("Connections", back_populates="org", cascade="all, delete-orphan")
     
-    config_history = relationship(
-        "ClientConfigHistory",
-        back_populates="client",
-        cascade="all, delete-orphan",
-        order_by="desc(ClientConfigHistory.created_at)"
-    )
+    config_history = relationship("ClientConfigHistory", back_populates="client", cascade="all, delete-orphan", order_by="desc(ClientConfigHistory.created_at)")
+    behavior_history = relationship("ClientBehaviorHistory", back_populates="client", cascade="all, delete-orphan", order_by="desc(ClientConfigHistory.created_at)")
 
 
-
+# DESIGN PARAMS SAVE
 class ClientConfigHistory(Base):
     __tablename__ = "client_config_history"
 
@@ -132,7 +193,20 @@ class ClientConfigHistory(Base):
     # Relationship back to Client
     client = relationship("Client", back_populates="config_history")
 
-    
+
+#FONT OTHER STRUCTURAL PARAMS SAVE
+class ClientBehaviorHistory(Base):
+    __tablename__ = "client_behavior_history"
+
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"))
+    parameters = Column(JSON, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationship back to Client
+    client = relationship("Client", back_populates="behavior_history")
+
+
 class ChatHistory(Base):
     __tablename__ = 'chat_messages'
 

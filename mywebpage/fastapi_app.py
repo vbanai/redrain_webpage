@@ -13,7 +13,7 @@ from concurrent.futures import ProcessPoolExecutor
 from redis.asyncio import from_url as redis_from_url
 from starlette.middleware.sessions import SessionMiddleware
 from mywebpage.redis_client import redis_url
-from mywebpage.background import redis_listener, send_admin_heartbeat
+from mywebpage.background import redis_listener, send_admin_heartbeat, cleanup_idle_sessions
 from mywebpage.models_loader import load_models_bg
 from mywebpage.socketio_app import sio
 from socketio import ASGIApp
@@ -23,6 +23,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import mywebpage.security 
 from pathlib import Path
+from fastapi import Request
+from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi import Request, HTTPException
+
+
 
 
 # --------------------- Lifespan ---------------------
@@ -30,9 +35,11 @@ from pathlib import Path
 # Everything before yield = executed on startup
 # Everything after yield = executed on shutdown
 
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🔥 LIFESPAN CALLED, app id:", id(app))
+    print("LIFESPAN CALLED, app id:", id(app))
     """
     Startup/shutdown lifecycle:
       - create Redis client
@@ -101,6 +108,7 @@ async def lifespan(app: FastAPI):
             app.state.bg_tasks = [
                 asyncio.create_task(supervisor(redis_listener, "redis_listener")),
                 asyncio.create_task(supervisor(send_admin_heartbeat, "admin_heartbeat")),
+                asyncio.create_task(supervisor(cleanup_idle_sessions, "idle_logout")),
             ]
             print("Background tasks started")
         except Exception as e:
@@ -110,11 +118,14 @@ async def lifespan(app: FastAPI):
     else:
         print("Skipping background tasks (Redis unavailable)")
 
-    # yield to app
+ 
+    # yield to app  Everything before yield runs once, when the FastAPI app starts.
     try:
-        yield
+        yield  # Control goes to FastAPI. FastAPI now handles requests normally.
+    # Your routes, middleware, background tasks all work. During this time, your context manager is paused at the yield.
+    
     finally:
-        # SHUTDOWN
+        # SHUTDOWN Everything after yield runs once, when the FastAPI app stops.
         print("Lifespan shutdown initiated")
 
         # Cancel background tasks
@@ -167,7 +178,30 @@ async def lifespan(app: FastAPI):
 
 SECRET_KEY = os.environ.get("SECRET_KEY") or secrets.token_hex(16)
 
+# FastAPI’s lifespan parameter takes an async context manager:
 fastapi_app = FastAPI(lifespan=lifespan) # with this fastapi_app is defined at the module level, any code in that module can access it:
+# This ensures:
+# Startup code runs before any request is handled
+# Cleanup code runs when the app stops
+# Don’t have to manually manage connections or background tasks
+
+
+
+# FastAPI catches the HTTPException raised by login_required
+# If 401 and request is GET, user is redirected to:
+@fastapi_app.exception_handler(HTTPException)
+async def auth_exception_handler(request: Request, exc: HTTPException):
+    if exc.status_code == 401 and request.method == "GET":
+        return RedirectResponse(
+            "/logout?reason=expired",
+            status_code=302
+        )
+
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
 sio_app = ASGIApp(sio, other_asgi_app=fastapi_app)
 # fastapi_app.include_router(my_router) adds all the routes defined in a router (APIRouter) to the main FastAPI app. Without it  FastAPI doesn’t know about
 

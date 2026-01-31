@@ -53,36 +53,26 @@ from urllib.parse import parse_qs
 from mywebpage.db import async_session_scope
 from sqlalchemy import text, select, desc
 from mywebpage.concurrency import run_cpu_task
-
 # Mail (replace flask_mail → fastapi-mail)
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
-
 from urllib.parse import quote
-import aioredis
 import os
 import secrets
 import json
 import jwt
 from sqlalchemy.future import select
 import asyncio
-#from azure.monitor.opentelemetry import configure_azure_monitor
 import logging
 from opentelemetry.sdk._logs import LoggingHandler
 import uuid
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
-
-
-
 import httpx
 from fastapi import HTTPException
 from sqlalchemy.orm import selectinload
 from fastapi.responses import PlainTextResponse
-
-
-
-from mywebpage.elephantsql import UserModeOverride, Client, Subscription, Role, User, ChatHistory, OrgEventLog, update_client_mode, enrich_event_with_local_timestamp
+from mywebpage.elephantsql import Client, Subscription, SubscriptionPrice, ClientBehaviorHistory, ClientConfigHistory, Role, User, OrgEventLog, update_client_mode, enrich_event_with_local_timestamp
 from mywebpage.chats import fetch_chat_messages
 from datetime import datetime, timedelta 
 from mywebpage.mainpulation_weeklyreport import user_querry_forquickreview, locationranking, longitude_latitude, longitude_latitude_detailed, fetch_chat_messages_weekly
@@ -91,38 +81,26 @@ import os
 from sqlalchemy import func, delete, update
 from sqlalchemy.exc import SQLAlchemyError
 from itsdangerous import SignatureExpired, BadSignature
-
+from typing import Optional, List
 import jwt
 from mywebpage.security import CsrfProtect
-
 import json
-#from authlib.integrations.starlette_client import OAuth
 from urllib.parse import urlencode
 import secrets
 import re
-# from flask_socketio import SocketIO, emit, join_room
 import time
-
 from sqlalchemy.orm import joinedload
-from sqlalchemy.exc import OperationalError  #catch db op error
-
 from datetime import datetime, timezone
-
 import pytz
-
-
-from concurrent.futures import ProcessPoolExecutor
-import torch
-from transformers import AutoTokenizer
 from pathlib import Path
-
+import stripe
 
 
 s = URLSafeTimedSerializer("your-secret-key")  # same as in invite_user,  # creates signed and tamper-proof url for registration for new users
 
 
 
-
+stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
 BASE_DIR = Path(__file__).resolve().parent  # <- go up one level to match fastapi_app.py   !!! BASE_DIR = mywebpage/
 print(BASE_DIR / "static")  # C:\Users\vbanai\Documents\Programming\Dezsi porject\ChatFrontEnd\FinalAdminPage_FASTAPI\mywebpage\static
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
@@ -141,29 +119,6 @@ router = APIRouter()
 
 FLASH_EXPIRE_SECONDS = 60
 
-# GMAIL
-
-# class MailSettings(BaseSettings):
-#     MAIL_USERNAME: str = "banaiviktor11@gmail.com"
-#     MAIL_PASSWORD: str = "fgbtaomxbnpjumck"
-#     MAIL_FROM: str = "banaiviktor11@gmail.com"
-#     MAIL_PORT: int = 587
-#     MAIL_SERVER: str = "smtp.gmail.com"
-#     MAIL_TLS: bool = True
-#     MAIL_SSL: bool = False
-
-# mail_settings = MailSettings()
-
-# conf = ConnectionConfig(
-#     MAIL_USERNAME = mail_settings.MAIL_USERNAME,
-#     MAIL_PASSWORD = mail_settings.MAIL_PASSWORD,
-#     MAIL_FROM = mail_settings.MAIL_FROM,
-#     MAIL_PORT = mail_settings.MAIL_PORT,
-#     MAIL_SERVER = mail_settings.MAIL_SERVER,
-#     MAIL_TLS = mail_settings.MAIL_TLS,
-#     MAIL_SSL = mail_settings.MAIL_SSL,
-#     USE_CREDENTIALS = True
-# )
 
 
 # GMAIL configuration  in fastapi using pydanticv2
@@ -212,37 +167,12 @@ fast_mail = FastMail(conf)
 
 SECRET = os.environ.get("SECRET_KEY", secrets.token_urlsafe(32))
 
-# def setup_logging():
-#     # Configure Azure Monitor
-#     configure_azure_monitor()
-
-#     logger = logging.getLogger("myapp")  # root logger
-#     logger.setLevel(logging.INFO)
-
-#     # Console handler (for Log Stream)
-#     if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
-#         stream_handler = logging.StreamHandler()
-#         formatter = logging.Formatter(
-#             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-#         )
-#         stream_handler.setFormatter(formatter)
-#         logger.addHandler(stream_handler)
-
-#     # OpenTelemetry logging handler (sends logs to App Insights)
-#     if not any(isinstance(h, LoggingHandler) for h in logger.handlers):
-#         logger.addHandler(LoggingHandler(level=logging.INFO))
-
-#     return logger
-
-
-# logger = setup_logging()
-
 #---------------   OAuth STATE ---------------
 
 STATE_KEY_PREFIX = "oauth_state:"
 SESSION_KEY_PREFIX = "user_session:"
-SESSION_TTL = 3600   # 1 hour
-SESSION_TTL_COOKIE=2*3600
+SESSION_TTL = 24*3600   # 24 hour
+SESSION_TTL_COOKIE=24*3600
 
 
 async def save_oauth_state(redis, state: str, session_id: str):
@@ -272,42 +202,6 @@ SCOPE = ['User.Read']  # Define your scopes here
 
 
 
-
-# class UserProxy:
-#     def __init__(self, id: int, email: str, role: str, client_id: int, name: str, is_active: bool = True):
-#         self.id = id
-#         self.email = email
-#         self.role = role
-#         self.client_id = client_id
-#         self.is_active = is_active
-#         self.name = name
-
-#     def is_authenticated(self) -> bool:
-#         return True
-
-#     def is_active_user(self) -> bool:
-#         return self.is_active
-
-#     def is_anonymous(self) -> bool:
-#         return False
-
-#     def get_id(self) -> str:
-#         return str(self.id)
-
-#     def to_dict(self) -> dict:
-#         """Store in Redis as JSON"""
-#         return {
-#             "id": self.id,
-#             "email": self.email,
-#             "role": self.role,
-#             "client_id": self.client_id,
-#             "name": self.name,
-#             "is_active": self.is_active
-#         }
-
-#     @classmethod
-#     def from_dict(cls, data: dict):
-#         return cls(**data)
 
 
 async def get_current_user(request: Request) -> dict | None:
@@ -349,10 +243,13 @@ async def get_current_user(request: Request) -> dict | None:
     }
 
 async def login_required(user: dict = Depends(get_current_user)) -> dict:
-    """Raises 401 if user is not logged in."""
     if not user:
+        #Exception handling is in fastapi_app.py,
         raise HTTPException(status_code=401, detail="Not logged in")
     return user
+
+
+
 
 
 #This is a factory function that returns a dependency function.
@@ -370,6 +267,8 @@ def role_required(*allowed_roles: str):
 #----------------------
 #       INDEX
 #----------------------
+
+
 
 @router.get("/routes")
 async def list_routes(request: Request):
@@ -596,12 +495,15 @@ async def map_page(request: Request):
 def has_permission(user_role, subscription, feature):
     if not subscription:
         return False
+
     permissions = {
-        "chat_control": subscription.can_access_chat_control and user_role in ["Manager", "Team Leader", "Administrator"],
-        "chatbot_metrics": subscription.can_access_chatbot_metrics and user_role in ["Manager", "Team Leader"],
-        "advanced_ai": subscription.can_access_advanced_ai and user_role in ["Manager", "Team Leader"],
+        "chat_control": (subscription.can_access_chat_control and user_role in ["Manager", "Team Leader", "Administrator"]),
+        "basic_metrics": (subscription.can_access_basic_metrics and user_role in ["Manager", "Team Leader"]),
+        "enhanced_metrics": (subscription.can_access_enhanced_metrics and user_role in ["Manager", "Team Leader"]),
+        "advanced_ai": (subscription.can_access_advanced_ai and user_role in ["Manager", "Team Leader"]),
     }
     return permissions.get(feature, False)
+
 
 
 @router.get("/serviceselector", response_class=HTMLResponse)
@@ -610,16 +512,16 @@ async def serviceselector_vbanai(
     csrf_protect: CsrfProtect=Depends(),
     current_user: dict = Depends(login_required),  # ensures user is logged in
 ):
-    redis = request.app.state.redis_client
-    session_id = request.cookies.get("session_id")
-    session_key = f"session:{session_id}"
+    # redis = request.app.state.redis_client
+    # session_id = request.cookies.get("session_id")
+    # session_key = f"session:{session_id}"
 
-    # If session expired in Redis → logout
-    if not await redis.exists(session_key):
-        return RedirectResponse(
-        url="/logout?reason=expired",
-        status_code=302
-    )
+    # # If session expired in Redis → logout
+    # if not await redis.exists(session_key):
+    #     return RedirectResponse(
+    #     url="/logout?reason=expired",
+    #     status_code=302
+    # )
     
 
     email = current_user["email"]
@@ -655,18 +557,19 @@ async def serviceselector_vbanai(
         # Check access permissions based on the subscription
         if subscription:
             chat_control_access = has_permission(user_role, subscription, "chat_control")
-            metrics_access = has_permission(user_role, subscription, "chatbot_metrics")
+            basic_metrics_access = has_permission(user_role, subscription, "basic_metrics")
+            enhanced_metrics_access = has_permission(user_role, subscription, "enhanced_metrics")
             advanced_ai_access = has_permission(user_role, subscription, "advanced_ai")
         else:
-            # Default to no access if no subscription is found
             chat_control_access = False
-            metrics_access = False
+            basic_metrics_access = False
+            enhanced_metrics_access = False
             advanced_ai_access = False
         
         #csrf_token = csrf_protect.csrf_token()
         #csrf_token = csrf_protect.create_csrf()
         csrf_token, signed_token = csrf_protect.generate_csrf_tokens()
-        print("chat_control_access", chat_control_access, "metrics_access", metrics_access, "advanced_ai_access", advanced_ai_access)
+  
 
         # Additional session-related data
         response = templates.TemplateResponse(
@@ -681,7 +584,8 @@ async def serviceselector_vbanai(
             "subscription": subscription,
             "service_message": service_message,
             "chat_control_access": chat_control_access,
-            "metrics_access": metrics_access,
+            "basic_metrics_access": basic_metrics_access,
+            "enhanced_metrics_access": enhanced_metrics_access,
             "advanced_ai_access": advanced_ai_access,
             "language": language,
             "user_id": user_id,
@@ -690,7 +594,6 @@ async def serviceselector_vbanai(
     )
     csrf_protect.set_csrf_cookie(signed_token, response)  # <-- set cookie
     return response
-
 
 
 
@@ -1226,47 +1129,85 @@ async def design_page(
     first_character: str | None = Query(None),
     user: dict = Depends(login_required),  # ensures user is logged in
 ):
-    redis = request.app.state.redis_client
-    session_id = request.cookies.get("session_id")
-    print("Ide1")
-    if not session_id:
-        raise HTTPException(status_code=401, detail="No session_id cookie found")
     
-    client_id_bytes = await redis.hget(f"session:{session_id}", "user_org")
-    if not client_id_bytes:
-        raise HTTPException(status_code=401, detail="Session expired or invalid")
 
-    client_id = int(client_id_bytes)
-    print("Ide2")
-    # Fetch client from DB using async session
+    language = user.get("language", "hu")
+
+    user_id = user["id"]
+    user_org = user["org_id"]
+    user_role = user["role"]
+    
+    if not first_character:
+        first_character = user.get("first_character") 
+ 
+  
+
+    # Get the company name associated with the user from the Client table
+    #client = Client.query.filter_by(client_name=current_user.client_id).first()
     async with async_session_scope() as db_session:
-        result = await db_session.execute(
-            select(Client).where(Client.id == client_id)
+        client = await db_session.scalar(
+            select(Client)
+            .options(joinedload(Client.subscription))
+            .where(Client.id == user_org)
         )
-        client = result.scalar_one_or_none()
+
         if not client:
             raise HTTPException(status_code=404, detail="Client not found")
-    print("Ide3")
+        
+
+       
+        client_name = client.client_name
+        subscription = client.subscription
+    
+        
+        # Check access permissions based on the subscription
+        if subscription:
+            chat_control_access = has_permission(user_role, subscription, "chat_control")
+            metrics_access = has_permission(user_role, subscription, "chatbot_metrics")
+            advanced_ai_access = has_permission(user_role, subscription, "advanced_ai")
+        else:
+            # Default to no access if no subscription is found
+            chat_control_access = False
+            metrics_access = False
+            advanced_ai_access = False
+        
+      
+       
+
+
+    
+  
     # Determine icon path
     icon_path = client.icon_path 
     use_google_icon = False
     if not icon_path:
         use_google_icon = True
      
-    print("Ide4")
-    print("iconpath", icon_path)
-    print("google_icon", use_google_icon)
+
     # Build template context
     context = {
         "request": request,
-        "user_id": str(client.id),
+  
         "client_id_initial": client.client_code,
         "client_mode": client.mode,
-        "languages": client.languages,
         "primary_color": client.primary_color,
         "reply_bg_color": client.reply_bg_color,
         "operator_icon": client.operator_icon,
         "font_color": client.font_color,
+        "header_font_weight": client.header_font_weight,
+        "header_font_size": client.header_font_size,
+        "general_body_font_size": client.general_body_font_size,
+        "general_body_font_size2": client.general_body_font_size2,
+        "language": language,
+        "language_selector":client.language_selector,
+        "language_hu_logo_text": client.language_hu_logo_text,
+        "language_en_logo_text": client.language_en_logo_text,
+        "greeting_message_hu": client.greeting_message_hu,
+        "greeting_message_en": client.greeting_message_en,
+        "agent_request_confirmation_hu": client.agent_request_confirmation_hu,
+        "agent_request_confirmation_en": client.agent_request_confirmation_en,
+
+        "languages":client.languages,
         "everything_which_is_white": client.everything_which_is_white,
         "user_input_message_color": client.user_input_message_color,
         "popup_bg_color": client.popup_bg_color,
@@ -1278,12 +1219,660 @@ async def design_page(
         "border_radius": client.border_radius,
         "border_width": client.border_width,
         "border_color": client.border_color,
-        "icon_path": icon_path,
+        "confirmation_button_bgcolor":client.confirmation_button_bgcolor,
+        "icon_path": icon_path, 
         "use_google_icon": use_google_icon,
-        "first_character": first_character
+        "agent_icon": client.agent_icon,
+        "emoji_icon": client.emoji_icon,
+        "attachment_icon": client.attachment_icon,
+        "font_general": client.font_general,
+        "font_header_text": client.font_header_text,
+        "first_character": first_character,
+
+        "user_role": user_role,
+        "client_name": client_name,
+        "subscription": subscription,
+        "chat_control_access": chat_control_access,
+        "metrics_access": metrics_access,
+        "advanced_ai_access": advanced_ai_access,
+        "user_id": user_id,
     }
 
     return templates.TemplateResponse("graphic_design.html", context)
+
+
+@router.get("/popup_settings", response_class=HTMLResponse)
+async def popup_settings(
+    request: Request,
+    first_character: str | None = Query(None),
+    user: dict = Depends(login_required),  # ensures user is logged in
+):
+    redis = request.app.state.redis_client
+    session_id = request.cookies.get("session_id")
+   
+    language = user.get("language", "hu")
+
+    user_id = user["id"]
+    user_org = user["org_id"]
+    user_role = user["role"]
+    
+    if not first_character:
+        first_character = user.get("first_character")
+    
+
+    async with async_session_scope() as db_session:
+        client = await db_session.scalar(
+            select(Client)
+            .options(joinedload(Client.subscription))
+            .where(Client.id == user_org)
+        )
+
+        if not client:
+            raise HTTPException(status_code=404, detail="Client not found")
+        
+
+       
+        client_name = client.client_name
+        subscription = client.subscription
+    
+        
+        # Check access permissions based on the subscription
+        if subscription:
+            chat_control_access = has_permission(user_role, subscription, "chat_control")
+            metrics_access = has_permission(user_role, subscription, "chatbot_metrics")
+            advanced_ai_access = has_permission(user_role, subscription, "advanced_ai")
+        else:
+            # Default to no access if no subscription is found
+            chat_control_access = False
+            metrics_access = False
+            advanced_ai_access = False
+        
+      
+  
+    # Determine icon path
+    icon_path = client.icon_path 
+    use_google_icon = False
+    if not icon_path:
+        use_google_icon = True
+
+
+    print("chat_control_access", chat_control_access, "metrics_access", metrics_access, "advanced_ai_access", advanced_ai_access)
+     
+   
+    # Build template context
+    context = {
+        "request": request,
+        "user_id": str(client.id),
+        "client_id_initial": client.client_code,
+        "client_mode": client.mode,
+        "primary_color": client.primary_color,
+        "reply_bg_color": client.reply_bg_color,
+        "operator_icon": client.operator_icon,
+        "font_color": client.font_color,
+        "header_font_weight": client.header_font_weight,
+        "header_font_size": client.header_font_size,
+        "general_body_font_size": client.general_body_font_size,
+        "general_body_font_size2": client.general_body_font_size2,
+        "language": language,
+        "language_selector":client.language_selector,
+        "language_hu_logo_text": client.language_hu_logo_text,
+        "language_en_logo_text": client.language_en_logo_text,
+        "greeting_message_hu": client.greeting_message_hu,
+        "greeting_message_en": client.greeting_message_en,
+        "agent_request_confirmation_hu": client.agent_request_confirmation_hu,
+        "agent_request_confirmation_en": client.agent_request_confirmation_en,
+
+        "languages":client.languages,
+        "everything_which_is_white": client.everything_which_is_white,
+        "user_input_message_color": client.user_input_message_color,
+        "popup_bg_color": client.popup_bg_color,
+        "footer_bg_color": client.footer_bg_color,
+        "footer_controls_bg": client.footer_controls_bg,
+        "footer_input_bg_color": client.footer_input_bg_color,
+        "footer_focus_outline_color": client.footer_focus_outline_color,
+        "scrollbar_color": client.scrollbar_color,
+        "border_radius": client.border_radius,
+        "border_width": client.border_width,
+        "border_color": client.border_color,
+        "confirmation_button_bgcolor":client.confirmation_button_bgcolor,
+        "icon_path": icon_path, 
+        "use_google_icon": use_google_icon,
+        "agent_icon": client.agent_icon,
+        "emoji_icon": client.emoji_icon,
+        "attachement_icon": client.attachment_icon,
+        "font_general": client.font_general,
+        "font_header_text": client.font_header_text,
+        "first_character": first_character,
+
+        "user_role": user_role,
+        "First_character": first_character,
+        "client_name": client_name,
+        "subscription": subscription,
+        "chat_control_access": chat_control_access,
+        "metrics_access": metrics_access,
+        "advanced_ai_access": advanced_ai_access,
+        "user_id": user_id,
+    }
+
+    return templates.TemplateResponse("popup_settings.html", context)
+
+
+
+
+
+#########################################################################
+#    MANAGET SAVING RESTORING EDITED POPUP DESING, TEXT FONT ELEMENTS   #
+#########################################################################
+
+
+
+
+
+class ClientConfigPayload(BaseModel):
+    primary_color: Optional[str]
+    border_radius: Optional[str]
+    border_width: Optional[str]
+    border_color: Optional[str]
+
+    reply_bg_color: Optional[str]
+    operator_icon: Optional[str]
+    font_color: Optional[str]
+    everything_which_is_white: Optional[str]
+    user_input_message_color: Optional[str]
+
+    popup_bg_color: Optional[str]
+    footer_bg_color: Optional[str]
+    footer_controls_bg: Optional[str]
+    footer_input_bg_color: Optional[str]
+    footer_focus_outline_color: Optional[str]
+    confirmation_button_bgcolor: Optional[str]
+
+    scrollbar_color: Optional[str]
+
+
+
+
+
+@router.post("/api/client/config/manage_previous_layout")
+async def manage_previous_layout(
+    request: Request,
+    current_user: dict = Depends(login_required),
+):
+    redis = request.app.state.redis_client
+    session_id = request.cookies.get("session_id")
+    payload = await request.json()
+    messages = []
+
+    # -----------------------------
+    # Session validation
+    # -----------------------------
+    if not session_id or not await redis.exists(f"session:{session_id}"):
+        return RedirectResponse("/logout?reason=expired", status_code=302)
+
+    lang = current_user.get("language", "hu")
+    user_org = current_user["org_id"]
+    email = current_user.get("email")
+    email_prefix = email.split("@")[0] if email else None
+
+    try:
+        async with async_session_scope(org_id=user_org) as session:
+
+            # -----------------------------
+            # Load client
+            # -----------------------------
+            client = await session.scalar(
+                select(Client).where(Client.id == user_org)
+            )
+
+            if not client:
+                return JSONResponse({
+                    "success": False,
+                    "messages": [msg(
+                        text_en="Client not found",
+                        text_hu="Az ügyfél nem található",
+                        category="danger",
+                        lang=lang
+                    )]
+                }, status_code=404)
+
+            # =========================================================
+            # STEP 1️⃣ SAVE CURRENT CLIENT STATE → HISTORY (BACKUP)
+            # =========================================================
+            previous_state = {
+                "primary_color": client.primary_color,
+                "border_radius": client.border_radius,
+                "border_width": client.border_width,
+                "border_color": client.border_color,
+                "reply_bg_color": client.reply_bg_color,
+                "operator_icon": client.operator_icon,
+                "font_color": client.font_color,
+                "everything_which_is_white": client.everything_which_is_white,
+                "user_input_message_color": client.user_input_message_color,
+                "popup_bg_color": client.popup_bg_color,
+                "footer_bg_color": client.footer_bg_color,
+                "footer_controls_bg": client.footer_controls_bg,
+                "footer_input_bg_color": client.footer_input_bg_color,
+                "footer_focus_outline_color": client.footer_focus_outline_color,
+                "confirmation_button_bgcolor":client.confirmation_button_bgcolor,
+                "scrollbar_color": client.scrollbar_color,
+            }
+
+            history = await session.scalar(
+                select(ClientConfigHistory)
+                .where(ClientConfigHistory.client_id == client.id)
+            )
+
+            if history:
+                history.parameters = previous_state
+            else:
+                session.add(ClientConfigHistory(
+                    client_id=client.id,
+                    parameters=previous_state
+                ))
+
+            # =========================================================
+            # STEP 2️⃣ APPLY NEW VALUES → CLIENTS TABLE
+            # =========================================================
+            new_values = {k: v for k, v in payload.items() if v is not None}
+
+            for key, value in new_values.items():
+                if hasattr(client, key):
+                    setattr(client, key, value)
+
+            # Audit info
+            client.config_updated_by = email_prefix
+            client.config_updated_at = datetime.utcnow()
+
+            session.add(client)
+
+        # -----------------------------
+        # Success message
+        # -----------------------------
+        messages.append(msg(
+            text_en="Configuration saved successfully",
+            text_hu="Beállítások sikeresen elmentve",
+            category="success",
+            lang=lang
+        ))
+
+        return JSONResponse({"success": True, "messages": messages})
+
+    except Exception as e:
+        print("SAVE CONFIG ERROR:", e)
+
+        messages.append(msg(
+            text_en="Failed to save configuration",
+            text_hu="A beállítások mentése sikertelen",
+            category="danger",
+            lang=lang
+        ))
+
+        return JSONResponse({"success": False, "messages": messages}, status_code=500)
+
+
+@router.post("/api/client/config/restore_previous_layout")
+async def restore_previous_layout(
+    request: Request,
+    current_user: dict = Depends(login_required),
+):
+    redis = request.app.state.redis_client
+    session_id = request.cookies.get("session_id")
+    messages = []
+
+    # -----------------------------
+    # Session validation
+    # -----------------------------
+    if not session_id or not await redis.exists(f"session:{session_id}"):
+        return RedirectResponse("/logout?reason=expired", status_code=302)
+
+    lang = current_user.get("language", "hu")
+    user_org = current_user["org_id"]
+    email = current_user.get("email")
+    email_prefix = email.split("@")[0] if email else None
+
+    try:
+        async with async_session_scope(org_id=user_org) as session:
+
+            # -----------------------------
+            # Load client
+            # -----------------------------
+            client = await session.scalar(
+                select(Client).where(Client.id == user_org)
+            )
+
+            if not client:
+                return JSONResponse({
+                    "success": False,
+                    "messages": [msg(
+                        text_en="Client not found",
+                        text_hu="Az ügyfél nem található",
+                        category="danger",
+                        lang=lang
+                    )]
+                }, status_code=404)
+
+            # -----------------------------
+            # Load history (previous state)
+            # -----------------------------
+            history = await session.scalar(
+                select(ClientConfigHistory)
+                .where(ClientConfigHistory.client_id == client.id)
+            )
+
+            if not history or not history.parameters:
+                return JSONResponse({
+                    "success": False,
+                    "messages": [msg(
+                        text_en="No previous configuration found",
+                        text_hu="Nem található korábbi konfiguráció",
+                        category="warning",
+                        lang=lang
+                    )]
+                })
+
+            # =========================================================
+            # RESTORE: overwrite client with history values
+            # =========================================================
+            for key, value in history.parameters.items():
+                if hasattr(client, key):
+                    setattr(client, key, value)
+
+            # Audit info
+            client.config_updated_by = email_prefix
+            client.config_updated_at = datetime.utcnow()
+
+            session.add(client)
+
+        messages.append(msg(
+            text_en="Previous configuration restored successfully",
+            text_hu="Az előző konfiguráció sikeresen visszaállítva",
+            category="success",
+            lang=lang
+        ))
+
+        return JSONResponse({
+            "success": True,
+            "messages": messages
+        })
+
+    except Exception as e:
+        print("RESTORE CONFIG ERROR:", e)
+
+        messages.append(msg(
+            text_en="Failed to restore configuration",
+            text_hu="A konfiguráció visszaállítása sikertelen",
+            category="danger",
+            lang=lang
+        ))
+
+        return JSONResponse({
+            "success": False,
+            "messages": messages
+        }, status_code=500)
+    
+
+
+
+class TextFontPayload(BaseModel):
+    # fonts
+    font_header_text: Optional[str]
+    header_font_weight: Optional[str]
+    header_font_size: Optional[str]
+    font_general: Optional[str]
+    general_body_font_size: Optional[str]
+    general_body_font_size2: Optional[str]
+
+    # texts
+    language_hu_logo_text: Optional[str]
+    language_en_logo_text: Optional[str]
+    language_selector: Optional[str]
+    greeting_message_hu: Optional[str]
+    greeting_message_en: Optional[str]
+    agent_request_confirmation_hu: Optional[str]
+    agent_request_confirmation_en: Optional[str]
+
+    # toggles
+    agent_icon: Optional[bool]
+    emoji_icon: Optional[bool]
+    attachment_icon: Optional[bool]
+
+    # languages
+    languages: Optional[List[str]]
+
+    class Config:
+        extra = "allow"
+
+
+
+@router.post("/api/client/config/manage_layout_textfont")
+async def manage_previous_layout(
+    request: Request,
+    payload: TextFontPayload,   # Validate the incoming data
+    current_user: dict = Depends(login_required),
+):
+    print("---- ---- --- ")
+    redis = request.app.state.redis_client
+    session_id = request.cookies.get("session_id")
+    messages = []
+
+    print("PAYLOAD RECEIVED:", payload.dict())
+   
+
+    # -----------------------------
+    # Session validation
+    # -----------------------------
+    if not session_id or not await redis.exists(f"session:{session_id}"):
+        return RedirectResponse("/logout?reason=expired", status_code=302)
+
+    lang = current_user.get("language", "hu")
+    user_org = current_user["org_id"]
+    email = current_user.get("email")
+    email_prefix = email.split("@")[0] if email else None
+
+    try:
+        async with async_session_scope(org_id=user_org) as session:
+
+            # -----------------------------
+            # Load client
+            # -----------------------------
+            client = await session.scalar(
+                select(Client).where(Client.id == user_org)
+            )
+
+            if not client:
+                return JSONResponse({
+                    "success": False,
+                    "messages": [msg(
+                        text_en="Client not found",
+                        text_hu="Az ügyfél nem található",
+                        category="danger",
+                        lang=lang
+                    )]
+                }, status_code=404)
+
+            # =========================================================
+            # STEP 1️⃣ SAVE CURRENT CLIENT STATE → HISTORY (BACKUP)
+            # =========================================================
+            previous_state = {
+                # fonts
+                "font_header_text": client.font_header_text,
+                "header_font_weight": client.header_font_weight,
+                "header_font_size": client.header_font_size,
+                "font_general": client.font_general,
+                "general_body_font_size": client.general_body_font_size,
+                "general_body_font_size2": client.general_body_font_size2,
+
+                # texts
+                "language_hu_logo_text": client.language_hu_logo_text,
+                "language_en_logo_text": client.language_en_logo_text,
+                "language_selector": client.language_selector,
+                "greeting_message_hu": client.greeting_message_hu,
+                "greeting_message_en": client.greeting_message_en,
+                "agent_request_confirmation_hu": client.agent_request_confirmation_hu,
+                "agent_request_confirmation_en": client.agent_request_confirmation_en,
+
+                # behavior toggles
+                "agent_icon": client.agent_icon,
+                "emoji_icon": client.emoji_icon,
+                "attachment_icon": client.attachment_icon,
+
+                # languages
+                "languages": client.languages,
+            }
+
+            history = await session.scalar(
+                select(ClientBehaviorHistory)
+                .where(ClientBehaviorHistory.client_id == client.id)
+            )
+
+            if history:
+                history.parameters = previous_state
+            else:
+                session.add(ClientBehaviorHistory(
+                    client_id=client.id,
+                    parameters=previous_state
+                ))
+
+            # =========================================================
+            # STEP 2️⃣ APPLY NEW VALUES → CLIENTS TABLE
+            # =========================================================
+            new_values = payload.dict(exclude_none=True)
+
+            for key, value in new_values.items():
+                if hasattr(client, key):
+                    setattr(client, key, value)
+
+            # Audit info
+            client.textfont_updated_by = email_prefix
+            client.textfont_updated_at = datetime.utcnow()
+
+            session.add(client)
+
+        # -----------------------------
+        # Success message
+        # -----------------------------
+        messages.append(msg(
+            text_en="Configuration saved successfully",
+            text_hu="Beállítások sikeresen elmentve",
+            category="success",
+            lang=lang
+        ))
+
+        return JSONResponse({"success": True, "messages": messages})
+
+    except Exception as e:
+        print("SAVE CONFIG ERROR:", e)
+
+        messages.append(msg(
+            text_en="Failed to save configuration",
+            text_hu="A beállítások mentése sikertelen",
+            category="danger",
+            lang=lang
+        ))
+
+        return JSONResponse({"success": False, "messages": messages}, status_code=500)
+
+
+@router.post("/api/client/config/restore_previous_layout_textfont")
+async def restore_previous_layout(
+    request: Request,
+    current_user: dict = Depends(login_required),
+):
+    redis = request.app.state.redis_client
+    session_id = request.cookies.get("session_id")
+    messages = []
+
+    # -----------------------------
+    # Session validation
+    # -----------------------------
+    if not session_id or not await redis.exists(f"session:{session_id}"):
+        return RedirectResponse("/logout?reason=expired", status_code=302)
+
+    lang = current_user.get("language", "hu")
+    user_org = current_user["org_id"]
+    email = current_user.get("email")
+    email_prefix = email.split("@")[0] if email else None
+
+    try:
+        async with async_session_scope(org_id=user_org) as session:
+
+            # -----------------------------
+            # Load client
+            # -----------------------------
+            client = await session.scalar(
+                select(Client).where(Client.id == user_org)
+            )
+
+            if not client:
+                return JSONResponse({
+                    "success": False,
+                    "messages": [msg(
+                        text_en="Client not found",
+                        text_hu="Az ügyfél nem található",
+                        category="danger",
+                        lang=lang
+                    )]
+                }, status_code=404)
+
+            # -----------------------------
+            # Load history (previous state)
+            # -----------------------------
+            history = await session.scalar(
+                select(ClientBehaviorHistory)
+                .where(ClientBehaviorHistory.client_id == client.id)
+            )
+
+            if not history or not history.parameters:
+                return JSONResponse({
+                    "success": False,
+                    "messages": [msg(
+                        text_en="No previous configuration found",
+                        text_hu="Nem található korábbi konfiguráció",
+                        category="warning",
+                        lang=lang
+                    )]
+                })
+
+            # =========================================================
+            # RESTORE: overwrite client with history values
+            # =========================================================
+            for key, value in history.parameters.items():
+                if hasattr(client, key):
+                    setattr(client, key, value)
+
+            # Audit info
+            client.textfont_updated_by = email_prefix
+            client.textfont_updated_at = datetime.utcnow()
+
+            session.add(client)
+
+        messages.append(msg(
+            text_en="Previous configuration restored successfully",
+            text_hu="Az előző konfiguráció sikeresen visszaállítva",
+            category="success",
+            lang=lang
+        ))
+
+        return JSONResponse({
+            "success": True,
+            "messages": messages
+        })
+
+    except Exception as e:
+        print("RESTORE CONFIG ERROR:", e)
+
+        messages.append(msg(
+            text_en="Failed to restore configuration",
+            text_hu="A konfiguráció visszaállítása sikertelen",
+            category="danger",
+            lang=lang
+        ))
+
+        return JSONResponse({
+            "success": False,
+            "messages": messages
+        }, status_code=500)
+
 
 
 @router.get("/register/confirm")
@@ -2884,6 +3473,14 @@ async def login_external(request: Request):
     # Generate a unique state value and store it in the session
     state = secrets.token_urlsafe(16)  # Generate a secure random state
     request.session['oauth_state'] = state  # Later, when the user comes back from Microsoft, you compare the state returned with this saved state. Match → safe, Mismatch → possible attack.
+    
+
+    ##################################################
+    # 1.) session dictionary managed by SessionMiddleware)
+    ##################################################
+    # SessionMiddleware automatically serializes this dictionary into a cookie and sends it to the browser.
+ 
+
 
     session_id = request.session.get("session_id")
     if not session_id:
@@ -2891,9 +3488,18 @@ async def login_external(request: Request):
         request.session['session_id'] = session_id  # storing session_id in the session dictionary created/managed by SessionMiddleware
     redis = request.app.state.redis_client
     if redis:  # redisre is mentjük multiworker setup miatt, mert A user starts login on Worker 1, state is generated and stored in request.session. Microsoft redirects back after login — the request might go to Worker 2.
+
+      ##############################################
+       # 2.) Redis key/value for login state (setex)
+       #############################################
+
         await redis.setex(f"{STATE_KEY_PREFIX}{session_id}", 300, state)
     print("elmentett!!!", await redis.get(f"{STATE_KEY_PREFIX}{session_id}"))
-    
+    # például:
+    # await redis.setex(f"{STATE_KEY_PREFIX}{session_id}", 300, state)
+    # Key: state:xG-g5zKwpwhq11b7Um05oQ
+    # Value: { some state data }  # serialized as string, maybe JSON
+    # TTL: 300 seconds
 
 
    
@@ -2920,6 +3526,12 @@ async def login_external(request: Request):
     return RedirectResponse(full_url)
 
 
+
+
+###########################################################
+###########################################################
+###########################################################
+###########################################################
 
 
 
@@ -3033,6 +3645,21 @@ async def auth(
         # Login successful → create "real" session cookie
         # we save save the user info in Redis
 
+
+
+
+        ########################################
+        # 3.) Redis hash for full session (hset)
+        #######################################
+
+        # hset a keyhez tartozó field - value (uganaz mint key:value) ket hash formátumban tárolja, nem stringben így egyesével is lehet a fieldeket kérdezni nem kell először dumpolni stb.
+        # Command	Stored as	Retrieve
+        # setex(key, ttl, value)	string (or JSON if you serialize)	redis.get(key) → whole value at once
+        # hset(key, mapping={...})	hash / dict	redis.hgetall(key) → access individual fields easily
+
+
+
+        now = int(time.time())
         await redis.hset(f"session:{session_id}", mapping={
             "user_id": str(user.id),
             "user_org": str(client_id),
@@ -3040,10 +3667,12 @@ async def auth(
             "user_role": user.role.role_name if user.role else "Unknown",
             "first_character": email[0].upper(),
             "email": email,
-            "name": user.name
+            "name": user.name,
+            "last_active": now
         })
         await redis.expire(f"session:{session_id}", SESSION_TTL)
         
+        # This helps to quickly know which users are active in a given organization (org_id) without scanning all sessions.
         online_key = f"online:{client_id}:{user.id}"
         exists = await redis.exists(online_key)
         if not exists:
@@ -3081,6 +3710,11 @@ async def auth(
     response = RedirectResponse(url="/serviceselector", status_code=302)
     
     secure = request.url.scheme == "https"
+
+    ###########################################
+    # 4.) Manual cookies (response.set_cookie)
+    ##########################################
+
     # set a second cookie for browser to use for subsequent authenticated requests:
     # This cookie is independent of "session" created by middleware.
     # session_id cookie is the actual login session → read by get_current_user on future requests.
@@ -3088,7 +3722,7 @@ async def auth(
     response.set_cookie(   # without this modern browser will treat my cookie as unsecure
         "session_id",
         session_id,
-        httponly=True,
+        httponly=True,     #JavaScript cannot access this cookie. Only sent with HTTP requests.
         secure=secure,      # mind http and https esetén küldi a cookie-t pl session-t
         samesite="Lax",     # Good default for login flows
         max_age=SESSION_TTL_COOKIE
@@ -3097,15 +3731,86 @@ async def auth(
     response.set_cookie(
         "lang",
         lang,
-        httponly=False,  # front-end can read if needed
+        httponly=False,  # cookie can be sent over HTTP or HTTPS.
         secure=secure,
         samesite="Lax",
         max_age=SESSION_TTL_COOKIE
     )
-  
 
+    # Cookies:
+    # session_id = xG-g5zKwpwhq11b7Um05oQ
+    # lang = hu
+    # session_id = request.cookies.get("session_id")
+    # lang = request.cookies.get("lang")
+  
+    # We sent both middleware cookies and manual cookies to the browser
 
     return response
+
+
+
+@router.post("/heartbeat")
+async def heartbeat(request: Request):
+    # Cookie sent: session_id=xG-g5zKwpwhq11b7Um05oQ, session_id = "xG-g5zKwpwhq11b7Um05oQ" 
+    session_id = request.cookies.get("session_id")
+
+
+
+    
+    redis = request.app.state.redis_client
+    print(f"[Heartbeat] Received at {datetime.utcnow().isoformat()} for session: {session_id}")
+
+    if not session_id:
+        return JSONResponse({"error": "No session"}, status_code=401)
+
+    session_key = f"session:{session_id}"
+    # "session:xG-g5zKwpwhq11b7Um05oQ"
+    exists = await redis.exists(session_key)
+    if not exists:
+        return JSONResponse({"error": "Session expired"}, status_code=401)
+
+    now = int(time.time())
+    await redis.hset(session_key, "last_active", now)
+    # UpDATE will be:
+    # Key: session:xG-g5zKwpwhq11b7Um05oQ
+    # Hash Fields:
+    # {
+    #     "user_id": "123",
+    #     "user_org": "7",
+    #     "language": "hu",
+    #     "user_role": "Admin",
+    #     "first_character": "V",
+    #     "email": "viktor@example.com",
+    #     "name": "Viktor",
+    #     "last_active": 1768935640   # <- updated by heartbeat
+    # }
+
+    return JSONResponse({"status": "ok"})
+
+
+
+
+
+
+
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+
+####################  LOGOUT  #############################
+####################  LOGOUT  #############################
+####################  LOGOUT  #############################
+
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+
+
+
+
+
 
 
 
@@ -3269,6 +3974,7 @@ async def update_language(request: Request, user: dict = Depends(get_current_use
     """
     data = await request.json()
     language = data.get("language")
+    print(language)
 
     if language not in ["en", "hu"]:
         raise HTTPException(status_code=400, detail="Invalid language")
@@ -3293,6 +3999,239 @@ async def update_language(request: Request, user: dict = Depends(get_current_use
 
 
 
+
+
+    ################
+    # Payment part #
+    ################
+
+
+
+
+@router.get("/subscription", response_class=HTMLResponse)
+async def subscription(request: Request,
+    csrf_protect: CsrfProtect=Depends(),
+    current_user: dict = Depends(login_required),
+    ):
+
+    
+    email = current_user["email"]
+    email_prefix = email.split("@")[0] if email else ""
+    user_id = current_user["id"]
+    user_org = current_user["org_id"]
+    name = current_user["name"]
+    user_role = current_user["role"]
+    language = current_user.get("language", "hu")
+    first_character = current_user.get("first_character")
+
+    if language not in ["en", "hu"]:
+      print("[DEBUG] Invalid lang detected, defaulting to 'hu'")
+      lang = "hu"
+
+    async with async_session_scope() as db_session:
+        client = await db_session.scalar(
+            select(Client)
+            .options(joinedload(Client.subscription))
+            .where(Client.id == user_org)
+        )
+
+        if client:
+            client_name = client.client_name
+            subscription = client.subscription
+            if subscription:
+                # fetch active price from SubscriptionPrice table
+                active_price = await db_session.scalar(
+                    select(SubscriptionPrice)
+                    .where(
+                        SubscriptionPrice.subscription_id == subscription.id,
+                        SubscriptionPrice.active == True
+                    )
+                )
+                if active_price:
+                    price = active_price.amount  # in minor units, e.g., 10000 HUF
+        else:
+            client_name = "Your Company"
+            service_message = "Please contact Red Rain to select a service."
+
+    # Check access permissions based on the subscription
+    if subscription:
+        chat_control_access = has_permission(user_role, subscription, "chat_control")
+        basic_metrics_access = has_permission(user_role, subscription, "basic_metrics")
+        enhanced_metrics_access = has_permission(user_role, subscription, "enhanced_metrics")
+        advanced_ai_access = has_permission(user_role, subscription, "advanced_ai")
+    else:
+        chat_control_access = False
+        basic_metrics_access = False
+        enhanced_metrics_access = False
+        advanced_ai_access = False
+
+
+    csrf_token, signed_token = csrf_protect.generate_csrf_tokens()
+    response = templates.TemplateResponse(
+        "subscription.html",
+        {
+            "request": request,
+            "user_role": user_role,
+            "First_character": first_character,
+            "email_prefix": email_prefix,
+            "name": name,
+            "client": client,
+            "client_name": client_name,
+            "subscription": subscription,
+            "price": price,
+            "chat_control_access": chat_control_access,
+            "basic_metrics_access": basic_metrics_access,
+            "enhanced_metrics_access": enhanced_metrics_access,
+            "advanced_ai_access": advanced_ai_access,
+            
+            "language": language,
+            "user_id": user_id,
+            "csrf_token": csrf_token,  # <-- pass CSRF to template
+        },
+    )
+    csrf_protect.set_csrf_cookie(signed_token, response)  # <-- set cookie
+    return response
+
+
+
+@router.post("/subscription/change")
+async def change_subscription(
+    client_id: int = Form(...),
+    plan_id: int = Form(...),
+    auto_upgrade: bool | None = Form(None),
+    seats: int = Form(...),
+    current_user: dict = Depends(login_required),
+):
+    lang = current_user.get("language", "hu")
+    if lang not in ["hu", "en"]:
+        lang = "hu"
+
+    messages = []
+ 
+    try:
+        async with async_session_scope() as db_session:
+            # Get client
+            client = await db_session.scalar(
+                select(Client).where(Client.id == client_id)
+            )
+            
+            if not client:
+                messages.append(msg(
+                    text_en="Client not found.",
+                    text_hu="Az ügyfél nem található.",
+                    category="danger",
+                    lang=lang
+                ))
+                return JSONResponse({"messages": messages, "success": False})
+            
+            if client.id != current_user["org_id"]:
+                return JSONResponse({"success": False})
+            
+            client.auto_upgrade = bool(auto_upgrade)
+            # Get subscription plan
+            subscription_plan = await db_session.scalar(
+                select(Subscription).where(Subscription.id == plan_id)
+            )
+            if not subscription_plan:
+                messages.append(msg(
+                    text_en="Subscription plan not found.",
+                    text_hu="Az előfizetési csomag nem található.",
+                    category="danger",
+                    lang=lang
+                ))
+                return JSONResponse({"messages": messages, "success": False})
+            
+
+
+            # Retrieve Stripe subscription This grabs the existing Stripe subscription.
+            stripe_sub = stripe.Subscription.retrieve(client.stripe_subscription_id)
+            stripe_item_id = stripe_sub["items"]["data"][0]["id"]
+
+            # Compute total quantity: base seat + additional seats
+            quantity = subscription_plan.base_seats + seats
+
+            # Update Stripe subscription
+            stripe.Subscription.modify(
+                client.stripe_subscription_id,
+                items=[{
+                    "id": stripe_item_id,
+                    "price": subscription_plan.stripe_price_id,
+                    "quantity": quantity
+                }]
+            )
+
+            # Detect changes for flash messages
+            plan_changed = client.subscription_id != subscription_plan.id
+            seats_changed = client.seats != seats
+
+            # Update database
+            client.subscription_id = subscription_plan.id
+            client.seats = seats
+            await db_session.commit()
+
+            # Prepare language-aware flash message
+            if plan_changed and seats_changed:
+                messages.append(msg(
+                    text_en="Subscription and additional seats updated successfully!",
+                    text_hu="Előfizetés és további ülések frissítve!",
+                    category="success",
+                    lang=lang
+                ))
+            elif plan_changed:
+                messages.append(msg(
+                    text_en="Subscription plan updated successfully!",
+                    text_hu="Előfizetés frissítve!",
+                    category="success",
+                    lang=lang
+                ))
+            elif seats_changed:
+                messages.append(msg(
+                    text_en="Additional seats updated successfully!",
+                    text_hu="További ülések frissítve!",
+                    category="success",
+                    lang=lang
+                ))
+            else:
+                messages.append(msg(
+                    text_en="No changes made.",
+                    text_hu="Nincs változtatás.",
+                    category="info",
+                    lang=lang
+                ))
+
+            return JSONResponse({"messages": messages, "success": True})
+
+    except stripe.error.StripeError as e:
+        # Stripe-specific error
+        messages.append(msg(
+            text_en=f"Stripe error: {str(e)}",
+            text_hu=f"Stripe hiba: {str(e)}",
+            category="danger",
+            lang=lang
+        ))
+        return JSONResponse({"messages": messages, "success": False})
+    except Exception as e:
+        # General error
+        messages.append(msg(
+            text_en=f"An error occurred: {str(e)}",
+            text_hu=f"Hiba történt: {str(e)}",
+            category="danger",
+            lang=lang
+        ))
+        return JSONResponse({"messages": messages, "success": False})
+
+  
+
+
+
+                                    #---------------------------
+                                    #----    ADMIN PAGE     ----
+                                    #---------------------------   
+                                    
+                                    
+                                    #---------------------------
+                                    #----    ADMIN PAGE     ----
+                                    #---------------------------
 
 
 
