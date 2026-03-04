@@ -7,7 +7,7 @@ from itsdangerous.url_safe import URLSafeTimedSerializer as Serializer
 #from sqlalchemy.orm import relationship, backref
 from mywebpage.db import async_session_scope
 from sqlalchemy.future import select
-from sqlalchemy import Text, text, Column,UnicodeText, Boolean, JSON, DateTime, String, Float, Integer, NVARCHAR, ForeignKey, CheckConstraint, Unicode
+from sqlalchemy import Enum, Text, text, Column,UnicodeText, Boolean, JSON, DateTime, String, Float, Integer, NVARCHAR, ForeignKey, CheckConstraint, Unicode
 import json
 from sqlalchemy.orm import declarative_base
 from contextlib import contextmanager
@@ -16,6 +16,7 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from pytz import timezone as pytz_timezone, UTC
 from dateutil import parser
 import pytz
+from sqlalchemy import Enum
 
 # Create the declarative base
 Base = declarative_base()
@@ -74,10 +75,14 @@ class Subscription(Base):
 
 
     # Relationships
-    clients = relationship("Client", back_populates="subscription")
+    clients = relationship("Client", back_populates="subscription",  foreign_keys=lambda: [Client.subscription_id])
+
+
 
 
 # it tartom nyilván, hogy mik éppen az aktív árak, de megőrzi a régebbi árakat is
+# partial unique indexinget használok, minden tierből csak egy lehet aktív míg az inaktívokból sok lehet egy tierhez kapcsolódva is
+
 class SubscriptionPrice(Base):
     __tablename__ = "subscription_prices"
 
@@ -100,7 +105,6 @@ class Client(Base):
     client_name = Column(UnicodeText, nullable=False)
     client_code = Column(Unicode(50), unique=True, nullable=False)
     api_key = Column(Unicode(255), nullable=False)
-    subscription_id = Column(Integer, ForeignKey('subscriptions.id', ondelete='SET NULL'), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     context = Column(UnicodeText)
@@ -115,8 +119,18 @@ class Client(Base):
     emoji_icon = Column(Boolean, nullable=False, default=True)
     attachment_icon = Column(Boolean, nullable=False, default=True)
     auto_upgrade = Column(Boolean, default=False, nullable=False)
-    seats = Column(Integer, nullable=False, default=0)
+    
 
+    #remember what the user wanted, but haven't paid
+    #pending_plan_id in clients must point to a valid row in subscriptions, cannot store a fake plan id, must exist in the subscriptions table
+
+
+    
+    # when paid we have
+    seats = Column(Integer, nullable=False, default=0)
+    #I am NOT allowed to store an ID here that doesn’t exist in subscriptions.
+    subscription_id = Column(Integer, ForeignKey('subscriptions.id', ondelete='SET NULL'), nullable=True)
+    subscription_status = Column(String(50), nullable=True)
 
     languages = Column(ARRAY(String), nullable=False, server_default=text('ARRAY["hu"]'))
     
@@ -162,7 +176,7 @@ class Client(Base):
     stripe_subscription_id = Column(String(255), nullable=True)  # ID of the active subscription in Stripe for this customer, To know which subscription tier the client has (Basic / Gold / Platinum)
     subscription_start_date = Column(DateTime(timezone=True), nullable=True)
     subscription_end_date = Column(DateTime(timezone=True), nullable=True)
-
+    currency = Column(Enum('HUF', 'EUR', 'USD', name='currency_enum'), nullable=False, server_default='HUF', comment='Client preferred billing currency')  #Enum: column can only have specific, predefined values. HUF, EUR and USD
 
 
     
@@ -171,7 +185,12 @@ class Client(Base):
     )
 
     # Relationships
-    subscription = relationship("Subscription", back_populates="clients")
+    #SQLAlchemy automatically fetches the given subscription row
+    # subscription: ATTRIBUTE name on Client,   after we can write: client.subscription.name
+    # "Subscription" Which model are we connecting to
+    # "clients"  on Subscription, the matching attribute is called clients
+    subscription = relationship("Subscription", back_populates="clients", foreign_keys=[subscription_id])
+
     users = relationship("User", back_populates="client", cascade="all, delete-orphan")
     chat_messages = relationship("ChatHistory", back_populates="client", cascade="all, delete-orphan")
     mode_overrides = relationship("UserModeOverride", back_populates="client", cascade="all, delete-orphan")

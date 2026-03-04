@@ -2,7 +2,7 @@ import os
 import uvicorn
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 8001))
 
     uvicorn.run(
         "mywebpage.fastapi_app:sio_app",   # Uvicorn, please import the Python module named mywebpage, then look inside it for a variable called app.

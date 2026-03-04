@@ -9,7 +9,8 @@
        
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
         <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-         <!-- chat icon -->
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet" />
+        <!-- chat icon -->
      
  
         <link rel="preload" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=swap" as="style" onload="this.rel='stylesheet'">
@@ -567,6 +568,7 @@
             // Assign the Flask variables to JavaScript variables
             const user_id = "{{ user_id }}";
             const user_org = "{{ user_org }}";
+            let language="{{ language }}";
         </script>
         <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>

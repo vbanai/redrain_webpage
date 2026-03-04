@@ -14,7 +14,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.exc import OperationalError  #catch db op error
 import time
 from fastapi import HTTPException
-
+from dotenv import load_dotenv
+load_dotenv()
 
 INACTIVITY_TIMEOUT_SECONDS = 30
 BLOB_CONN_STR = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
@@ -102,7 +103,7 @@ async def classify_and_save(payload, fastapi_app):
         # --- Wait until chatbot side finishes DB insert ---
         if saved_flag_key:
             print(f"Waiting for Redis save flag: {saved_flag_key}")
-            for _ in range(60):  # wait up to 30 seconds
+            for _ in range(180):  # wait up to 30 seconds
                 exists = await fastapi_app.state.redis_client.exists(saved_flag_key)
                 if exists:
                     print(f"Redis save flag detected: {saved_flag_key}")
@@ -115,17 +116,21 @@ async def classify_and_save(payload, fastapi_app):
             print("No saved_flag_key provided in payload; proceeding anyway.")
 
         # --- Choose input for topic classification ---
-        classification_input = (
-            user_message if standalone_prediction == 0 else non_standalone_input
-        )
+        if user_message.strip().lower() in ["please connect me to a colleague.", "ügyintézőt kérek."]:
+            topic = "Egyéb"
+        else:
+        
+            classification_input = (
+                user_message if standalone_prediction == 0 else non_standalone_input
+            )
 
-        # --- Run model inference (non-blocking) ---
-        try:
-            topic = await classify_topic(classification_input, fastapi_app)
-            print(f"Predicted topic: {topic}")
-        except Exception as e:
-            print("Topic classification failed")
-            topic = "unknown"
+            # --- Run model inference (non-blocking) ---
+            try:
+                topic = await classify_topic(classification_input, fastapi_app)
+                print(f"Predicted topic: {topic}")
+            except Exception as e:
+                print("Topic classification failed")
+                topic = "unknown"
 
         # --- Update the database record ---
         async with async_session_scope() as session:
@@ -376,11 +381,95 @@ async def get_client_mode(org_id: str) -> str:
 
 
 
+CONTAINER_NAME = os.environ.get("BLOB_CONTAINER_NAME")
+BLOB_CONNECTION_STRING = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
+print("BLOB_CONNECTION_STRING")
+print(BLOB_CONNECTION_STRING )
+BATCH_SIZE = int(os.environ.get("BATCH_SIZE", 10000))
 
+async def fetch_last_4_for_user(org_id: int, user_id: str):
+    """
+    Fetch the last 4 messages for a user, checking live DB first and then archived blobs.
+    Stops early once 4 messages are found.
+    """
 
+    last_msgs = []
+    print("itt?")
+    # --- Step 1: Fetch from live DB ---
+    async with async_session_scope(org_id=org_id) as session:
+        result = await session.execute(
+            select(ChatHistory)
+            .where(
+                ChatHistory.client_id == org_id,
+                ChatHistory.user_id == user_id
+            )
+            .order_by(desc(ChatHistory.created_at))
+            .limit(4)
+        )
+        rows = result.scalars().all()
 
+        for m in rows:
+            last_msgs.append({
+                "timestamp": m.created_at.isoformat(),
+                "user_message": m.message,
+                "bot_message": m.response,
+                "agent": m.agent or "bot",
+                "mode": m.mode or "automatic",
+            })
+    print("itt2?")
+    # Early return if we already have 4 messages
+    if len(last_msgs) >= 4:
+        return list(reversed(last_msgs[:4]))  # oldest first
+    print("itt3?")
+    print(last_msgs)
+    # --- Step 2: Fetch from archived blobs ---
+    remaining_needed = 4 - len(last_msgs)
+    async with BlobServiceClient.from_connection_string(BLOB_CONNECTION_STRING) as blob_service:
+        container_client = blob_service.get_container_client(CONTAINER_NAME)
+        print("itt4?")
+        # List blobs sorted descending by name (assumes naming convention: chat_messages_YYYY_MM_DD_to_YYYY_MM_DD)
+        blobs = [b async for b in container_client.list_blobs()]
+        blobs_sorted = sorted(blobs, key=lambda b: b.name, reverse=True)
+        print("itt5?")
+        for blob in blobs_sorted:
+            print("itt6?")
+            stream = await container_client.get_blob_client(blob).download_blob()
+            data = await stream.readall()
+            lines = data.decode("utf-8").splitlines()
+            print("itt7?")
+            # Process in reverse (newest first)
+            for line in reversed(lines):
+                print("itt8?")
+                if not line or line.strip() == "":
+                    continue  # skip empty lines
+                try:
+                    print("itt8?")
+                    msg = json.loads(line)
+                    print("itt9?")
+                    print(msg)
+                    if msg.get("client_id") != org_id or msg.get("user_id") != user_id:
+                        continue
+                    last_msgs.append({
+                        "timestamp": msg["created_at"],
+                        "user_message": msg["message"],
+                        "bot_message": msg["response"],
+                        "agent": msg.get("agent", "bot"),
+                        "mode": msg.get("mode", "automatic")
+                    })
+                    print("10")
+                    print(last_msgs)
+                except Exception as e:
+                    print(f"Error parsing line from blob {blob.name}: {e}")
+                    continue
 
+                if len(last_msgs) >= 4:
+                    break  # stop processing lines
 
+            if len(last_msgs) >= 4:
+                break  # stop processing blobs
+
+    # Return oldest first
+    return list(reversed(last_msgs[:4]))
 
 
 
@@ -443,48 +532,82 @@ async def redis_listener(fastapi_app):
 
                     print("MESSAGE FROM REDIS:", data)
 
-                    org_id = str(data.get("message", {}).get("org_id"))
+                    org_raw = data.get("message", {}).get("org_id")
+                    if org_raw is None:
+                        print("Missing org_id")
+                        continue
+
+                    org_id = int(org_raw)
+
                     msg = data.get("message", {})
                     is_recurrent = msg.get("is_recurrent", {})
 
-                    if is_recurrent:
-                        # First-time setup for this tenant/user
-                        await fetch_last_msgs_pipeline(org_id, redis_client)
-
+                    
+             
 
 
                     user_id=msg.get("user_id")
-
+                    print("RAW TIMESTAMP:", msg.get("timestamp"), type(msg.get("timestamp")))
                     if "timestamp" in msg:
                         msg["timestamp"] = normalize_timestamp(msg["timestamp"])
+
+                    # =====================================================
+                    #  ADMIN RECENT 4 LOGIC (12h window, DB hit only once) mert 12  óráig akár nyitva is lehet a chat admin oldal ahol figyelik a chateket
+                    # =====================================================
+                    
+                    if is_recurrent:
+                     
+                        user_cache_key = f"tenant:{org_id}:user:{user_id}:admin_recent_4"
+                        lock_key = f"{user_cache_key}:lock"
+                        recent_history = []
+                        exists = await redis_client.exists(user_cache_key)
+                        if not exists:
+                            # Use SETNX lock to prevent race condition
+                            lock_acquired = await redis_client.set(
+                                lock_key, "1", ex=10, nx=True
+                            )
+                            if lock_acquired:
+                                # We are responsible for initializing cache
+                                last_4 = await fetch_last_4_for_user(org_id, user_id)
+                                if last_4:
+                                    pipe = redis_client.pipeline()
+                                    for item in last_4:
+                                        pipe.rpush(user_cache_key, json.dumps(item))
+
+                                    pipe.expire(user_cache_key, 43200)  # 24h TTL
+                                    pipe.delete(lock_key)
+                                    await pipe.execute()
+
+                                    recent_history = last_4
+                                else:
+                                    await redis_client.delete(lock_key)
+                            else:
+                                # Another worker is initializing → small wait
+                                await asyncio.sleep(0.1)
+                                msgs_raw = await redis_client.lrange(user_cache_key, 0, -1)
+                                recent_history = [json.loads(m) for m in msgs_raw]
+                        else:
+                            msgs_raw = await redis_client.lrange(user_cache_key, 0, -1)
+                            recent_history = [json.loads(m) for m in msgs_raw]
+
+                        
+                        if recent_history:
+                            for item in recent_history:
+                                ts = item.get("timestamp")
+                                if ts and "." in ts:
+                                    item["timestamp"] = ts.split(".")[0]
+
+                            msg["recent_history"] = recent_history
+
+                    
 
                     event = await log_event(org_id, "new_message", msg)
                     mode = await get_client_mode(org_id)
 
                     print("event!!!", event)
 
-                    #  HANDLING RECURRENT USER LOGIC
-
-                    user_cache_key = f"tenant:{org_id}:user:{user_id}:recent_msgs"
-
-                    # --- Step 1: Get current history ---
-                    # Fetch last 4 messages from Redis BEFORE adding the new one
-                    recent_msgs_raw = await redis_client.lrange(user_cache_key, 0, 3)
-                    recent_history = [json.loads(m) for m in recent_msgs_raw]
-    
-
-                    if event and "data" in event:
-                        event["data"]["recent_history"] = recent_history
-
-                    # Step 2: Push the new message for next round
-                    new_msg = {
-                        "timestamp": msg.get("timestamp"),
-                        "user_message": msg.get("user_message"),
-                        "bot_message": msg.get("bot_message"),
-                    }
-                    await redis_client.lpush(user_cache_key, json.dumps(new_msg))
-                    await redis_client.ltrim(user_cache_key, 0, 3)
-
+                    
+                        
              
 
                     # === AUTOMATIC MODE ===
@@ -498,10 +621,20 @@ async def redis_listener(fastapi_app):
 
                         try:
                             org_key = f"org:{org_id}:connections"
-                            sids_bytes = await redis_client.smembers(org_key)  # returns set of bytes
-                            sids = [s.decode() for s in sids_bytes]
+                            sids = await redis_client.smembers(org_key)  # returns set of bytes
                             #sids = [row[0] for row in result.fetchall()]
+                            print("..................")
+                            print(event["data"])
+                            print("..................")
+                            print("SIDs from Redis:", sids)
+                            print("Type of sids:", type(sids))
                             for sid in sids:
+                                is_connected = sio.manager.is_connected(sid, namespace="/")
+                                print("Is actually connected:", is_connected)
+
+                                print("Currently active SIDs in manager:",
+                                    list(sio.manager.rooms.get("/", {}).keys()))
+                                print("_ _ _ _ _ : _ _ _ _")
                                 try:
                                     await sio.emit(
                                         "new_message_FirstUser",

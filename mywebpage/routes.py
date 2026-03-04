@@ -2,6 +2,39 @@
 #https://www.facebook.com/JTCguitar
 #https://www.facebook.com/guitarsalon
 
+#REDIS KEYS: 
+#  state:{session_id} created  await redis.setex(f"{STATE_KEY_PREFIX}{session_id}", 300, state) TTL: 300 seconds  Deleted after successful /auth.
+#  flash:{uuid} await redis.setex(f"flash:{flash_id}", 30, "Message") TTL: 30 seconds
+#  session:{session_id}  expiry: await redis.expire(f"session:{session_id}", SESSION_TTL
+#                     fields:
+#                             user_id
+#                             user_org
+#                             language
+#                             user_role
+#                             first_character
+#                             email
+#                             name
+#                             last_active
+
+# online:{org_id}:{user_id}  created: await redis.setex(online_key, SESSION_TTL, 1) Quick lookup of who is online in an org.
+# connection:{socket_id}  TTL: 6 hours
+#                     fields:
+#                             user_id
+#                             user_org
+#                             manualmode_triggered
+#                             disconnected_at
+#                             admin_internal_message_open
+#                             admin_internal_message_close
+
+# org:{org_id}:connections  value: { socket_id_1, socket_id_2, ... }
+# user_mode_override:{org_id}  TTL 6 óra  ITT EZ A chatbot userekre vonatkozik, hogy kinál van manual vagy automatic beállítva
+# org:{org_id}:tab:{tab_id}:mode  TTL 6 óra
+
+# messages:{org}:batch_temp
+# messages_total:{org}:batch_temp
+# tenant:{org_id}:user:{uid}:recent_msgs in function: _update_redis_batch  we use this for chat history for recurrent users
+
+
 
 
 # await redis.publish(
@@ -100,7 +133,16 @@ s = URLSafeTimedSerializer("your-secret-key")  # same as in invite_user,  # crea
 
 
 
+BLOB_CONN_STR = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+CONTAINER_NAME = os.getenv("BLOB_CONTAINER_NAME_PHOTOS")
+
+blob_service_client = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
+container_client = blob_service_client.get_container_client(CONTAINER_NAME)
+
+
+
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
 BASE_DIR = Path(__file__).resolve().parent  # <- go up one level to match fastapi_app.py   !!! BASE_DIR = mywebpage/
 print(BASE_DIR / "static")  # C:\Users\vbanai\Documents\Programming\Dezsi porject\ChatFrontEnd\FinalAdminPage_FASTAPI\mywebpage\static
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
@@ -264,9 +306,123 @@ def role_required(*allowed_roles: str):
     return dependency
 
 
-#----------------------
-#       INDEX
-#----------------------
+
+
+
+
+
+##########   ##########   ##########   ##########   ##########   ##########
+# ROUTES #   # ROUTES #   # ROUTES #   # ROUTES #   # ROUTES #   # ROUTES #
+##########   ##########   ##########   ##########   ##########   ##########  
+
+##########   ##########   ##########   ##########   ##########   ##########
+# ROUTES #   # ROUTES #   # ROUTES #   # ROUTES #   # ROUTES #   # ROUTES #
+##########   ##########   ##########   ##########   ##########   ##########  
+
+##########   ##########   ##########   ##########   ##########   ##########
+# ROUTES #   # ROUTES #   # ROUTES #   # ROUTES #   # ROUTES #   # ROUTES #
+##########   ##########   ##########   ##########   ##########   ##########  
+
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+ALLOWED_MIME_TYPES = {
+    # Images
+    "image/jpeg", "image/png", "image/gif",
+    # PDF
+    "application/pdf",
+    # Word
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    # Excel
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+ALLOWED_EXTENSIONS = {
+    ".jpg", ".jpeg", ".png", ".gif",
+    ".pdf",
+    ".doc", ".docx",
+    ".xls", ".xlsx",
+}
+
+  
+
+@router.post("/api/upload_file")
+async def upload_file(
+    file: UploadFile = File(...),
+    org_id: str = Form(...),
+    user_id: str = Form(...)
+):
+    """
+    Uploads a file to Azure Blob Storage under:
+    fileuploads/org_id/user_id/unique_filename
+    """
+    try:
+        # Validate type
+        if file.content_type not in ALLOWED_MIME_TYPES:
+            raise HTTPException(status_code=400, detail="invalid_format")
+
+        # Validate extension
+        extension = os.path.splitext(file.filename)[1].lower()
+        if extension not in ALLOWED_EXTENSIONS:
+            raise HTTPException(status_code=400, detail="invalid_format")
+
+        # Validate size
+        file_bytes = await file.read()
+        if len(file_bytes) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="file_too_large")
+
+        # Create unique blob name
+        blob_name = f"fileuploads/{org_id}/{user_id}/{uuid.uuid4()}{extension}"
+
+        # Upload to Azure
+        blob_client = container_client.get_blob_client(blob_name)
+        await blob_client.upload_blob(
+            file_bytes,
+            overwrite=True,
+            content_type=file.content_type
+        )
+
+        blob_url = blob_client.url
+
+        return {
+            "file_url": blob_url,
+            "org_id": org_id,
+            "user_id": user_id,
+            "file_name": file.filename,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@router.api_route("/debug/delete-redis-keys", methods=["GET", "POST"])
+async def delete_test_redis_keys(request: Request):
+    redis = request.app.state.redis_client
+    keys_to_delete = [
+        "connection:qee7sM6AwBI1LoF-AAA5",
+        "org:2:connections"
+
+    ]
+
+    deleted_keys = []
+    for key in keys_to_delete:
+        if await redis.exists(key):
+            await redis.delete(key)
+            deleted_keys.append(key)
+
+    return JSONResponse({
+        "message": f"Deleted {len(deleted_keys)} keys",
+        "deleted_keys": deleted_keys
+    })
+
+@router.get("/debug/redis-keys")
+async def debug_redis_keys(request: Request):
+    redis = request.app.state.redis_client
+    keys = []
+    async for key in redis.scan_iter("*"):
+        keys.append(key)
+    return {"keys": keys}
 
 
 
@@ -292,12 +448,10 @@ async def index(
         raw = await redis.get(f"flash:{flash_id}")
         if raw:
             try:
-                flash_message = raw.decode() if isinstance(raw, bytes) else str(raw)
-                print("FLASH!!!!!!!!!!!!!!")
-                print(flash_message)
                 flash_message = json.loads(raw)
             except Exception:
                 flash_message = None
+
             await redis.delete(f"flash:{flash_id}")
 
 
@@ -310,12 +464,10 @@ async def index(
    
     
     
-    if session_id and not await redis.exists(f"session:{session_id}"):  #boolian false or true
-            # Session expired → redirect to logout
-            return RedirectResponse(
-            url="/logout?reason=expired",
-            status_code=302
-            )
+    if session_id and not await redis.exists(f"session:{session_id}"):
+        response = RedirectResponse(url="/", status_code=302)
+        response.delete_cookie("session_id")
+        return response
     
     if user:    
         First_character = user.get("first_character")
@@ -460,6 +612,7 @@ async def map_page_detailed(
         "request": request,
         "ip_data": ip_data
     })
+
 
 
 
@@ -3140,6 +3293,8 @@ async def topic_monitoring(
 #----------------------
 #   BREAKDOWN PAGE
 #----------------------
+
+
 utc = pytz.UTC
 def convert_utc_str_to_local(utc_str, local_tz):
     # parse naive datetime string
@@ -3434,7 +3589,7 @@ def get_signing_key(kid: str, jwks: list):
 # At this point, the response that goes back to browser with created response automaticall will contain
 # Set-Cookie: session={session_id: "<random>", oauth_state: "..."}; Path=/; HttpOnly
 #the middleware automatically writes a Set-Cookie header for "session"
-#So, yes, the middleware will serialize your request.session into a cookie in the HTTP response automatically, even if your response is a redirect.
+#The middleware will serialize request.session into a cookie in the HTTP response automatically, even if your response is a redirect.
 # Browser receives this along with the 302 redirect, and stores the "session" cookie.
 # Browser then follows the redirect to Azure.
 
@@ -3472,7 +3627,8 @@ async def login_external(request: Request):
    
     # Generate a unique state value and store it in the session
     state = secrets.token_urlsafe(16)  # Generate a secure random state
-    request.session['oauth_state'] = state  # Later, when the user comes back from Microsoft, you compare the state returned with this saved state. Match → safe, Mismatch → possible attack.
+    
+      # Later, when the user comes back from Microsoft, you compare the state returned with this saved state. Match → safe, Mismatch → possible attack.
     
 
     ##################################################
@@ -3494,7 +3650,9 @@ async def login_external(request: Request):
        #############################################
 
         await redis.setex(f"{STATE_KEY_PREFIX}{session_id}", 300, state)
-    print("elmentett!!!", await redis.get(f"{STATE_KEY_PREFIX}{session_id}"))
+        print("elmentett!!!", await redis.get(f"{STATE_KEY_PREFIX}{session_id}"))
+    else:
+        print("Redis unavailable")
     # például:
     # await redis.setex(f"{STATE_KEY_PREFIX}{session_id}", 300, state)
     # Key: state:xG-g5zKwpwhq11b7Um05oQ
@@ -3674,23 +3832,16 @@ async def auth(
         
         # This helps to quickly know which users are active in a given organization (org_id) without scanning all sessions.
         online_key = f"online:{client_id}:{user.id}"
-        exists = await redis.exists(online_key)
-        if not exists:
-    # Set the key to some value (e.g., 1) and give it a TTL
-            await redis.setex(online_key, SESSION_TTL, 1)
-        else:
-            # Optionally: refresh TTL if user is still active
-            await redis.expire(online_key, SESSION_TTL)
-
-        
-                        
+        await redis.setex(online_key, SESSION_TTL, 1) # Set the key to some value (e.g., 1) and give it a TTL
+                                
    
     try:
         
-        # --- Notify others via async Socket.IO ---
+        # --- Notify others via async Socket.IO SIDEK ---
         org_key = f"org:{client_id}:connections"
-        sids_bytes = await redis.smembers(org_key)  # returns set of bytes
-        sids = [s.decode() for s in sids_bytes]
+        sids= await redis.smembers(org_key)  
+        
+   
 
         for sid in sids:
             try:
@@ -3820,6 +3971,11 @@ async def logout(request: Request,
                  reason: str = Query("manual")):
     
     
+
+ 
+
+    
+    
     print("scheme:", request.url.scheme)
     print("index:", request.url_for("index"))
 
@@ -3848,85 +4004,48 @@ async def logout(request: Request,
     # user_id = await redis.get(f"session:{session_id}:user_id")
     # org_id = await redis.get(f"session:{session_id}:user_org")
 
+   
     user_id = await redis.hget(f"session:{session_id}", "user_id")
     org_id = await redis.hget(f"session:{session_id}", "user_org")
 
-    if user_id:
-        user_id = user_id.decode() if isinstance(user_id, bytes) else str(user_id)
-    if org_id:
-        org_id = org_id.decode() if isinstance(org_id, bytes) else str(org_id)
+    if not user_id or not org_id:
+        return RedirectResponse(
+        url="https://redrain1230.loophole.site/",
+        status_code=302
+    )
 
     print(f"[Logout] Before clearing session: user_id={user_id}, org_id={org_id}")
     org_id_int = int(org_id) if org_id else None
-    # --- Clear Redis session keys ---
+
+  
+    org_sids = await redis.smembers(f"org:{org_id_int}:connections")
+    session_sids = []
+    #other_user_sids = []
+
+    for sid in org_sids:
+        conn = await redis.hgetall(f"connection:{sid}")
+        if not conn:
+            continue  # skip current session
+        
+        #session_sids → sockets of THIS browser/device
+        if conn.get("session_id") == session_id:
+            session_sids.append(sid)
+
+        # other_user_sids → all sockets of this user (all devices)
+        # if conn.get("user_id") == user_id:
+        #     other_user_sids.append(sid)
+
+    # Delete the current session
     await redis.delete(f"session:{session_id}")
+    # after we loop through the sids belong to this session(browser, device) and delete then separately and do the cleaning, 
+    # disconnect handles everything, simple reconnection, sid deletion and logout as well
+    for sid in session_sids:
+        print("SID LOGOUT: ", sid)
+        await sio.emit("force_logout_index", {"reason": reason}, to=sid)
+        await sio.disconnect(sid)
 
-    if user_id and org_id:
+    print(f"User {user_id} logged out (session {session_id})")
 
-        online_key = f"online:{org_id}:{user_id}"  # match your naming convention
-        await redis.delete(online_key) 
-        
-        remaining_sids = []
-        sids_bytes = await redis.smembers(f"org:{org_id}:connections")
-        sids = [s.decode() for s in sids_bytes if s.decode() != session_id] 
-        for sid_str in sids:
-            conn_data = await redis.hgetall(f"connection:{sid_str}")
-            if conn_data.get(b"user_id", b"").decode() == user_id:
-                remaining_sids.append(sid_str)
-        
-        if not remaining_sids:
-            await asyncio.gather(
-                *(
-                    sio.emit(
-                        "user_online_status_changed",
-                        {"user_id": user_id, "is_online": False},
-                        to=s
-                    )
-                    for s in sids
-                ),
-                return_exceptions=True
-            )
-       
-
-        # Only remove the current SID
-        conn_key = f"connection:{session_id}"
-        await redis.delete(conn_key)
-        await redis.srem(f"org:{org_id}:connections", session_id)
-
-        print(f"Admin {user_id} from org {org_id} disconnected from session {session_id}")
-
-        org_connections_count = await redis.scard(f"org:{org_id}:connections")
-        if org_connections_count == 0:
-           
-            # DB cleanup: OrgEventLog / Client.mode / last_manualmode_triggered_by
-            try:
-                async with async_session_scope() as db_session:
-                    await db_session.execute(delete(OrgEventLog).where(OrgEventLog.org_id == org_id_int))
-                    await db_session.execute(
-                        update(Client).where(Client.id == org_id_int).values(mode="automatic")
-                    )
-
-                    client_to_update = await db_session.scalar(
-                        select(Client).where(
-                            Client.id == org_id_int,
-                            Client.is_active == True,
-                            Client.last_manualmode_triggered_by.isnot(None),
-                        )
-                    )
-
-                    if client_to_update:
-                        client_to_update.last_manualmode_triggered_by = None
-                        print(f"Updated client {client_to_update.id}: set last_manualmode_triggered_by to None.")
-
-                print(f"Cleared entries and reset mode to 'automatic' for org {org_id_int}")
-            except Exception as e:
-                print(f"[DB] Cleanup failed for org {org_id_int}: {e}")
-            finally:
-                await redis.delete(f"session:{session_id}")
-        else:
-            print(f"[Logout] {org_connections_count} connections remain active for org {org_id_int}.")
-    else:
-        print(f"[Logout] No org_id available for user {user_id}; skipped org cleanup.")
 
 
     # Add a flash message in Redis
@@ -4005,7 +4124,14 @@ async def update_language(request: Request, user: dict = Depends(get_current_use
     # Payment part #
     ################
 
-
+def format_money(amount, currency):
+    if currency == "HUF":
+        return f"{amount:,.0f} Ft".replace(",", " ")
+    if currency == "EUR":
+        return f"{amount/100:.0f} €"
+    if currency == "USD":
+        return f"${amount/100:.0f}"
+    return f"{amount} {currency}"
 
 
 @router.get("/subscription", response_class=HTMLResponse)
@@ -4026,7 +4152,15 @@ async def subscription(request: Request,
 
     if language not in ["en", "hu"]:
       print("[DEBUG] Invalid lang detected, defaulting to 'hu'")
-      lang = "hu"
+      language = "hu"
+
+    client = None
+    subscription = None
+    price = None
+  
+    client_name = "Your Company"
+    service_message = "Please contact Red Rain to select a service."
+
 
     async with async_session_scope() as db_session:
         client = await db_session.scalar(
@@ -4038,21 +4172,75 @@ async def subscription(request: Request,
         if client:
             client_name = client.client_name
             subscription = client.subscription
+            currency = client.currency if client else "HUF"
+
+
             if subscription:
                 # fetch active price from SubscriptionPrice table
                 active_price = await db_session.scalar(
                     select(SubscriptionPrice)
                     .where(
                         SubscriptionPrice.subscription_id == subscription.id,
+                        SubscriptionPrice.currency == client.currency,
                         SubscriptionPrice.active == True
                     )
                 )
                 if active_price:
-                    price = active_price.amount  # in minor units, e.g., 10000 HUF
+                    price_per_seat_minor = active_price.amount  # integer in cents or HUF
+                    total_seats = client.seats or 1
+
+                    # Convert to major units if currency uses cents
+                    if client.currency in ("USD", "EUR"):
+                        price_per_seat = price_per_seat_minor / 100
+                    else:
+                        price_per_seat = price_per_seat_minor
+
+                    price = price_per_seat * total_seats  # final price as float
+
+                    # Optional: format nicely for display
+                    if client.currency in ("USD", "EUR"):
+                        price = f"{price:.2f}"  # 2 decimal places
+                    else:
+                        price = str(int(price))  # no decimals for HUF
+
         else:
             client_name = "Your Company"
             service_message = "Please contact Red Rain to select a service."
+    
 
+        tier_prices = {}
+
+        rows = await db_session.execute(
+            select(Subscription, SubscriptionPrice)
+            .join(
+                SubscriptionPrice,
+                Subscription.id == SubscriptionPrice.subscription_id
+            )
+            .where(
+                SubscriptionPrice.currency == client.currency,
+                SubscriptionPrice.active == True
+            )
+        )
+
+        TIER_KEY = {
+            1: "basic",
+            2: "gold",
+            3: "platinum",
+        }
+
+        for subscription_lineitem, price_lineitem in rows:
+            key = TIER_KEY.get(subscription_lineitem.id)
+            if not key:
+                continue
+
+            unit_seat_price = price_lineitem.amount
+            included_seats = subscription_lineitem.base_seats
+            tier_total_price = unit_seat_price * included_seats
+
+            tier_prices[f"{key}_price"] = format_money(tier_total_price, client.currency)
+            tier_prices[f"{key}_extra"] = format_money(unit_seat_price, client.currency)
+        
+  
     # Check access permissions based on the subscription
     if subscription:
         chat_control_access = has_permission(user_role, subscription, "chat_control")
@@ -4064,8 +4252,7 @@ async def subscription(request: Request,
         basic_metrics_access = False
         enhanced_metrics_access = False
         advanced_ai_access = False
-
-
+    
     csrf_token, signed_token = csrf_protect.generate_csrf_tokens()
     response = templates.TemplateResponse(
         "subscription.html",
@@ -4083,6 +4270,8 @@ async def subscription(request: Request,
             "basic_metrics_access": basic_metrics_access,
             "enhanced_metrics_access": enhanced_metrics_access,
             "advanced_ai_access": advanced_ai_access,
+            "tier_prices": tier_prices,
+            "client_currency": currency,
             
             "language": language,
             "user_id": user_id,
@@ -4094,134 +4283,547 @@ async def subscription(request: Request,
 
 
 
-@router.post("/subscription/change")
-async def change_subscription(
+
+# STRIP PROCESS FOR NEW CUSTOMERS:
+# SYNC STRIPE INTERNAL OPERATIONS
+# ────────────────────────────────
+
+# 1. Create subscription object   OBJ which is a json with id, "status":"incomplete", period start end etc.
+#    → status = incomplete
+
+# 2. Create draft invoice object
+
+# 3. Attempt payment on invoice
+
+# 4. Finalize invoice
+#    → invoice.status = paid
+#    → invoice now contains period.start / period.end
+#    → invoice is immutable accounting record
+
+
+# ASYNC STRIPE OPERATIONS
+# ────────────────────────────────
+
+# 5. Emit invoice.paid webhook
+#    → your handler receives:
+#      obj = invoice object
+
+#    IMPORTANT:
+#    subscription may still be incomplete at this exact moment
+
+
+# 6. Activate subscription
+#    → subscription.status = active
+
+# 7. Populate subscription period fields
+#    → subscription.current_period_start
+#    → subscription.current_period_end
+
+# 8. Emit subscription.updated webhook
+
+#create_checkout_session = store pending request
+@router.post("/subscription/create_checkout_session")
+async def create_checkout_session(
     client_id: int = Form(...),
     plan_id: int = Form(...),
-    auto_upgrade: bool | None = Form(None),
-    seats: int = Form(...),
-    current_user: dict = Depends(login_required),
+    additional_seats: int = Form(...),
+    auto_upgrade: Optional[int] = Form(0)
 ):
-    lang = current_user.get("language", "hu")
-    if lang not in ["hu", "en"]:
-        lang = "hu"
+    print("IDEBE0001?")
+    async with async_session_scope() as db:
 
-    messages = []
- 
-    try:
-        async with async_session_scope() as db_session:
-            # Get client
-            client = await db_session.scalar(
-                select(Client).where(Client.id == client_id)
+        client = await db.scalar(select(Client).where(Client.id == client_id))
+        plan = await db.scalar(select(Subscription).where(Subscription.id == plan_id,))
+
+        if not client or not plan:
+            return {"error": "Client or plan not found"}
+
+        if additional_seats < 0:
+            additional_seats = 0
+
+        total_quantity = plan.base_seats + additional_seats
+
+        price = await db.scalar(
+            select(SubscriptionPrice).where(
+                SubscriptionPrice.subscription_id == plan.id,
+                SubscriptionPrice.currency == client.currency,
+                SubscriptionPrice.active == True
             )
-            
-            if not client:
-                messages.append(msg(
-                    text_en="Client not found.",
-                    text_hu="Az ügyfél nem található.",
-                    category="danger",
-                    lang=lang
-                ))
-                return JSONResponse({"messages": messages, "success": False})
-            
-            if client.id != current_user["org_id"]:
-                return JSONResponse({"success": False})
-            
+        )
+
+        if not price:
+            return {"error": f"No active price for currency {client.currency}"}
+
+        stripe_price_id = price.stripe_price_id
+        current_plan_id = client.subscription_id
+        new_plan_id = plan.id
+        
+
+
+
+
+        ####################################################
+        # Create Stripe customer if needed
+        # METADATA 1 CUSTOMER lives: On the Stripe Customer object.
+        # can be accessed:
+        # customer = stripe.Customer.retrieve(stripe_customer_id)
+        # print(customer.metadata.get("client_id"))  # gives your client.id
+        # not related to subsription
+        ####################################################
+
+        if not client.stripe_customer_id:
+            customer = stripe.Customer.create(
+                email=client.billing_email,
+                name=client.client_name,
+                metadata={"client_id": client.id},
+            )
+            client.stripe_customer_id = customer.id
+
+        # ----------------------------------
+        # CASE 1 — EXISTING SUBSCRIPTION → UPGRADE
+        # ----------------------------------
+        if client.stripe_subscription_id:
+            try:
+                print(f"Upgrading subscription: {client.stripe_subscription_id}")
+
+                stripe_sub = stripe.Subscription.retrieve(client.stripe_subscription_id)
+
+                item = stripe_sub["items"]["data"][0]
+                item_id = item["id"]
+                current_amount = item["price"]["unit_amount"]
+
+                # Modify subscription modify call does not wait for payment success only returns the subscription object
+                stripe.Subscription.modify(
+                    client.stripe_subscription_id,
+                    items=[{
+                        "id": item_id,
+                        "price": stripe_price_id,
+                        "quantity": total_quantity,
+                    }],
+                    proration_behavior="create_prorations",
+                )
+                print(f"Subscription modify called successfully")
+
+                # Immediately update DB (safe fields only)
+                client.subscription_id = plan.id
+                client.seats = total_quantity
+                client.subscription_status = "active"
+                client.auto_upgrade = bool(auto_upgrade)
+                print(f" DB updated with plan and seats")
+
+       
+
+                await db.flush()
+                print(f"DB flush completed")
+
+                if new_plan_id > current_plan_id:
+                    redirect_type = "upgrade"
+                elif new_plan_id < current_plan_id:
+                    redirect_type = "downgrade"
+                else:
+                    redirect_type = "same"
+
+
+            except Exception as e:
+                print(f"Upgrade failed: {e}")
+                return {"status": "upgrade_failed", "error": str(e)}
+
+            return {
+                "checkout_url":
+                f"https://redrain1230.loophole.site/subscription?status=success&type={redirect_type}&client_id={client.id}"
+            }
+
+        # ----------------------------------
+        # CASE 2 — NEW SUBSCRIPTION → CHECKOUT
+        # ----------------------------------
+        else:
             client.auto_upgrade = bool(auto_upgrade)
-            # Get subscription plan
-            subscription_plan = await db_session.scalar(
-                select(Subscription).where(Subscription.id == plan_id)
+            await db.flush() #other queries in the same session can immediately see the changes,  Sends pending changes (INSERTs/UPDATEs/DELETEs) to the database but does not commit the transaction.
+            session = stripe.checkout.Session.create(  #creates a Stripe object stored on Stripe’s servers
+                                            # inside the object Stripe saves success_url, cancel_url, etc.
+                customer=client.stripe_customer_id,
+                payment_method_types=["card"],
+                line_items=[{
+                    "price": stripe_price_id,
+                    "quantity": total_quantity,
+                }],
+                mode="subscription",
+                allow_promotion_codes=True,
+
+
+                ################################
+                # Checkout session metadata 2 
+                # Passes info to Stripe about the subscription + later after checkout the obj will be enhanced incuding subscriptipné 
+                # being created, so webhook can read it later 
+                # when the session completes.
+                # Can be access: 
+                # metadata = obj.get("metadata")  de ez más obj , mint ami a webhookban van
+                # client_id = metadata.get("client_id")
+                # plan_id = metadata.get("plan_id")
+                # seats = metadata.get("seats")
+                ################################
+
+                metadata={  # this metadata lives here:  checkout.session.metadata
+                    "client_id": str(client.id),
+                    "plan_id": str(plan.id),
+                    "seats": str(additional_seats),
+                    "currency": client.currency,
+                },
+                success_url = f"https://redrain1230.loophole.site/subscription?status=success&type=new&client_id={client.id}",
+                cancel_url=f"https://redrain1230.loophole.site/subscription?status=failure&client_id={client.id}"
             )
-            if not subscription_plan:
-                messages.append(msg(
-                    text_en="Subscription plan not found.",
-                    text_hu="Az előfizetési csomag nem található.",
-                    category="danger",
-                    lang=lang
-                ))
-                return JSONResponse({"messages": messages, "success": False})
-            
+            # at this point: client.stripe_subscription_id = NULL. not created yet
+            return {"checkout_url": session.url}  # we go to stripe page with this
+
+    ################################################################
+    # 3.METADATA
+    # After a customer completes checkout, Stripe creates a subscription object:
+    # Automatically created by Stripe when the checkout session completes, Stripe copies the checkout session metadata
+    # Where it lives: On the Subscription object (subscription.metadata).
+    # Purpose: Permanent metadata for that specific subscription.
+    ###########################################################
+
+# Stripe calling my server, not browser
+# Entering the webhook does not always mean payment is complete
+# The webhook fires whenever Stripe sends an event.
+# obj (created by stripe after checkout) exists as soon as the webhook fires — but some fields are populated progressively, depending on the event.
+
+# The user entered their card details on Stripe’s hosted page (session.url).
+# Stripe charges the card or sets up the subscription. Stripe internally creates the subscription object, sets subscription.id, current_period_start, current_period_end, etc.
+# Stripe also associates your metadata (client_id, plan_id, seats) with the subscription.
+# Stripe redirects the user If payment is successful, the user’s browser is redirected to your success_url you provided in the checkout session. If canceled, redirected to cancel_url.
+
+#Stripe independently sends an HTTP POST request to your /stripe/webhook endpoint. This happens regardless of the user being redirected
 
 
-            # Retrieve Stripe subscription This grabs the existing Stripe subscription.
-            stripe_sub = stripe.Subscription.retrieve(client.stripe_subscription_id)
-            stripe_item_id = stripe_sub["items"]["data"][0]["id"]
+# OBJECTS
 
-            # Compute total quantity: base seat + additional seats
-            quantity = subscription_plan.base_seats + seats
+# When Stripe calls webhook, it sends you a JSON message like this:
+# {
+#   "id": "evt_123",
+#   "type": "invoice.paid",
+#   "data": {
+#     "object": { ... SOME STRIPE OBJECT ... }
+#   }
+# }
 
-            # Update Stripe subscription
-            stripe.Subscription.modify(
-                client.stripe_subscription_id,
-                items=[{
-                    "id": stripe_item_id,
-                    "price": subscription_plan.stripe_price_id,
-                    "quantity": quantity
-                }]
-            )
+# event
+#  └── data
+#       └── object   ← THIS is obj
 
-            # Detect changes for flash messages
-            plan_changed = client.subscription_id != subscription_plan.id
-            seats_changed = client.seats != seats
 
-            # Update database
-            client.subscription_id = subscription_plan.id
-            client.seats = seats
-            await db_session.commit()
+# obj = event["data"]["object"] “Give me the Stripe object that triggered this event.” That object is NOT always the same type.It changes depending on the event.
 
-            # Prepare language-aware flash message
-            if plan_changed and seats_changed:
-                messages.append(msg(
-                    text_en="Subscription and additional seats updated successfully!",
-                    text_hu="Előfizetés és további ülések frissítve!",
-                    category="success",
-                    lang=lang
-                ))
-            elif plan_changed:
-                messages.append(msg(
-                    text_en="Subscription plan updated successfully!",
-                    text_hu="Előfizetés frissítve!",
-                    category="success",
-                    lang=lang
-                ))
-            elif seats_changed:
-                messages.append(msg(
-                    text_en="Additional seats updated successfully!",
-                    text_hu="További ülések frissítve!",
-                    category="success",
-                    lang=lang
-                ))
-            else:
-                messages.append(msg(
-                    text_en="No changes made.",
-                    text_hu="Nincs változtatás.",
-                    category="info",
-                    lang=lang
-                ))
+# Case 1: checkout.session.completed checkout.session.completed
+# obj:
+# {
+#   "object": "checkout.session",
+#   "id": "cs_123",
+#   "subscription": "sub_ABC",
+#   "metadata": {
+#     "client_id": "2",
+#     "plan_id": "3",
+#     "seats": "5"
+#   }
+# }
+# so here: obj = checkout session
+# Case 2: invoice.paid  
+#   obj = invoice   "subscription": "sub_ABC"
+# {
+#   "object": "invoice",
+#   "id": "in_456",
+#   "subscription": "sub_ABC",
+#   "customer": "cus_999",
+#   "metadata": {}
+# }
 
-            return JSONResponse({"messages": messages, "success": True})
+# SUBSCRIPTION object
+#The subscription is a separate object stored in Stripe.
+#To get it, you must explicitly ask Stripe stripe_sub = stripe.Subscription.retrieve("sub_ABC")
 
-    except stripe.error.StripeError as e:
-        # Stripe-specific error
-        messages.append(msg(
-            text_en=f"Stripe error: {str(e)}",
-            text_hu=f"Stripe hiba: {str(e)}",
-            category="danger",
-            lang=lang
-        ))
-        return JSONResponse({"messages": messages, "success": False})
-    except Exception as e:
-        # General error
-        messages.append(msg(
-            text_en=f"An error occurred: {str(e)}",
-            text_hu=f"Hiba történt: {str(e)}",
-            category="danger",
-            lang=lang
-        ))
-        return JSONResponse({"messages": messages, "success": False})
+# {
+#   "object": "subscription",
+#   "id": "sub_ABC",
+#   "metadata": {
+#     "plan_id": "3",
+#     "seats": "5"
+#   },
+#   "current_period_start": 1770809307,
+#   "current_period_end": 1773228507
+# }
 
+
+
+
+@router.post("/stripe/webhook")
+async def stripe_webhook(request: Request):
+    print("NA??")
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, webhook_secret
+        )
+    except stripe.error.SignatureVerificationError:
+        return {"status": "invalid_signature"}
+
+    event_type = event["type"]
+    obj = event["data"]["object"]  # this is JSON payload, the invoice of the webhook Depends on the event_type. Webhooks can send many types of events (checkout.session.completed, invoice.paid, etc.). For checkout.session.completed: obj is a Checkout Session object. for invoice.paid: obj is an Invoice object. If event_type == "checkout.session.completed", this metadata is exactly what I set in checkout.Session.create, it is copied here If event_type == "invoice.paid", obj.get("metadata") usually is empty,
+    metadata = obj.get("metadata", {})
+    
+
+    async with async_session_scope() as db:
+
+        # -------------------------------
+        # CHECKOUT COMPLETED (first activation) first-time subscription or payment.
+        # -------------------------------
+        if event_type == "checkout.session.completed":
+            metadata = obj.get("metadata", {}) # we got this metadata: checkout.session.metadata
+            client_id = metadata.get("client_id")
+            plan_id = metadata.get("plan_id")
+            seats = int(metadata.get("seats", 0))
+
+            client = await db.scalar(select(Client).where(Client.id==int(client_id)))
+            if not client:
+                return {"status": "client_not_found"}
+
+            # Only fill subscription_id / seats / stripe_subscription_id if missing
+            if not client.stripe_subscription_id:
+                client.stripe_subscription_id = obj.get("subscription")
+            if not client.subscription_id:
+                client.subscription_id = int(plan_id)
+            if not client.seats:
+                client.seats = seats
   
 
+            print("IDEBE01?")
+
+            await db.flush()
+            return {"status": "activated"}
+
+        # -------------------------------
+        # PAYMENT SUCCESS
+        # -------------------------------
+        if event_type == "invoice.paid":
+            print("\n========== INVOICE.PAID ==========")
+
+            stripe_subscription_id = (
+                obj.get("subscription")
+                or obj.get("parent", {})
+                    .get("subscription_details", {})
+                    .get("subscription")
+            )
+
+            print("Subscription ID:", stripe_subscription_id)
+
+            if not stripe_subscription_id:
+                print("Not a subscription invoice")
+                return {"status": "ignored"}
+
+            client = await db.scalar(
+                select(Client).where(
+                    Client.stripe_subscription_id == stripe_subscription_id
+                )
+            )
+
+            if not client:
+                stripe_customer_id = obj.get("customer") #ez a stripe_customer_id
+                if stripe_customer_id:
+                    customer = stripe.Customer.retrieve(stripe_customer_id)
+                    # {   Ez a customer  EZT MÉG AZ ELŐZŐ ROUTBAN CSINÁLTAM
+                    #     "id": "cus_ABC123",
+                    #     "email": "viktor@example.com",
+                    #     "name": "Viktor",
+                    #     "metadata": {
+                    #         "client_id": "2"
+                    #     }
+                    #     }
+                    client_id = customer.metadata.get("client_id")
+                    if client_id:
+                        client = await db.scalar(
+                            select(Client).where(Client.id == int(client_id))
+                        )
+            if not client:
+                return {"status": "client_not_found"}
+            
+            if client.subscription_status == "active":
+                print("Already active, skipping DB update")
+                return {"status": "already_active"}
+
+            start_ts = None
+            end_ts = None
+            seats = 0 
+            subscription_price = None
+
+            try:
+                # Try subscription first
+                stripe_sub = stripe.Subscription.retrieve(stripe_subscription_id)
+                print("JSON!!!!")
+                print(stripe_sub)
+                if stripe_sub['items']['data']:
+                    item = stripe_sub['items']['data'][0]
+                    seats = item.get('quantity', 0)
+                    price_id = item.get('price', {}).get('id')
+                else:
+                    seats = 0
+                    price_id = None
+
+                subscription_price = await db.scalar(
+                    select(SubscriptionPrice).where(SubscriptionPrice.stripe_price_id == price_id)
+                )
+
+
+                # stripe_sub: subscription = {  EZT a c
+                #     "id": "sub_1SzbarRy7qqP1p01cT1msqBd",
+                #     "object": "subscription",
+                #     "status": "active",
+                #     "customer": "cus_Qx82KzA1",
+                #     "current_period_start": 1770809307,
+                #     "current_period_end": 1773228507,
+                #     "metadata": {
+                #         "plan_id": "3",
+                #         "seats": "5"
+                #     },
+                #     "items": {
+                #         "data": [
+                #         {
+                #             "price": {"id": "price_ABC"},
+                #             "quantity": 5
+                #         }
+                #         ]
+                #     }
+                #     }
+                start_ts = getattr(stripe_sub, "current_period_start", None)
+                end_ts = getattr(stripe_sub, "current_period_end", None)
+
+                print("Subscription period:", start_ts, end_ts)
+
+            except Exception as e:
+                print("Subscription fetch failed:", e)
+
+            # Fallback to invoice lines if missing
+            if not start_ts or not end_ts:
+                print("Using invoice fallback")
+
+                lines = obj.get("lines", {}).get("data", [])
+
+                if lines:
+                    period = lines[0].get("period", {})
+                    start_ts = period.get("start")
+                    end_ts = period.get("end")
+
+            print("Final timestamps:", start_ts, end_ts)
+
+            if start_ts:
+                client.subscription_start_date = datetime.fromtimestamp(start_ts)
+
+            if end_ts:
+                client.subscription_end_date = datetime.fromtimestamp(end_ts)
+
+           
+
+            if not client.stripe_subscription_id:
+                client.stripe_subscription_id = stripe_subscription_id
+            client.seats = seats
+            client.subscription_id = subscription_price.subscription_id if subscription else None
+            client.subscription_status = "active"
+            await db.flush()
+
+            print("DB updated")
+            print("========== DONE ==========\n")
+
+            return {"status": "paid_confirmed"}
+        
+
+
+        # -------------------------------
+        # PAYMENT FAILED
+        # -------------------------------
+        if event_type == "invoice.payment_failed":
+
+            stripe_subscription_id = obj.get("subscription")
+
+            client = await db.scalar(
+                select(Client).where(
+                    Client.stripe_subscription_id == stripe_subscription_id
+                )
+            )
+
+            if client:
+                client.subscription_status = "past_due"
+                await db.flush()
+
+            return {"status": "payment_failed"}
+
+        # -------------------------------
+        # SUBSCRIPTION CANCELED
+        # -------------------------------
+        if event_type == "customer.subscription.deleted":
+
+            stripe_subscription_id = obj.get("id")
+
+            client = await db.scalar(
+                select(Client).where(
+                    Client.stripe_subscription_id == stripe_subscription_id
+                )
+            )
+
+            if client:
+                client.subscription_status = "canceled"
+                client.subscription_end_date = datetime.utcnow()
+                await db.flush()
+
+            return {"status": "canceled"}
+
+    return {"status": "ignored"}
+
+@router.get("/api/client/subscription-status")  #we need this as we don't see outside what is happening in stripe webhook
+async def subscription_status(client_id: int):
+    async with async_session_scope() as db:
+        client = await db.scalar(select(Client).where(Client.id==client_id))
+        if not client:
+            return {"status": "not_found"}
+        return {"status": client.subscription_status}
+    
+
+    
+@router.post("/cancel_subscription")
+async def cancel_subscription(request: Request):
+    async with async_session_scope() as db:
+        data = await request.json()
+        client_id = data.get("client_id")
+
+        if client_id is None:
+            raise HTTPException(status_code=400, detail="client_id is required")
+
+        # Convert to int if it came as a string
+        try:
+            client_id = int(client_id)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="client_id must be an integer")
+       
+        client = await db.scalar(select(Client).where(Client.id == client_id))
+
+        if not client or not client.stripe_subscription_id:
+            return {"error": "No active subscription"}
+        print("bejött???")
+        try:
+            stripe.Subscription.modify(
+                client.stripe_subscription_id,
+                cancel_at_period_end=True
+            )
+
+            client.subscription_status = "cancel_scheduled"
+            await db.flush()
+
+            return {"status": "scheduled"}
+
+        except Exception as e:
+            return {"error": str(e)}
+
+    
+
 
 
                                     #---------------------------
@@ -4260,18 +4862,6 @@ from datetime import datetime, timedelta
 
 
 
-
-import threading
-import time
-import json
-from datetime import datetime, timedelta
-
-
-BLOB_CONN_STR = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-CONTAINER_NAME = os.getenv("BLOB_CONTAINER_NAME")
-
-blob_service_client = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
-container_client = blob_service_client.get_container_client(CONTAINER_NAME)
 
 
 
@@ -4296,486 +4886,6 @@ def normalize_timestamp(ts: str) -> str:
         # Fallback to current UTC if parsing fails
         return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
 
-
-
-
-
-# async def classify_topic(input_text: str) -> str:
-
-#      # WAIT until model is loaded
-#     await fastapi_app.state.models_loaded_event.wait()
-
-
-#     minilm_model = fastapi_app.state.minilm_model_encoder_for_clf_classifier
-#     lr_classifier = fastapi_app.state.lr_classifier
-
-#     if minilm_model is None or lr_classifier is None:
-#         raise RuntimeError("Models not available")
-
-#     label_reverse = {
-#     0: "Termékérdeklődés",
-#     1: "Vásárlási szándék",
-#     2: "Ár és promóció",
-#     3: "Panaszok és problémák",
-#     4: "Szolgáltatás",
-#     5: "Egyéb"
-#     }
-#     emb = await asyncio.to_thread(minilm_model.encode, [input_text])
-#     pred = await asyncio.to_thread(lr_classifier.predict, [emb[0]])
-#     return label_reverse[pred]
-
-
-
-
-
-# async def classify_and_save(payload: dict, redis_client):
-#     """
-#     Wait for chatbot DB insert, then classify topic and update topic_classification field.
-#     """
-#     try:
-#         message = payload["message"]
-#         user_id = message["user_id"]
-#         org_id = message["org_id"]
-#         standalone_prediction = message["standalone_prediction"]
-#         user_message = message["user_message"]
-#         non_standalone_input = message["input_for_not_standalone_topic_classification"]
-#         bot_message = message["bot_message"]
-#         saved_flag_key = message.get("saved_flag_key")
-#         created_at_str = message["timestamp"]
-
-#         #we are converting the time str got from redis it back into a datetime
-#         created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
-
-#         # --- Wait until chatbot side finishes DB insert ---
-#         if saved_flag_key:
-#             print(f"Waiting for Redis save flag: {saved_flag_key}")
-#             for _ in range(60):  # wait up to 30 seconds
-#                 exists = await redis_client.exists(saved_flag_key)
-#                 if exists:
-#                     print(f"Redis save flag detected: {saved_flag_key}")
-#                     break
-#                 await asyncio.sleep(0.5)
-#             else:
-#                 print(f"Timeout waiting for DB save flag for {saved_flag_key}")
-#                 return
-#         else:
-#             print("No saved_flag_key provided in payload; proceeding anyway.")
-
-#         # --- Choose input for topic classification ---
-#         classification_input = (
-#             user_message if standalone_prediction == 0 else non_standalone_input
-#         )
-
-#         # --- Run model inference (non-blocking) ---
-#         try:
-#             topic = await classify_topic(classification_input)
-#             print(f"Predicted topic: {topic}")
-#         except Exception as e:
-#             print("Topic classification failed")
-#             topic = "unknown"
-
-#         # --- Update the database record ---
-#         async with async_session_scope() as session:
-#             try:
-#                 stmt = (
-#                     update(ChatHistory)
-#                     .where(
-#                         ChatHistory.user_id == user_id,
-#                         ChatHistory.client_id == org_id,
-#                         ChatHistory.message == user_message,
-#                         ChatHistory.response == bot_message,
-#                         ChatHistory.created_at.between(created_at - timedelta(seconds=1), created_at + timedelta(seconds=1))
-#                     )
-#                     .values(topic_classification=topic)
-#                     .execution_options(synchronize_session="fetch")
-#                 )
-#                 result = await session.execute(stmt)
-              
-              
-
-#                 if result.rowcount == 0:
-#                     print(
-#                         f"No chat record found for "
-#                         f"user_id={user_id}, org_id={org_id}, message={user_message[:50]}"
-#                     )
-#                 else:
-#                     print(f"Topic classification saved for {result.rowcount} record(s).")
-
-#             except SQLAlchemyError as e:
-#                 await session.rollback()
-#                 print(f"Database update failed: {e}")
-#                 raise
-
-#     except Exception as e:
-#         print(f"classify_and_save() failed: {e}")
-
-
-
-
-# async def fetch_last_msgs_pipeline(org_id: int, redis_client: aioredis.Redis, batch_size: int = 10000):
-#     """
-#     Fetch last 4 messages per user for a tenant (org_id) from DB + blobs.
-#     Update Redis incrementally in batches, stop early for users who already have 4 messages.
-#     """
-
-#     user_msgs = {}  # in-memory per-user message collection
-
-#     # --- Step 1: Fetch from DB ---
-#     async with async_session_scope(org_id=org_id) as session:
-#         stmt = (
-#             select(ChatHistory)
-#             .where(ChatHistory.client_id == org_id)
-#             .order_by(desc(ChatHistory.created_at))
-#         )
-#         stream = await session.stream(stmt)
-#         count = 0
-
-#         async for row in stream:
-#             msg: ChatHistory = row[0]
-#             uid = msg.user_id
-
-#             if uid not in user_msgs:
-#                 user_msgs[uid] = []
-
-#             if len(user_msgs[uid]) < 4:
-#                 user_msgs[uid].append({
-#                     "timestamp": msg.created_at.isoformat(),
-#                     "user_message": msg.message,
-#                     "bot_message": msg.response,
-#                     "agent": msg.agent or "bot",       # 'bot' for automatic, admin name for manual
-#                     "mode": msg.mode or "automatic"
-#                 })
-
-#             count += 1
-#             if count % batch_size == 0:
-#                 await _update_redis_batch(org_id, user_msgs, redis_client)
-#                 # Keep only users who still need more messages
-#                 user_msgs = {uid: msgs for uid, msgs in user_msgs.items() if len(msgs) < 4}
-
-#             # Stop early if all users have 4 messages
-#             if user_msgs and all(len(v) >= 4 for v in user_msgs.values()):
-#                 break
-
-#         if user_msgs:
-#             await _update_redis_batch(org_id, user_msgs, redis_client)
-
-#     # --- Step 2: Fetch from Blobs ---
-
-#     async with BlobServiceClient.from_connection_string(BLOB_CONN_STR) as blob_service:
-#         container_client = blob_service.get_container_client(CONTAINER_NAME)
-
-#         async for blob in container_client.list_blobs(name_starts_with="chat_messages_"):
-#             blob_client = container_client.get_blob_client(blob)
-#             stream = await blob_client.download_blob()
-#             data = await stream.readall()
-#             lines = [json.loads(line) for line in data.decode("utf-8").splitlines()]
-
-#             await _process_blob_lines_incremental_early(lines, org_id, redis_client, batch_size)
-
-
-# async def _update_redis_batch(org_id: int, user_msgs: dict, redis_client: aioredis.Redis):
-#     """
-#     Write batch of user messages to Redis, merge with existing data, keep latest 4.
-#     """
-#     for uid, msgs in user_msgs.items():
-#         if not msgs:
-#             continue
-
-#         key = f"tenant:{org_id}:user:{uid}:recent_msgs"
-#         existing = await redis_client.get(key)
-#         existing_msgs = json.loads(existing) if existing else []
-
-#         # Merge DB messages with existing Redis messages
-#         merged = msgs + existing_msgs
-#         merged.sort(key=lambda m: m["timestamp"], reverse=True)
-#         merged = merged[:4]
-
-#         await redis_client.set(key, json.dumps(merged))
-
-
-# async def _process_blob_lines_incremental_early(lines, org_id: int, redis_client: aioredis.Redis, batch_size: int):
-#     """
-#     Process blob batch with early stopping for users who already have 4 messages in Redis.
-#     """
-#     lines_buffer = []
-
-#     for line in reversed(lines):  # newest first
-#         lines_buffer.append(line)
-#         if len(lines_buffer) >= batch_size:
-#             await _process_blob_lines_buffer_early(lines_buffer, org_id, redis_client)
-#             lines_buffer = []
-
-#     if lines_buffer:
-#         await _process_blob_lines_buffer_early(lines_buffer, org_id, redis_client)
-
-
-# async def _process_blob_lines_buffer_early(lines, org_id: int, redis_client: aioredis.Redis):
-#     """
-#     Merge blob messages with Redis, skip users who already have 4 messages.
-#     """
-#     batch_user_msgs = {}
-
-#     # Collect messages per user
-#     for msg in lines:
-#         if msg["client_id"] != org_id:
-#             continue
-#         uid = msg["user_id"]
-
-#         # Check existing Redis messages first
-#         key = f"tenant:{org_id}:user:{uid}:recent_msgs"
-#         existing = await redis_client.get(key)
-#         existing_msgs = json.loads(existing) if existing else []
-
-#         # Skip users who already have 4 messages
-#         if len(existing_msgs) >= 4:
-#             continue
-
-#         if uid not in batch_user_msgs:
-#             batch_user_msgs[uid] = []
-
-#         batch_user_msgs[uid].append({
-#             "timestamp": msg["created_at"],
-#             "user_message": msg["message"],
-#             "bot_message": msg["response"],
-#             "agent": msg.get("agent", "bot"),
-#             "mode": msg.get("mode", "automatic")
-#         })
-
-#     # Merge and save back
-#     for uid, new_msgs in batch_user_msgs.items():
-#         key = f"tenant:{org_id}:user:{uid}:recent_msgs"
-#         existing = await redis_client.get(key)
-#         existing_msgs = json.loads(existing) if existing else []
-
-#         merged = new_msgs + existing_msgs
-#         merged.sort(key=lambda m: m["timestamp"], reverse=True)
-#         merged = merged[:4]
-
-#         await redis_client.set(key, json.dumps(merged))
-
-
-
-
-###########################################################################
-#                            REDIS
-###########################################################################
-
-
-
-
-
-
-# INACTIVITY_TIMEOUT_SECONDS = 30
-
-
-
-
-
-# async def redis_listener():
-#     redis_client = fastapi_app.state.redis_client
-
-#     while True:  # Outer loop -> reconnects after inactivity or errors
-#         try:
-#             pubsub = redis_client.pubsub(ignore_subscribe_messages=True)
-#             await pubsub.subscribe("chatbot:messages")
-#             print("Chatbot subscribed to Redis channel 'chatbot:messages'")
-
-#             last_activity = datetime.utcnow()
-
-#             while True:  # Inner loop -> process messages
-#                 now = datetime.utcnow()
-
-#                 # inactivity check
-#                 if (now - last_activity) > timedelta(seconds=INACTIVITY_TIMEOUT_SECONDS):
-#                     print(f"[WARNING] No message or heartbeat in {INACTIVITY_TIMEOUT_SECONDS} seconds.")
-#                     break  # break inner loop → reconnect in outer loop
-
-#                 # Poll for message (non-blocking with timeout)
-#                 message = await pubsub.get_message(timeout=1.0)
-
-#                 if message is None:
-#                     await asyncio.sleep(0.1)  # small pause when idle
-#                     continue
-
-#                 if message["type"] != "message":
-#                     continue
-
-#                 try:
-#                     data = json.loads(message["data"])
-#                     last_activity = datetime.utcnow()  # reset inactivity timer
-
-#                     # Handle heartbeat
-#                     if data.get("type") in ("heartbeat", "admin_heartbeat"):
-#                         print(f"[Heartbeat] Received at {data.get('timestamp')}")
-#                         continue
-
-#                     print("MESSAGE FROM REDIS:", data)
-
-#                     org_id = str(data.get("message", {}).get("org_id"))
-#                     msg = data.get("message", {})
-#                     is_recurrent = msg.get("is_recurrent", {})
-
-#                     if is_recurrent:
-#                         # First-time setup for this tenant/user
-#                         await fetch_last_msgs_pipeline(org_id, redis_client)
-
-
-
-#                     user_id=msg.get("user_id")
-
-#                     if "timestamp" in msg:
-#                         msg["timestamp"] = normalize_timestamp(msg["timestamp"])
-
-#                     event = await log_event(org_id, "new_message", msg)
-#                     mode = get_client_mode(org_id)
-
-#                     print("event!!!", event)
-
-#                     #  HANDLING RECURRENT USER LOGIC
-
-#                     user_cache_key = f"tenant:{org_id}:user:{user_id}:recent_msgs"
-
-#                     # --- Step 1: Get current history ---
-#                     # Fetch last 4 messages from Redis BEFORE adding the new one
-#                     recent_msgs_raw = await redis_client.lrange(user_cache_key, 0, 3)
-#                     recent_history = [json.loads(m) for m in recent_msgs_raw]
-    
-
-#                     if event and "data" in event:
-#                         event["data"]["recent_history"] = recent_history
-
-#                     # Step 2: Push the new message for next round
-#                     new_msg = {
-#                         "timestamp": msg.get("timestamp"),
-#                         "user_message": msg.get("user_message"),
-#                         "bot_message": msg.get("bot_message"),
-#                     }
-#                     await redis_client.lpush(user_cache_key, json.dumps(new_msg))
-#                     await redis_client.ltrim(user_cache_key, 0, 3)
-
-             
-
-#                     # === AUTOMATIC MODE ===
-#                     if mode == "automatic":
-
-#                         if msg.strip().lower() in ["ügyintézőt kérek.", "please connect me to a colleague."]:
-#                             pass
-
-                        
-#                         # -------- Emit message to all connected admins in the org --------
-
-#                         try:
-#                             org_key = f"org:{org_id}:connections"
-#                             sids_bytes = await redis_client.smembers(org_key)  # returns set of bytes
-#                             sids = [s.decode() for s in sids_bytes]
-#                             sids = [row[0] for row in result.fetchall()]
-#                             for sid in sids:
-#                                 try:
-#                                     await sio.emit(
-#                                         "new_message_FirstUser",
-#                                         {"messages": [event["data"]]
-#                                             },
-#                                         to=sid,
-#                                     )
-#                                 except Exception as emit_err:
-#                                     print(f"Emit error to SID {sid}: {emit_err}")
-#                         except OperationalError as db_err:
-#                             print(f"[DB ERROR - Automatic] OperationalError: {db_err}")
-#                         except Exception as db_err:
-#                             print(f"[DB ERROR - Automatic] General DB error: {db_err}")
-
-#                         # --- Run classification & saving in background ---
-#                         asyncio.create_task(
-#                         classify_and_save(data, redis_client)
-# )
-                    
-#                     # === MANUAL MODE ===
-#                     elif mode == "manual":
-#                         try:
-#                             async with async_session_scope() as session:
-#                                 result = await session.execute(
-#                                     select(Client.last_manualmode_triggered_by).where(
-#                                         Client.id == org_id, Client.is_active.is_(True)
-#                                     )
-#                                 )
-#                                 admin_user_id = result.scalar()
-
-#                                 if admin_user_id:
-                        
-
-#                                     # Get all active sids for this org
-#                                     org_connections_key = f"org:{org_id}:connections"
-#                                     sids_bytes = await redis_client.smembers(org_connections_key)
-#                                     sids = [s.decode() for s in sids_bytes]
-
-#                                     # Find a connection that belongs to the admin_user_id
-#                                     admin_sid = None
-#                                     for sid in sids:
-#                                         conn_data = await redis_client.hgetall(f"connection:{sid}")
-#                                         if conn_data.get(b"user_id") and int(conn_data[b"user_id"]) == int(admin_user_id):
-#                                             admin_sid = sid
-#                                             break
-
-#                                     if admin_sid:
-#                                         await sio.emit(
-#                                             "new_message_FirstUser",
-#                                             {"messages": [event["data"]]
-#                                              },
-#                                             to=admin_sid,
-#                                         )
-#                                         print(f"Emitted to SID {admin_sid} for user {admin_user_id}")
-#                                     else:
-#                                         print(f"No active SID found for user_id {admin_user_id} in org {org_id}")
-#                                 else:
-#                                     print(f"No admin user_id found for org_id {org_id}")
-#                         except OperationalError as e:
-#                             print(f"[DB ERROR - Manual] OperationalError: {e}")
-#                         except Exception as e:
-#                             print(f"[DB ERROR - Manual] General DB error: {e}")
-
-#                         # --- Run classification & saving in background ---
-#                         asyncio.create_task(
-#                         classify_and_save(data, redis_client)
-#                         )
-#                 except Exception as e:
-#                     print(f"Error processing message from Redis: {e}")
-
-#         except Exception as outer_e:
-#             print(f"[Redis Listener] Connection lost, retrying in 5s... Error: {outer_e}")
-#             await asyncio.sleep(5)
-#         finally:
-#             try:
-#                 if pubsub:
-#                     await pubsub.close()
-#             except:
-#                 pass
-
-
-# async def send_admin_heartbeat():
-#     redis_client = fastapi_app.state.redis_client
-#     while True:
-#         try:
-#             heartbeat_data = {
-#                 "type": "admin_heartbeat",
-#                 "timestamp": datetime.utcnow().isoformat()
-#             }
-#             await redis_client.publish("chatbot:admin_heartbeat", json.dumps(heartbeat_data))
-#             print(f"[Admin Heartbeat] Sent at {heartbeat_data['timestamp']}")
-#             await asyncio.sleep(10)  # normal interval
-#         except (aioredis.exceptions.ConnectionError, asyncio.TimeoutError) as e:
-#             # transient failure → retry sooner
-#             print(f"[Admin Heartbeat Transient Error] {e}, retrying in 2s")
-#             await asyncio.sleep(2)
-#         except Exception as e:
-#             # permanent / unknown failure → log and wait longer
-#             print(f"[Admin Heartbeat Fatal Error] {e}, retrying in 30s")
-#             await asyncio.sleep(30)
-
-
-# redis_password=os.environ.get("redis_password")
-# redis_host = "aichatbotredis111.redis.cache.windows.net"
-# redis_port = 6380
-# redis_url = f"rediss://default:{redis_password}@{redis_host}:{redis_port}"
 
 
 
@@ -5044,9 +5154,8 @@ async def should_show_internal_alert(sid: str, redis, org_id: str) -> bool:
             print(f"No connection found for sid={sid}")
             return False
 
-        # Decode byte values (Redis returns bytes)
-        conn_data = {k.decode(): v.decode() for k, v in conn_data.items()}
-
+   
+        
         open_ts = conn_data.get("admin_internal_message_open")
         close_ts = conn_data.get("admin_internal_message_close")
 
@@ -5100,8 +5209,7 @@ async def should_show_internal_alert(sid: str, redis, org_id: str) -> bool:
 
 
 
-from sqlalchemy import select
-import json
+
 
 @sio.on("admin_response_to_the_chatbot")
 async def handle_admin_response(sid, data):
@@ -5113,9 +5221,18 @@ async def handle_admin_response(sid, data):
     org_id = None
     user_id = None
     admin_name = None
+    redis=None
 
     try:
         # Fetch connection data from Redis
+        fastapi_app = sio.fastapi_app
+        if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+            print("Redis not ready yet")
+            await sio.disconnect(sid)
+            return
+
+        redis = fastapi_app.state.redis_client
+
         connection_key = f"connection:{sid}"
         conn_data = await redis.hgetall(connection_key)
 
@@ -5123,25 +5240,15 @@ async def handle_admin_response(sid, data):
             print(f"No connection found for socket ID: {sid}")
             return
 
-        # Extract org_id and user_id
-        org_id_bytes = conn_data.get(b"org_id")
-        try:
-            org_id = int(org_id_bytes.decode()) if org_id_bytes else None
-        except (ValueError, AttributeError):
-            org_id = None
-            print(f"[Warning] Invalid org_id in Redis for SID {sid}: {org_id_bytes}")
+        # Extract org_id and user_id safely
+        org_id_str = conn_data.get("org_id")
+        org_id = int(org_id_str) if org_id_str else None
 
-        # Extract user_id safely
-        user_id_bytes = conn_data.get(b"user_id")
-        try:
-            user_id = int(user_id_bytes.decode()) if user_id_bytes else None
-        except (ValueError, AttributeError):
-            user_id = None
-            print(f"[Warning] Invalid user_id in Redis for SID {sid}: {user_id_bytes}")
-        
+        user_id_str = conn_data.get("user_id")
+        user_id = int(user_id_str) if user_id_str else None
+
+        admin_name = None
         if user_id:
-            
-            # Fetch from PostgreSQL User table
             async with async_session_scope() as session:
                 user = await session.scalar(select(User).where(User.id == user_id))
                 if user:
@@ -5157,21 +5264,20 @@ async def handle_admin_response(sid, data):
 
     # --- Enrich message data ---
     data["admin_name"] = admin_name
+    data["org_id"] = org_id
 
     # --- Publish to Redis ---
     try:
         environ = sio.get_environ(sid)
-        app = environ.get("asgi.scope", {}).get("app")
+        fastapi_app = sio.fastapi_app
 
-        if not app:
-            print("FastAPI app not available")
+        if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+            print("Redis not ready yet")
+            await sio.disconnect(sid)
             return
-
-        if not hasattr(app.state, "redis_client"):
-            print("Redis not available")
-            return
-
-        redis = app.state.redis_client
+        
+    
+        redis = fastapi_app.state.redis_client
 
         await redis.publish("chatbot:messages", json.dumps(data))
         print(f"Published admin message to Redis: org_id={org_id}, admin={admin_name}")
@@ -5224,14 +5330,24 @@ async def release_redis_lock(redis, key: str, lock_id: str):
         return 0
     end
     """
-    await redis.eval(script, keys=[key], args=[lock_id])
+    await redis.eval(script, 1, key, lock_id)
 
 @sio.event
-async def connect(sid, environ, auth): # connect() is special → Socket.IO passes environ directly
+async def connect(sid, environ, auth=None): # connect() is special → Socket.IO passes environ directly
     #other events (@sio.on(...)) are not → you must fetch it yourself with sio.get_environ(sid)
     cookies = environ.get("asgi.scope", {}).get("headers", [])
-    app = environ.get("asgi.scope", {}).get("app")
-    redis = app.state.redis_client
+    # app = environ.get("asgi.scope", {}).get("app")
+    # redis = app.state.redis_client
+  
+    fastapi_app = sio.fastapi_app
+
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
+        return
+    
+   
+    redis = fastapi_app.state.redis_client
     session_id = None
     for key, value in cookies:
         if key == b'cookie':
@@ -5275,37 +5391,33 @@ async def connect(sid, environ, auth): # connect() is special → Socket.IO pass
         return
     
 
-    lock_key = f"org_connect_cleanup_lock:{org_int}"
-    lock_id = str(uuid.uuid4())
-    acquired = await acquire_redis_lock(redis, lock_key, lock_id, expire=30)
-    if acquired:
-        try:
-            async with async_session_scope() as session:
-                # Check if cleanup is needed (no active connections, but stale entries exist)
-                active_sockets = await redis.scard(f"org:{org_int}:connections")
+    # lock_key = f"org_connect_cleanup_lock:{org_int}"
+    # lock_id = str(uuid.uuid4())
+    # acquired = await acquire_redis_lock(redis, lock_key, lock_id, expire=30)
+    # if acquired:
+    #     try:
+    #         async with async_session_scope() as session:
+    #             # Check if cleanup is needed (no active connections, but stale entries exist)
+    #             active_sockets = await redis.scard(f"org:{org_int}:connections")  # get only the count
 
-                if active_sockets == 0:
-                    # Perform missing cleanup if necessary
-                    print(f"[Connect] Performing missing cleanup for org {org_int}")
-                    await session.execute(delete(OrgEventLog).where(OrgEventLog.org_id == org_int))
-                    await session.execute(update(Client).where(Client.id == org_int).values(mode="automatic"))
-                    await redis.delete(f"user_mode_override:{org_int}")
-                    await session.execute(
-                        update(User)
-                        .where(User.client_id == org_int, User.is_deleted.is_(False))
-                        .values(admin_internal_message_open=None)
-                    )
-                    client_to_update = await session.scalar(
-                        select(Client)
-                        .where(Client.id == org_int, Client.is_active.is_(True), Client.last_manualmode_triggered_by.isnot(None))
-                    )
-                    if client_to_update:
-                        client_to_update.last_manualmode_triggered_by = None
-                        print(f"[Connect] Updated client {client_to_update.id}: last_manualmode_triggered_by cleared")
-        finally:
-            await release_redis_lock(redis, lock_key, lock_id)
-    else:
-        print(f"[Connect] Another worker is handling cleanup for org {org_int}")
+    #             if active_sockets == 0:
+    #                 # Perform missing cleanup if necessary
+    #                 print(f"[Connect] Performing missing cleanup for org {org_int}")
+    #                 await session.execute(delete(OrgEventLog).where(OrgEventLog.org_id == org_int))
+    #                 await session.execute(update(Client).where(Client.id == org_int).values(mode="automatic"))
+    #                 await redis.delete(f"user_mode_override:{org_int}")
+               
+    #                 client_to_update = await session.scalar(
+    #                     select(Client)
+    #                     .where(Client.id == org_int, Client.is_active.is_(True), Client.last_manualmode_triggered_by.isnot(None))
+    #                 )
+    #                 if client_to_update:
+    #                     client_to_update.last_manualmode_triggered_by = None
+    #                     print(f"[Connect] Updated client {client_to_update.id}: last_manualmode_triggered_by cleared")
+    #     finally:
+    #         await release_redis_lock(redis, lock_key, lock_id)
+    # else:
+    #     print(f"[Connect] Another worker is handling cleanup for org {org_int}")
 
 
     
@@ -5365,11 +5477,12 @@ async def connect(sid, environ, auth): # connect() is special → Socket.IO pass
                 "org_id": org_int,
                 "manualmode_triggered": "false",
                 "disconnected_at": "null",
+                "session_id": session_id,
                 "admin_internal_message_open": "null",  # initially closed
                 "admin_internal_message_close": "null",
             })
             await redis.sadd(org_set_key, socket_id)
-            await redis.expire(connection_key, 3600 * 6)  # optional TTL for safety
+            #await redis.expire(connection_key, 3600 * 6)  # optional TTL for safety
             print(f"Connection saved: {connection_key}")
 
             client = await session.get(Client, org_int)
@@ -5386,21 +5499,21 @@ async def connect(sid, environ, auth): # connect() is special → Socket.IO pass
           to=socket_id
       )
 
-@sio.event
+
+
+@sio.event    # update TTLs
 async def heartbeat(sid):
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
-
+    
+   
+    redis = fastapi_app.state.redis_client
+    # THIS IS FOR SMALL INTERNET BLIP OR REFRESH WHEN  THERE IS NO DISCONNECT
     connection_key = f"connection:{sid}"
 
     # Refresh TTL for the connection itself
@@ -5408,17 +5521,17 @@ async def heartbeat(sid):
 
     # Get org_id from the connection hash
     connection_data = await redis.hgetall(connection_key)
-    org_id_bytes = connection_data.get(b"org_id")
-    if not org_id_bytes:
+
+    org_id_str = connection_data.get("org_id")
+    if not org_id_str:
         print(f"[Heartbeat] No org_id found for socket {sid}")
         return
 
-    org_id = org_id_bytes.decode() if isinstance(org_id_bytes, bytes) else str(org_id_bytes)
+    org_id = int(org_id_str) 
 
     # Refresh TTL for all tab_mode keys for this org
     tab_mode_keys = await redis.keys(f"org:{org_id}:tab:*:mode")
-    # Decode keys if needed
-    tab_mode_keys = [k.decode() if isinstance(k, bytes) else k for k in tab_mode_keys]
+    
 
     # Refresh TTL concurrently
     if tab_mode_keys:
@@ -5437,11 +5550,15 @@ async def heartbeat(sid):
 @sio.on("history_ready")
 async def handle_history_ready(sid, data):
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
-    if not app or not hasattr(app.state, "redis_client"):
-        print("Redis not available")
+    fastapi_app = sio.fastapi_app
+
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-    redis = app.state.redis_client
+    
+    print("histoizunk?")
+    redis = fastapi_app.state.redis_client
     socket_id = data.get("socket_id")
     try:
         org = data.get("org")
@@ -5453,7 +5570,9 @@ async def handle_history_ready(sid, data):
         return
 
     try:
+        print("ide még bejövünk?")
         missed_event_dicts = await get_sorted_event_logs(org)
+        print(missed_event_dicts)
         enriched_events = []
 
         async with async_session_scope() as session:
@@ -5464,7 +5583,7 @@ async def handle_history_ready(sid, data):
                 ts = event.get("timestamp")
                 if isinstance(ts, datetime):
                     event["timestamp"] = ts.isoformat()
-                    enrich_event_with_local_timestamp(event["data"], tz_name)
+                    enrich_event_with_local_timestamp(event["data"], tz_name)          
                 else:
                     print(f"[SKIP] No timestamp found in event for org {org}")
 
@@ -5500,6 +5619,14 @@ async def handle_history_ready(sid, data):
 
 
 
+
+
+
+
+
+
+
+
     #############################
     #   DISCONNECT      #########
     #############################
@@ -5508,15 +5635,21 @@ async def handle_history_ready(sid, data):
 
 
 
+
 @sio.on("disconnect")
 async def handle_disconnect(sid):
     print("SOCKET DISCONNECTED:", sid)
-    environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
-    if not app or not hasattr(app.state, "redis_client"):
-        print("Redis not available")
+    fastapi_app = sio.fastapi_app
+
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+      
         return
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
+
+
+
     try:
         # Get connection info from Redis
         connection_key = f"connection:{sid}"
@@ -5529,13 +5662,10 @@ async def handle_disconnect(sid):
 
         if connection_data:
             # Decode Redis fields
-            org_id_bytes = connection_data.get(b"org_id")
-            org_id = int(org_id_bytes.decode()) if org_id_bytes else None
-
-            user_id_bytes = connection_data.get(b"user_id")
-            user_id = int(user_id_bytes.decode()) if user_id_bytes else None
-            manual_mode_bytes = connection_data.get(b"manualmode_triggered", b"false")
-            manual_mode = (manual_mode_bytes.decode() if isinstance(manual_mode_bytes, bytes) else str(manual_mode_bytes)) == "true"
+            org_id = int(connection_data["org_id"])
+            user_id = int(connection_data["user_id"])
+            manual_mode = connection_data.get("manualmode_triggered") == "true"
+            session_id = connection_data.get("session_id")
 
             # Mark disconnected_at in Redis
             disconnected_at = datetime.utcnow().isoformat()
@@ -5543,34 +5673,69 @@ async def handle_disconnect(sid):
             print(f"Admin {user_id} from org {org_id} disconnected with socket ID {sid}")
 
             async def cleanup_after_grace_period():
+                print(f"[Grace Period] Starting cleanup for {sid}")
                 await asyncio.sleep(15)  # Grace period
 
-                lock_key = f"org_cleanup_lock:{org_id}"
-                lock_id = str(uuid.uuid4())
+           
+               
+                print("ide??")
+                try_count = 0
+                while try_count < 2:
+                    try: 
+                        print("kezdődik")  
+                        conn = await redis.exists(connection_key)
+                        if not conn:
+                            print("Connection already cleaned up.")
+                            return
 
-                acquired = await acquire_redis_lock(redis, lock_key, lock_id)
-                if not acquired:
-                    print(f"[Grace Period] Another worker is already cleaning org {org_id}")
-                    return  # Another worker is handling cleanup
-                try:
-                    try_count = 0
-                    while try_count < 2:
-                        try:   
-                            conn = await redis.hget(connection_key, "disconnected_at")
-                            if not conn or conn == b"null":
-                                print(f"[Grace Period] User {user_id} reconnected, skip cleanup.")
-                                return
+                        # Check for other active admins (still connected)
+                        
+                        await redis.srem(f"org:{org_id}:connections", sid)
+                        print("About to delete", f"connection:{sid}")
+                        deleted=await redis.delete(f"connection:{sid}")
+                        print("Deleted result:", deleted)
 
-                            # Check for other active admins (still connected)
-                            org_set_key = f"org:{org_id}:connections"
-                            active_sockets = await redis.smembers(org_set_key)
-                            active_sockets = [s.decode() for s in active_sockets if s.decode() != sid]
+                        org_sids = await redis.smembers(f"org:{org_id}:connections")
+                      
 
-                            print(f"[Grace Period] Active sockets for org {org_id}: {len(active_sockets)}")
+                        print(f"[Grace Period] Active sockets for org {org_id}: {len(org_sids)}")
+                        
+
+                        still_online = False
+
+                        for sid_ in org_sids:
+                            conn = await redis.hgetall(f"connection:{sid_}")
+                            if conn and conn.get("user_id") == str(user_id):
+                                still_online = True
+                                break
+                        
+                        if not still_online:
+                            for sid_ in org_sids:
+                                await sio.emit(
+                                    "user_online_status_changed",
+                                    {"user_id": user_id, "is_online": False},
+                                    to=sid_
+                                )
+
+                            print(f"Admin {user_id} from org {org_id} went offline")
+                        else:
+                            print(f"Admin {user_id} from org {org_id} disconnected from session {session_id}, but remained active sessions")
 
 
-                            if not active_sockets:
-                                # No active connections → reset mode and clear entries
+                        print("sidek", org_sids) 
+                        if len(org_sids)==0:
+                            # here we lock, in order that one cleaning per org will be achieved
+                            lock_key = f"org_cleanup_lock:{org_id}"
+                            lock_id = str(uuid.uuid4())
+
+                            acquired = await acquire_redis_lock(redis, lock_key, lock_id)
+                            if not acquired:
+                                print(f"[Grace Period] Another worker is already cleaning org {org_id}")
+                                return  # Another worker is handling cleanup
+                            # No active connections → reset mode and clear entries
+
+                            
+                            try:
                                 async with async_session_scope() as delayed_session:
                                     await delayed_session.execute(
                                         delete(OrgEventLog).where(OrgEventLog.org_id == org_id)
@@ -5580,15 +5745,9 @@ async def handle_disconnect(sid):
                                     )
                                     await redis.delete(f"user_mode_override:{org_id}")
 
-                                    await delayed_session.execute(
-                                        update(User)
-                                        .where(User.client_id == org_id, User.is_deleted.is_(False))
-                                        .values(admin_internal_message_open=None)
-                                    )
-
+                        
                                     # Clear Redis tab mode keys for this org
-                                    tab_mode_keys = await redis.keys(f"org:{org_id}:tab:*:mode")
-                                    for key in tab_mode_keys:
+                                    async for key in redis.scan_iter(f"org:{org_id}:tab:*:mode"):
                                         await redis.delete(key)
                                     
                                     client_to_update = await delayed_session.scalar(
@@ -5605,35 +5764,37 @@ async def handle_disconnect(sid):
                                     
                                     print(f"Cleared entries and reset mode for org {org_id}")
 
-                            else:
+                            except Exception as e:
+                                print(f"[DB] Cleanup failed for org {org_id}: {e}")
+                            finally:
+                                await release_redis_lock(redis, lock_key, lock_id)
+                        else:
 
-                              
-                                # There are still active admins → propagate manualmode if needed
-                                if manual_mode:
-                                # Pick another still-active socket from the same org
-                                    for s in active_sockets:
-                                        other_conn = await redis.hgetall(f"connection:{s}")
-                                        if other_conn:
-                                            disconnected_at = other_conn.get(b"disconnected_at")
-                                            if not disconnected_at or disconnected_at == b"null":
-                                                # Found a valid still-connected admin → give them manual mode
-                                                await redis.hset(f"connection:{s}", mapping={"manualmode_triggered": "true"})
-                                                print(f"[Grace Period] Propagated manualmode_triggered from {sid} → {s}")
-                                                break
-                                # Finally, clean up this disconnected connection
-                                await redis.srem(f"org:{org_id}:connections", sid)
-                                await redis.delete(connection_key)
-                                print(f"[Grace Period] Deleted disconnected user {user_id} (socket {sid}) from Redis")
-                            break
-                        except Exception as e:
-                            try_count += 1
-                            print(f"[Grace Period] Cleanup attempt {try_count} failed for socket {sid}: {e}")
-                            if try_count < 2:
-                                print("Retrying cleanup once more...")
-                            else:
-                                print("Cleanup failed after one retry, skipping.")
-                finally:
-                    await release_redis_lock(redis, lock_key, lock_id)
+                            
+                            # There are still active admins → propagate manualmode if needed
+                            if manual_mode:
+                            # Pick another still-active socket from the same org
+                                for s in org_sids:
+                                    other_conn = await redis.hgetall(f"connection:{s}")
+                                    if other_conn:
+                                        disconnected_at = other_conn.get("disconnected_at")
+                                        if not disconnected_at or disconnected_at == "null":
+                                            # Found a valid still-connected admin → give them manual mode
+                                            await redis.hset(f"connection:{s}", mapping={"manualmode_triggered": "true"})
+                                            print(f"[Grace Period] Propagated manualmode_triggered from {sid} → {s}")
+                                            break
+                            # Finally, clean up this disconnected connection
+                            
+                            print(f"[Grace Period] Deleted disconnected user {user_id} (socket {sid}) from Redis")
+                        break
+                    except Exception as e:
+                        try_count += 1
+                        print(f"[Grace Period] Cleanup attempt {try_count} failed for socket {sid}: {e}")
+                        if try_count < 2:
+                            print("Retrying cleanup once more...")
+                        else:
+                            print("Cleanup failed after one retry, skipping.")
+                
             asyncio.create_task(cleanup_after_grace_period())
 
         
@@ -5742,8 +5903,10 @@ def deduplicate_messages(recent_messages):
 @sio.on("mode_changed")
 async def handle_mode_changed(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
+
     for key, value in cookies:
         if key == b"cookie":
             cookie_str = value.decode()
@@ -5752,13 +5915,17 @@ async def handle_mode_changed(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
-    if not app or not hasattr(app.state, "redis_client"):
-        print("Redis not available")
+    fastapi_app = sio.fastapi_app
+
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-    redis = app.state.redis_client
-    cpu_pool = app.state.cpu_pool
-    cpu_sem = app.state.cpu_sem
+    
+   
+    redis = fastapi_app.state.redis_client
+    cpu_pool = fastapi_app.state.cpu_pool
+    cpu_sem = fastapi_app.state.cpu_sem
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -5780,9 +5947,11 @@ async def handle_mode_changed(sid, data):
         print(f"[Redis] No connection found for SID {sid}")
         return
 
-    org_id = connection_data.get(b"org_id")
-    org_id = int(org_id.decode()) if org_id else None
-        #org_modes[org_id] = mode
+    org_id_str = connection_data.get("org_id")
+    org_id = int(org_id_str) if org_id_str else None
+    if org_id is None:
+        print(f"[Redis] org_id missing in connection {sid}")
+        return
     
     
      # --- Update client mode ---
@@ -5811,8 +5980,7 @@ async def handle_mode_changed(sid, data):
             # Delete all tab_mode keys for this org
         try:
             tab_mode_keys = await redis.keys(f"org:{org_id}:tab:*:mode")
-            tab_mode_keys = [k.decode() if isinstance(k, bytes) else k for k in tab_mode_keys]
-
+            
             if tab_mode_keys:
                 await asyncio.gather(*(redis.delete(k) for k in tab_mode_keys))
                 print(f"Deleted {len(tab_mode_keys)} tab_mode keys for org {org_id}")
@@ -5833,9 +6001,7 @@ async def handle_mode_changed(sid, data):
        
         org_set_key = f"org:{org_id}:connections"
         active_sockets = await redis.smembers(org_set_key)
-        active_sockets = [s.decode() for s in active_sockets if s.decode() != sid]
-
-        
+        active_sockets = [s for s in active_sockets if s != sid]
         
         for other_sid in active_sockets:
           
@@ -5868,8 +6034,7 @@ async def handle_mode_changed(sid, data):
       
         org_set_key = f"org:{org_id}:connections"
         active_sockets = await redis.smembers(org_set_key)
-        active_sockets = [s.decode() for s in active_sockets if s.decode() != sid]
-
+        active_sockets = [s for s in active_sockets if s != sid]
     
         # message_payload = []
         # for event in final_data:
@@ -5878,9 +6043,9 @@ async def handle_mode_changed(sid, data):
         #     message_payload.append(msg_with_ts)
         # SAME:  ** : creates a new dict that contains all keys/values from event['data'] plus a key 'timestamp' with the new value.
         message_payload = [
-            {**event['data'], 'timestamp': event['timestamp']}
-            for event in final_data
-        ]
+        {**event['data'], 'timestamp': event['timestamp'].isoformat() if isinstance(event['timestamp'], datetime.datetime) else event['timestamp']}
+        for event in final_data
+    ]
     
         if active_sockets :
             try:
@@ -5911,8 +6076,10 @@ async def handle_mode_changed(sid, data):
 
 @sio.on("update_response_state")  # the rectangles' state if it is manual or automatic
 async def handle_update_response_state(sid, data):
+    print("NA???", data)
 
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -5922,11 +6089,16 @@ async def handle_update_response_state(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
-    if not app or not hasattr(app.state, "redis_client"):
-        print("Redis not available")
+
+    fastapi_app = sio.fastapi_app
+
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -5945,11 +6117,8 @@ async def handle_update_response_state(sid, data):
               return
 
           # Extract org_id (and user_id if needed)
-          org_id = int(conn_data.get(b"org_id", 0))
-          if org_id is not None:
-              org_id = int(org_id.decode())  # decode bytes → string → int
-          else:
-              org_id = 0  # or handle missing org_id
+          org_id_str = conn_data.get("org_id")
+          org_id = int(org_id_str) if org_id_str else 0
 
 
     except Exception as e:
@@ -5993,9 +6162,8 @@ async def handle_update_response_state(sid, data):
       org_key = f"org:{org_id}:connections"
 
       # Get all socket IDs for this org from Redis
-      sids_bytes = await redis.smembers(org_key)
-      sids = [s.decode() for s in sids_bytes]
-
+      sids = await redis.smembers(org_key)
+    
       # Exclude the current sender's socket
       other_sids = [s for s in sids if s != sid]
       if other_sids:
@@ -6026,6 +6194,7 @@ async def handle_update_response_state(sid, data):
                 }
             ),
         )
+        print("OKOKOK")
     except Exception as redis_err:
         print(f"Redis publish error: {redis_err}")
 
@@ -6042,7 +6211,8 @@ async def handle_update_response_state(sid, data):
 @sio.on("update_response_state_overallmanual")  # the rectangles' state if it is manual or automatic
 async def handle_update_response_state_overallmanual(sid, data):
 
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -6052,11 +6222,15 @@ async def handle_update_response_state_overallmanual(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
-    if not app or not hasattr(app.state, "redis_client"):
-        print("Redis not available")
+    fastapi_app = sio.fastapi_app
+
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -6074,12 +6248,12 @@ async def handle_update_response_state_overallmanual(sid, data):
             print(f"[Redis] No connection found for socket_id {sid}")
             return
 
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
 
 
 
@@ -6118,10 +6292,7 @@ async def handle_update_response_state_overallmanual(sid, data):
 
     try:
         org_key = f"org:{org_id}:connections"
-        sids_bytes = await redis.smembers(org_key)  # returns set of bytes
-
-        # Decode to strings
-        sids = [s.decode() for s in sids_bytes]
+        sids = await redis.smembers(org_key)  # returns set of bytes
 
         other_sids = [s for s in sids if s != sid]
         if other_sids:
@@ -6177,7 +6348,8 @@ async def handle_update_response_state_overallmanual(sid, data):
 @sio.on("admin_response")
 async def handle_admin_response(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -6187,17 +6359,15 @@ async def handle_admin_response(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -6213,19 +6383,13 @@ async def handle_admin_response(sid, data):
 
         # Fetch all hash fields for this connection
         connection_data = await redis.hgetall(connection_key)
-
-        # Check if connection exists
-        if not connection_data:
-            print(f"[Redis] No connection found for socket_id {sid}")
-            return
-
-        # Extract org_id and convert to integer
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
+
     except Exception as e:
         print(f"Error fetching connection for socket_id {sid}: {e}")
         return
@@ -6250,8 +6414,7 @@ async def handle_admin_response(sid, data):
     
     try:    # NOT SENDING TO ROOMS (because of REDIS) BUT TO SIDS DIRECTLY
         org_key = f"org:{org_id}:connections"
-        sids_bytes = await redis.smembers(org_key)
-        sids = [s.decode() for s in sids_bytes]
+        sids = await redis.smembers(org_key)
         other_sids = [s for s in sids if s != sid]
         if other_sids:
             await asyncio.gather(
@@ -6273,7 +6436,8 @@ async def handle_admin_response(sid, data):
 async def handle_update_colleagues_input(sid, data):
     
 
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -6283,17 +6447,15 @@ async def handle_update_colleagues_input(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -6314,12 +6476,12 @@ async def handle_update_colleagues_input(sid, data):
             print(f"[Redis] No connection found for socket_id {sid}")
             return
         
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
 
 
  
@@ -6337,9 +6499,8 @@ async def handle_update_colleagues_input(sid, data):
     # Broadcast to other SIDs in the same org (skip sender)
     try:
         org_key = f"org:{org_id}:connections"
-        sids_bytes = await redis.smembers(org_key)
-        sids = [s.decode() for s in sids_bytes]
-
+        sids = await redis.smembers(org_key)
+        
         other_sids = [s for s in sids if s != sid]
         if other_sids:
             await asyncio.gather(
@@ -6359,7 +6520,8 @@ async def handle_update_colleagues_input(sid, data):
 @sio.on("one_colleague_input")
 async def handle_one_colleague_input(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -6369,17 +6531,15 @@ async def handle_one_colleague_input(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -6397,12 +6557,12 @@ async def handle_one_colleague_input(sid, data):
             print(f"[Redis] No connection found for socket_id {sid}")
             return
         
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
 
     except Exception as e:
         print(f"Error handling one_colleague_input: {e}")
@@ -6419,8 +6579,8 @@ async def handle_one_colleague_input(sid, data):
 
     try:
         org_key = f"org:{org_id}:connections"
-        sids_bytes = await redis.smembers(org_key)
-        sids = [s.decode() for s in sids_bytes]
+        sids = await redis.smembers(org_key)
+    
         other_sids = [s for s in sids if s != sid]
         if other_sids:
             await asyncio.gather(
@@ -6439,7 +6599,8 @@ async def handle_one_colleague_input(sid, data):
 @sio.on("admin_internal_message")
 async def handle_admin_internal_message(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -6449,17 +6610,15 @@ async def handle_admin_internal_message(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -6485,12 +6644,12 @@ async def handle_admin_internal_message(sid, data):
             print(f"[Redis] No connection found for socket_id {sid}")
             return
         
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
 
         async with async_session_scope() as session:
             
@@ -6522,8 +6681,8 @@ async def handle_admin_internal_message(sid, data):
 
             # Get all other connections in the same org
             org_key = f"org:{org_id}:connections"
-            sids_bytes = await redis.smembers(org_key)
-            sids = [s.decode() for s in sids_bytes]
+            sids = await redis.smembers(org_key)
+           
             other_sids = [s for s in sids if s != sid]
 
 
@@ -6554,7 +6713,8 @@ async def handle_admin_internal_message(sid, data):
 @sio.on("admin_internal_message_open")
 async def handle_internal_message_open(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -6564,17 +6724,15 @@ async def handle_internal_message_open(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -6602,7 +6760,8 @@ async def handle_internal_message_open(sid, data):
 @sio.on("admin_internal_message_close")
 async def handle_internal_message_close(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -6612,17 +6771,15 @@ async def handle_internal_message_close(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -6649,7 +6806,8 @@ async def handle_internal_message_close(sid, data):
 @sio.on("remove_onecolleague_input")
 async def handle_remove_colleague_input(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -6659,17 +6817,15 @@ async def handle_remove_colleague_input(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -6689,12 +6845,12 @@ async def handle_remove_colleague_input(sid, data):
             print(f"[Redis] No connection found for socket_id {sid}")
             return
         
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
     except Exception as e:
         print(f"Error handling one_colleague_input: {e}")
         return
@@ -6718,9 +6874,8 @@ async def handle_remove_colleague_input(sid, data):
     #socketio.emit('one_colleague_removal', inputValueRemoveOne , room=org_id, include_self=False)
     try:
         org_key = f"org:{org_id}:connections"
-        sids_bytes = await redis.smembers(org_key)
-        target_sids = [s.decode() for s in sids_bytes]
-
+        target_sids = await redis.smembers(org_key)
+      
         tasks = [
             sio.emit(
                 "one_colleague_removal",
@@ -6743,7 +6898,8 @@ async def handle_remove_colleague_input(sid, data):
 @sio.on("add_colleague")
 async def handle_add_colleague(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -6753,17 +6909,15 @@ async def handle_add_colleague(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -6782,12 +6936,12 @@ async def handle_add_colleague(sid, data):
             print(f"[Redis] No connection found for socket_id {sid}")
             return
         
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
     except Exception as e:
         print(f"Error handling add_colleague: {e}")
         return
@@ -6805,9 +6959,8 @@ async def handle_add_colleague(sid, data):
 
         try:
             org_key = f"org:{org_id}:connections"
-            sids_bytes = await redis.smembers(org_key)
-            sids = [s.decode() for s in sids_bytes]
-
+            sids = await redis.smembers(org_key)
+            
             other_sids = [s for s in sids if s != sid]
             if other_sids:
                 await asyncio.gather(
@@ -6821,7 +6974,8 @@ async def handle_add_colleague(sid, data):
 @sio.on("remove_colleague")
 async def handle_remove_colleague(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -6831,17 +6985,15 @@ async def handle_remove_colleague(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -6861,12 +7013,12 @@ async def handle_remove_colleague(sid, data):
             print(f"[Redis] No connection found for socket_id {sid}")
             return
         
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
     except Exception as e:
         print(f"Error handling remove_colleague: {e}")
         return
@@ -6881,9 +7033,8 @@ async def handle_remove_colleague(sid, data):
 
     try:
         org_key = f"org:{org_id}:connections"
-        sids_bytes = await redis.smembers(org_key)
-        sids = [s.decode() for s in sids_bytes]
-
+        sids = await redis.smembers(org_key)
+     
         other_sids = [s for s in sids if s != sid]
         if other_sids:
             results = await asyncio.gather(
@@ -6907,7 +7058,8 @@ async def handle_remove_colleague(sid, data):
 @sio.on("admin_response_manual_for_logging")
 async def handle_admin_response_manual_for_logging(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -6917,17 +7069,16 @@ async def handle_admin_response_manual_for_logging(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
 
-    if not app:
-        print("FastAPI app not available")
+    fastapi_app = sio.fastapi_app
+
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -6947,12 +7098,12 @@ async def handle_admin_response_manual_for_logging(sid, data):
             print(f"[Redis] No connection found for socket_id {sid}")
             return
         
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
     except Exception as e:
         print(f"Error handling admin_response_manual_for_logging: {e}")
         return
@@ -6995,7 +7146,8 @@ async def handle_create_tabs(sid, data):
 
     
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -7005,19 +7157,18 @@ async def handle_create_tabs(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
 
-    if not app:
-        print("FastAPI app not available")
+    fastapi_app = sio.fastapi_app
+
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
-    cpu_pool = app.state.cpu_pool
-    cpu_sem = app.state.cpu_sem
+    
+   
+    redis = fastapi_app.state.redis_client
+    cpu_pool = fastapi_app.state.cpu_pool
+    cpu_sem = fastapi_app.state.cpu_sem
   
 
     # Validate session
@@ -7044,12 +7195,12 @@ async def handle_create_tabs(sid, data):
             print(f"[Redis] No connection found for socket_id {sid}")
             return
         
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
     except Exception as e:
         print(f"Error handling createTabs: {e}")
         return
@@ -7093,9 +7244,8 @@ async def handle_create_tabs(sid, data):
 
         try:
             org_key = f"org:{org_id}:connections"
-            sids_bytes = await redis.smembers(org_key)
-            sids = [s.decode() for s in sids_bytes]
-
+            sids = await redis.smembers(org_key)
+            
             tasks = [sio.emit("createTabs", {"tabs": tabs}, to=s) for s in sids if s != sid]
             if tasks:
                 results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -7144,15 +7294,12 @@ async def handle_create_tabs(sid, data):
                     return messages
 
                 messages = await run_cpu_task(build_unique_messages_and_sorted, recent_messages, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
-                
-          
 
                 org_connections_key = f"org:{org}:connections"
 
                 # 1. Get all active socket IDs for this org
-                sids_bytes = await redis.smembers(org_connections_key)
-                sids = [s.decode() for s in sids_bytes]
-
+                sids = await redis.smembers(org_connections_key)
+         
                 admin_sid = None
 
                 # 2. Iterate through each connection to find the one for this user
@@ -7163,8 +7310,8 @@ async def handle_create_tabs(sid, data):
                         continue
 
                     # Compare user_id
-                    user_id_bytes = connection_data.get(b"user_id")
-                    if user_id_bytes and int(user_id_bytes.decode()) == int(user_id):
+                    user_id_str = connection_data.get("user_id")  # key is now string
+                    if user_id_str and int(user_id_str) == int(user_id):
                         admin_sid = sid
                         break  # found the matching user, stop here
 
@@ -7194,7 +7341,8 @@ async def handle_create_tabs(sid, data):
 @sio.on("admin_response_manual")
 async def handle_admin_response_manual(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -7204,19 +7352,17 @@ async def handle_admin_response_manual(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
-    cpu_pool = app.state.cpu_pool
-    cpu_sem = app.state.cpu_sem
+    
+   
+    redis = fastapi_app.state.redis_client
+    cpu_pool = fastapi_app.state.cpu_pool
+    cpu_sem = fastapi_app.state.cpu_sem
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -7233,13 +7379,13 @@ async def handle_admin_response_manual(sid, data):
         if not connection_data:
             print(f"[Redis] No connection found for socket_id {sid}")
             return
-        
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
 
     except Exception as e:
         print(f"Error handling admin_response_manual (DB lookup): {e}")
@@ -7261,9 +7407,8 @@ async def handle_admin_response_manual(sid, data):
      # Broadcast to other clients
     try:
         org_key = f"org:{org_id}:connections"
-        sids_bytes = await redis.smembers(org_key)
-        sids = [s.decode() for s in sids_bytes]
-
+        sids = await redis.smembers(org_key)
+        
         other_sids = [s for s in sids if s != sid]
         if other_sids:
             results = await asyncio.gather(
@@ -7285,7 +7430,8 @@ async def handle_admin_response_manual(sid, data):
 @sio.on("show_edit_tabs")
 async def handle_show_edit_tabs(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -7295,17 +7441,15 @@ async def handle_show_edit_tabs(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -7321,13 +7465,13 @@ async def handle_show_edit_tabs(sid, data):
         if not connection_data:
             print(f"[Redis] No connection found for socket_id {sid}")
             return
-        
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
     except Exception as e:
         print(f"Error handling show_edit_tabs (DB lookup): {e}")
         return
@@ -7343,9 +7487,8 @@ async def handle_show_edit_tabs(sid, data):
 
     try:
         org_key = f"org:{org_id}:connections"
-        sids_bytes = await redis.smembers(org_key)
-        sids = [s.decode() for s in sids_bytes]
-
+        sids = await redis.smembers(org_key)
+        
         other_sids = [s for s in sids if s != sid]
         if other_sids:
             results = await asyncio.gather(
@@ -7363,7 +7506,8 @@ async def handle_show_edit_tabs(sid, data):
 @sio.on("clear_input_field")
 async def handle_clear_input_field(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -7373,17 +7517,15 @@ async def handle_clear_input_field(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
 
     # Validate session
@@ -7401,13 +7543,13 @@ async def handle_clear_input_field(sid, data):
         if not connection_data:
             print(f"[Redis] No connection found for socket_id {sid}")
             return
-        
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
     except Exception as e:
         print(f"Error handling clear_input_field (DB lookup): {e}")
         return
@@ -7423,9 +7565,8 @@ async def handle_clear_input_field(sid, data):
 
     try:
         org_key = f"org:{org_id}:connections"
-        sids_bytes = await redis.smembers(org_key)
-        sids = [s.decode() for s in sids_bytes]
-
+        sids = await redis.smembers(org_key)
+      
         other_sids = [s for s in sids if s != sid]
         if other_sids:
             results = await asyncio.gather(
@@ -7442,7 +7583,8 @@ async def handle_clear_input_field(sid, data):
 @sio.on("show_tabs_input")
 async def handle_show_tabs_input(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -7451,18 +7593,16 @@ async def handle_show_tabs_input(sid, data):
                 if c.strip().startswith("session_id="):
                     session_id = c.strip().split("=")[1]
 
-    environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
 
     # Validate session
@@ -7481,13 +7621,13 @@ async def handle_show_tabs_input(sid, data):
         if not connection_data:
             print(f"[Redis] No connection found for socket_id {sid}")
             return
-        
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
     except Exception as e:
         print(f"Error handling show_tabs_input (DB lookup): {e}")
         return
@@ -7501,9 +7641,8 @@ async def handle_show_tabs_input(sid, data):
     # Broadcast to other clients
     try:
         org_key = f"org:{org_id}:connections"
-        sids_bytes = await redis.smembers(org_key)
-        sids = [s.decode() for s in sids_bytes]
-
+        sids = await redis.smembers(org_key)
+    
         other_sids = [s for s in sids if s != sid]
         if other_sids:
             results = await asyncio.gather(
@@ -7521,7 +7660,8 @@ async def handle_show_tabs_input(sid, data):
 @sio.on("update_tab_name")
 async def handle_update_tab_name(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -7531,17 +7671,15 @@ async def handle_update_tab_name(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
 
     # Validate session
@@ -7561,13 +7699,13 @@ async def handle_update_tab_name(sid, data):
         if not connection_data:
             print(f"[Redis] No connection found for socket_id {sid}")
             return
-        
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
     except Exception as e:
         print(f"Error handling update_tab_name (DB lookup): {e}")
         return
@@ -7590,9 +7728,8 @@ async def handle_update_tab_name(sid, data):
         #emit('tab_name_updated', {'uniqueId': unique_id, 'newName': new_name}, room=org_id, include_self=False)
         try:
             org_key = f"org:{org_id}:connections"
-            sids_bytes = await redis.smembers(org_key)
-            sids = [s.decode() for s in sids_bytes]
-
+            sids = await redis.smembers(org_key)
+           
             other_sids = [s for s in sids if s != sid]
             if other_sids:
                 results = await asyncio.gather(
@@ -7608,7 +7745,8 @@ async def handle_update_tab_name(sid, data):
 @sio.on("log_message_distribution")
 async def handle_message_distribution(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -7618,17 +7756,16 @@ async def handle_message_distribution(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
 
-    if not app:
-        print("FastAPI app not available")
+    fastapi_app = sio.fastapi_app
+
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
 
     # Validate session
@@ -7645,13 +7782,13 @@ async def handle_message_distribution(sid, data):
         if not connection_data:
             print(f"[Redis] No connection found for socket_id {sid}")
             return
-        
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
 
     except Exception as e:
         print(f"Error handling log_message_distribution for socket {sid}: {e}")
@@ -7692,9 +7829,8 @@ async def handle_message_distribution(sid, data):
     
     try:
         org_key = f"org:{org_id}:connections"
-        sids_bytes = await redis.smembers(org_key)
-        sids = [s.decode() for s in sids_bytes]
-
+        sids = await redis.smembers(org_key)
+       
         other_sids = [s for s in sids if s != sid]
         if other_sids:
             results = await asyncio.gather(
@@ -7718,7 +7854,8 @@ async def handle_message_distribution(sid, data):
 @sio.on("store_message_to_redis")  # Az összes többi usernek kiküldi a fő kivételével manualmódban
 async def handle_store_message_to_redis(sid, data):
     
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -7728,19 +7865,17 @@ async def handle_store_message_to_redis(sid, data):
                     session_id = c.strip().split("=")[1]
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
+    fastapi_app = sio.fastapi_app
 
-    if not app:
-        print("FastAPI app not available")
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
-    cpu_pool = app.state.cpu_pool
-    cpu_sem = app.state.cpu_sem
+    
+   
+    redis = fastapi_app.state.redis_client
+    cpu_pool = fastapi_app.state.cpu_pool
+    cpu_sem = fastapi_app.state.cpu_sem
 
     # Validate session
     if not session_id or not await redis.exists(f"session:{session_id}"):
@@ -7759,13 +7894,13 @@ async def handle_store_message_to_redis(sid, data):
         if not connection_data:
             print(f"[Redis] No connection found for socket_id {sid}")
             return
-        
-        org_id_bytes = connection_data.get(b"org_id")
-        if not org_id_bytes:
+
+        org_id_str = connection_data.get("org_id")
+        if not org_id_str:
             print(f"[Redis] Connection for socket_id {sid} has no org_id")
             return
 
-        org_id = int(org_id_bytes.decode())
+        org_id = int(org_id_str)
     except Exception as e:
         print(f"Error accessing DB for socket ID: {e}")
         return
@@ -7814,7 +7949,7 @@ async def handle_store_message_to_redis(sid, data):
         current_length = await redis.llen(redis_key)
         print("JELENLEGI MESSAGE FELTÖLTÉS: ", current_length)
         emit_lock_key = f"batch_emitted:{org_id}:batch_temp"
-        lock_value = str(uuid.uuid4())  # 🔐 unique lock ID for this worker
+        lock_value = str(uuid.uuid4())  # unique lock ID for this worker
 
         # Try to acquire the lock (nx=True ensures only one process gets it)
         lock_set = await redis.set(emit_lock_key, lock_value, nx=True, ex=10)
@@ -7843,9 +7978,8 @@ async def handle_store_message_to_redis(sid, data):
 
                 # Fetch all SIDs for the org
                 org_key = f"org:{org_id}:connections"
-                sids_bytes = await redis.smembers(org_key)
-                sids = [s.decode() for s in sids_bytes]
-
+                sids = await redis.smembers(org_key)
+   
 
                 other_sids = [s for s in sids if s != socket_id]
                 if other_sids:
@@ -7866,7 +8000,7 @@ async def handle_store_message_to_redis(sid, data):
                 # Safe lock deletion You only delete the lock if you still own it. With the concrete value nut just adding simple 1 a basic (non-unique) lock — value = "1"
                 try:
                     stored_value = await redis.get(emit_lock_key)
-                    if stored_value and stored_value.decode() == lock_value:
+                    if stored_value and stored_value == lock_value:
                         await redis.delete(emit_lock_key)
                         print(f"[Lock] Released lock safely for org {org_id}")
                     else:
@@ -7902,7 +8036,8 @@ async def handle_tab_mode_change(sid, data):
     Handles when a user switches a tab between manual/automatic mode.
     Broadcasts the new state to other users in the same org.
     """
-    cookies = sio.environ.get(sid, {}).get("asgi.scope", {}).get("headers", [])
+    environ = sio.get_environ(sid)  # get environ first
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
     session_id = None
     for key, value in cookies:
         if key == b"cookie":
@@ -7913,17 +8048,16 @@ async def handle_tab_mode_change(sid, data):
                     break
 
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
 
-    if not app:
-        print("FastAPI app not available")
+    fastapi_app = sio.fastapi_app
+
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
 
     # Validate session
@@ -7943,15 +8077,15 @@ async def handle_tab_mode_change(sid, data):
             return
 
         # Extract org_id and user_id safely
-        org_id_bytes = connection_data.get(b"org_id")
-        user_id_bytes = connection_data.get(b"user_id")
+        org_id_str = connection_data.get("org_id")
+        user_id_str = connection_data.get("user_id")
 
-        if not org_id_bytes or not user_id_bytes:
+        if not org_id_str or not user_id_str:
             print(f"[Redis][tab_mode_change] Connection for SID {sid} is missing org_id or user_id")
             return
 
-        org_id = int(org_id_bytes.decode())
-        user_id = int(user_id_bytes.decode())
+        org_id = int(org_id_str)
+        user_id = int(user_id_str)
     except Exception as e:
         print(f"DB lookup error in handle_tab_mode_change: {e}")
         return
@@ -7980,9 +8114,8 @@ async def handle_tab_mode_change(sid, data):
     # Broadcast change to all other connected clients in the same org
     try:
         org_key = f"org:{org_id}:connections"
-        sids_bytes = await redis.smembers(org_key)
-        sids = [s.decode() for s in sids_bytes]
-
+        sids = await redis.smembers(org_key)
+  
         other_sids = [s for s in sids if s != sid]
         if other_sids:
             results = await asyncio.gather(
@@ -8009,17 +8142,16 @@ async def handle_tab_mode_change(sid, data):
 async def handle_pending_allocation(sid, data):
     print("Received tab allocation:", data)
     environ = sio.get_environ(sid)
-    app = environ.get("asgi.scope", {}).get("app")
 
-    if not app:
-        print("FastAPI app not available")
+    fastapi_app = sio.fastapi_app
+
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
         return
-
-    if not hasattr(app.state, "redis_client"):
-        print("Redis not available")
-        return
-
-    redis = app.state.redis_client
+    
+   
+    redis = fastapi_app.state.redis_client
 
 
     await redis.publish(

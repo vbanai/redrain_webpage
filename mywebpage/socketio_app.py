@@ -7,3 +7,7 @@ sio = socketio.AsyncServer(
     cors_allowed_origins="*",
     message_queue=redis_url
 )
+
+
+
+sio.fastapi_app = None

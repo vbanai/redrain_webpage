@@ -51,6 +51,8 @@ const dropdownAddOneColleague = document.getElementById('dropdown-add-colleague'
 const dropdownRemoveOneColleague = document.getElementById('dropdown-remove-colleague');
 
 
+
+
 // Add the keydown listener once on page load
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
@@ -1018,6 +1020,7 @@ function createUserButtonContainer_manual(message, language, tabIndex) {
     console.log("-----------------4")
     // Click event to toggle button text and color + handling the waiting message if we should append or not
     adminResponseButton.onclick = () => {
+      console.log("ADmin REsponse button click MANU 1")
       automaticResponseStates_overallManual[tabIndex][message.user_id] = !automaticResponseStates_overallManual[tabIndex][message.user_id];
       //const language = localStorage.getItem('language') || 'hu';
       userButtons_manual[tabIndex][message.user_id].textContent = automaticResponseStates_overallManual[tabIndex][message.user_id] ? translations[language]['manualIntervention'] : translations[language]['automaticResponse'];
@@ -1150,7 +1153,7 @@ console.log("-----------------6")
       chatBox.classList.remove('awaiting-response');
       userRectangle.classList.remove('awaiting-response');
 
-console.log("-----------------7")
+      console.log("-----------------7")
         
 
         
@@ -1496,9 +1499,9 @@ function renderTextWithLinks(parentElement, text) {
 
 
 async function appendMessage(message) {
-  
-  const formattedTime = formatTimestampForClient(message.timestamp);
+  console.log("BEÉRKEZEK IDE EGYÁLTALÁN??????")
 
+  const formattedTime = formatTimestampForClient(message.timestamp);
   //Convert timestamp to UTC Date
   if (message.timestamp) {
       if (typeof message.timestamp === 'number') {
@@ -1524,9 +1527,9 @@ async function appendMessage(message) {
   } else {
       console.warn("No timestamp found in message");
   }
-
   let chatBox = null;
   let tabContentForChatBox = null;
+  console.log(manualMode)
   if (manualMode) {
     const language = localStorage.getItem('language') || 'hu';
     const translation_Sent_User = {
@@ -1988,7 +1991,44 @@ async function appendMessage(message) {
 
 
 
+    let attachmentHtml = '';
 
+    // Check if message.user_message is JSON with attachment
+    if (typeof message.user_message === 'string' && message.user_message.trim().startsWith('{')) {
+        try {
+            const msgObj = JSON.parse(message.user_message);
+
+            // If there is an attachment, extract it
+            if (msgObj.attachment) {
+                const mime = msgObj.attachment.mime_type;
+                const data = msgObj.attachment.data;
+
+                if (mime?.startsWith('image/')) {
+                    attachmentHtml = `<img src="${data}" class="attachment" />`;
+                } else {
+                    // PDF/DOCX or other → small icon + link
+                    let icon = '📝';
+                    if (mime.includes('pdf')) icon = '📄';
+                    else if (mime.includes('word') || mime.includes('msword') || mime.includes('officedocument.wordprocessingml')) icon = '📝';
+                    attachmentHtml = `
+                      <a href="${data}" target="_blank" class="attachment-link">
+                        <span class="attachment-icon">${icon}</span>
+                        <span data-lang="view_attachment"></span>
+                      </a>
+                    `;
+                }
+
+                // Now **replace message.user_message with only the text**
+                message.user_message = msgObj.text || '';
+            } else {
+                // No attachment → keep user_message as is
+                message.user_message = msgObj.text || '';
+            }
+        } catch (e) {
+            console.warn("Failed to parse user_message JSON:", e);
+            // fallback: leave message.user_message as is
+        }
+    }
 
     if (automaticResponseStates_overallManual[tabIndex][message.user_id] || (!message.bot_message && message.admin_response)){
    
@@ -2088,12 +2128,17 @@ async function appendMessage(message) {
         // Create user message content and style it to align on the right
         //<span class="user-id">User ID: ${message.user_id}</span> taken out of timestamp
         const userMessageContent = `
-          <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
-            <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
-            
-            <span class="user-input">${translation_Sent_User.User}: ${message.user_message}</span>
-          </div>
-        `;
+            <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
+              <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
+              
+              <div class="user-input">
+                ${message.user_message ? `${translation_Sent_User.User}: ${message.user_message}` : ''}
+              </div>
+
+              ${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}
+            </div>
+          `;
+
         // Create admin message content and style it to align on the left
         const adminMessageContent = `
           <div class="admin-message">
@@ -2141,6 +2186,8 @@ async function appendMessage(message) {
           chatBox.appendChild(messageElement);
         }
 
+        
+        updateDynamicText(language);
      
 
 
@@ -2245,7 +2292,11 @@ async function appendMessage(message) {
             <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
               <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
               
-              <span class="user-input">${translation_Sent_User.User}: ${message.user_message}</span>
+              <div class="user-input">
+                ${message.user_message ? `${translation_Sent_User.User}: ${message.user_message}` : ''}
+              </div>
+
+              ${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}
             </div>
           `;
           // Create admin message content and style it to align on the left
@@ -2307,7 +2358,7 @@ async function appendMessage(message) {
           }
 
 
-
+          updateDynamicText(language);
 
           chatBox.classList.add('awaiting-response');
           chatBox.classList.remove('not-awaiting-response');
@@ -2576,7 +2627,7 @@ console.log("-----------------28")
           location: language === 'hu' ? 'Hely' : 'Location',
           longitude: language === 'hu' ? 'Hosszúság' : 'Longitude',
           latitude: language === 'hu' ? 'Szélesség' : 'Latitude',
-          last_four_messages: language === 'hu' ? 'Utolsó 4 üzenet' : 'Last 4 messages',
+          last_four_messages: language === 'hu' ? 'Legutóbbi 4 üzenet' : 'Last 4 messages',
           user_history_recurrent: language === 'hu' ? 'Visszatérő felhasználó' : 'Returning User',
           user_history_new: language === 'hu' ? 'Új felhasználó' : 'New User',
           full_history: language === 'hu' ? 'Teljes előzmény' : 'Full History'
@@ -2596,46 +2647,46 @@ console.log("-----------------28")
         </div>
       </div>
 
-
-      <div style="margin-bottom: 10px;">
-        <div class="user-status" style="margin-bottom: 5px; font-weight: bold;">
-          <i class="fa-solid fa-history" style="margin-right: 5px;"></i>
-          <span class="user-history-status">
-            ${message.is_recurrent ? translation_location.user_history_recurrent : translation_location.user_history_new}
-          </span>
-        </div>
-        <div class="last-4-messages" style="position: relative; display: inline-block; cursor: pointer;">
-          <span style="text-decoration: underline;">${translation_location.last_four_messages}</span>
-
-          <div class="tooltip-messages" style="
-                display: none;
-                position: absolute;
-                top: 20px;
-                left: 0;
-                background: #fff;
-                border: 1px solid #ccc;
-                padding: 5px;
-                z-index: 10;
-                max-width: 300px;
-                max-height: 150px;
-                overflow-y: auto;
-                font-size: 12px;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-            ${message.recent_history.map(m => `
-                <div style="margin-bottom: 5px;">
-                    <b>${m.timestamp}</b><br>
-                    ${m.user_message ? 'User: ' + m.user_message + '<br>' : ''}
-                    ${m.mode === 'automatic' ? 'Bot: ' + m.bot_message : (m.agent || 'Admin') + ': ' + m.bot_message}
-                </div>
-            `).join('')}
+      ${message.is_recurrent && message.recent_history?.length ? `
+        <div style="margin-bottom: 10px;">
+          <div class="user-status" style="margin-bottom: 5px; font-weight: bold; clamp(7px, 0.8vw, 12px);">
+            <i class="fa-solid fa-history" style="margin-right: 5px;"></i>
+            <span class="user-history-status">
+              ${message.is_recurrent ? translation_location.user_history_recurrent : translation_location.user_history_new}
+            </span>
           </div>
-        </div>
-        <div class="full-history" style="margin-top: 5px; cursor: pointer; text-decoration: underline; color: blue;">
-            ${translation_location.full_history}
-        </div>
+          <div class="last-4-messages" style="position: relative; display: inline-block; cursor: pointer; clamp(7px, 0.8vw, 12px);">
+            <span style="text-decoration: underline;">${translation_location.last_four_messages}</span>
 
-      </div>
+            <div class="tooltip-messages" style="
+                  display: none;
+                  position: absolute;
+                  top: 20px;
+                  left: 0;
+                  background: #fff;
+                  border: 1px solid #ccc;
+                  padding: 5px;
+                  z-index: 10;
+                  max-width: 300px;
+                  max-height: 150px;
+                  overflow-y: auto;
+                  font-size: 12px;
+                  box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+              ${message.recent_history.map(m => `
+                  <div style="margin-bottom: 5px;">
+                      <b>${m.timestamp}</b><br>
+                      ${m.user_message ? 'User: ' + m.user_message + '<br>' : ''}
+                      ${m.mode === 'automatic' ? 'Bot: ' + m.bot_message : (m.agent || 'Admin') + ': ' + m.bot_message}
+                  </div>
+              `).join('')}
+            </div>
+          </div>
+          <div class="full-history" style="margin-top: 5px; cursor: pointer; text-decoration: underline; color: blue; clamp(7px, 0.8vw, 12px);">
+              ${translation_location.full_history}
+          </div>
 
+        </div>
+      ` : ""}
 
 
 
@@ -2805,7 +2856,7 @@ console.log("-----------------28")
 
     clearInitialContent();
     
-    console.log("-----------------1")
+    console.log("--------!!!---------1")
     
     const bottomLeftSection = rectangle_automatic[0];
     const bottomMiddleSection=Chats_automatic[0];
@@ -2830,7 +2881,10 @@ console.log("-----------------28")
 
      }
     
-    
+    console.log(" ___________________ MESSAGE_______")
+    console.log(message.user_id)
+    console.log(userElements[message.user_id])
+    console.log(" ___________________ END_______")
     if (!userElements[message.user_id]&& message.user_id){
       // Create the 'Chats' label
       prependeduserId=message.user_id
@@ -2895,6 +2949,7 @@ console.log("-----------------28")
       console.log("-----------------4")
       // Click event to toggle button text and color + handling the waiting message if we should append or not
       adminResponseButton.onclick = () => {
+        console.log("ADmin REsponse button click 1")
         automaticResponseStates[message.user_id] = !automaticResponseStates[message.user_id];
         //const language = localStorage.getItem('language') || 'hu';
         userButtons[message.user_id].textContent = automaticResponseStates[message.user_id] ? translations[language]['manualIntervention'] : translations[language]['automaticResponse'];
@@ -2928,7 +2983,7 @@ console.log("-----------------5")
           // Manual mode → show avatar
           avatar.style.display = "flex";
 
-          switchToManualModeforOneUser(language)  // THIS CREATES THE IMPUTBOX FOR ADMINS IN AUTOMATIC - MANUAL MODE
+          switchToManualModeforOneUser(language, message.user_id)  // THIS CREATES THE IMPUTBOX FOR ADMINS IN AUTOMATIC - MANUAL MODE
 
           const messageElement = document.createElement('div');
           messageElement.className = 'message';
@@ -3089,7 +3144,7 @@ console.log("-----------------7")
         
         `;
       const userIcon = userRectangle.querySelector('.fa-user');
-        if (message.recent_history && message.recent_history.length > 0) {
+        if (message.is_recurrent) {
           userIcon.classList.add('pulsing-avatar');
         }
       
@@ -3231,6 +3286,45 @@ console.log("-----------------13")
 
 
       console.log("-----------------14")
+
+  let attachmentHtml = '';
+
+  // Check if message.user_message is JSON with attachment
+  if (typeof message.user_message === 'string' && message.user_message.trim().startsWith('{')) {
+      try {
+          const msgObj = JSON.parse(message.user_message);
+
+          // If there is an attachment, extract it
+          if (msgObj.attachment) {
+              const mime = msgObj.attachment.mime_type;
+              const data = msgObj.attachment.data;
+
+              if (mime?.startsWith('image/')) {
+                  attachmentHtml = `<img src="${data}" class="attachment" />`;
+              } else {
+                  // PDF/DOCX or other → small icon + link
+                  let icon = '📝';
+                  if (mime.includes('pdf')) icon = '📄';
+                  else if (mime.includes('word') || mime.includes('msword') || mime.includes('officedocument.wordprocessingml')) icon = '📝';
+                  attachmentHtml = `
+                    <a href="${data}" target="_blank" class="attachment-link">
+                      <span class="attachment-icon">${icon}</span>
+                      <span data-lang="view_attachment"></span>
+                    </a>
+                  `;
+              }
+
+              // Now **replace message.user_message with only the text**
+              message.user_message = msgObj.text || '';
+          } else {
+              // No attachment → keep user_message as is
+              message.user_message = msgObj.text || '';
+          }
+      } catch (e) {
+          console.warn("Failed to parse user_message JSON:", e);
+          // fallback: leave message.user_message as is
+      }
+  }
   
   if (automaticResponseStates[message.user_id] || (!message.bot_message && message.admin_response)){  //automaticResponseStates tricky check what is written on the button if manual intervention needed it is automatic mode but the value is false as have manual intervention on the button
         console.log("%MESSSAGE CHECK%")
@@ -3283,8 +3377,12 @@ console.log("-----------------13")
             const userMessageContent = `
               <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
                 <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
-               
-                <span class="user-input">${translation_Sent_User.User}: ${message.user_message}</span>
+                
+                <div class="user-input">
+                  ${message.user_message ? `${translation_Sent_User.User}: ${message.user_message}` : ''}
+                </div>
+
+                ${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}
               </div>
             `;
       console.log("-----------------16")
@@ -3326,9 +3424,11 @@ console.log("-----------------13")
             // Insert in chronological order
             if (insertBeforeIndex === -1) {
               chatBox.appendChild(messageElement);
+              
             } else {
               chatBox.insertBefore(messageElement, chatMessages[insertBeforeIndex]);
             }
+            updateDynamicText(language);
 
 
 
@@ -3397,10 +3497,16 @@ console.log("-----------------13")
           const userMessageContent = `
             <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
               <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
-           
-              <span class="user-input">${translation_Sent_User.User}: ${message.user_message}</span>
+              
+              <div class="user-input">
+                ${message.user_message ? `${translation_Sent_User.User}: ${message.user_message}` : ''}
+              </div>
+
+              ${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}
             </div>
           `;
+
+         
    console.log("-----------------21") 
           // Create admin message content and style it to align on the left
           const adminMessageContent = `
@@ -3436,7 +3542,7 @@ console.log("-----------------22")
           } else {
             chatBox.insertBefore(messageElement, chatMessages[insertBeforeIndex]);
           }
-
+          updateDynamicText(language);
 
 
 console.log("-----------------23")
@@ -3617,7 +3723,7 @@ console.log("-----------------29")
         location: language === 'hu' ? 'Hely' : 'Location',
         longitude: language === 'hu' ? 'Hosszúság' : 'Longitude',
         latitude: language === 'hu' ? 'Szélesség' : 'Latitude',
-        last_four_messages: language === 'hu' ? 'Utolsó 4 üzenet' : 'Last 4 messages',
+        last_four_messages: language === 'hu' ? 'Legutóbbi 4 üzenet' : 'Last 4 messages',
         user_history_recurrent: language === 'hu' ? 'Visszatérő felhasználó' : 'Returning User',
         user_history_new: language === 'hu' ? 'Új felhasználó' : 'New User',
         full_history: language === 'hu' ? 'Teljes előzmény' : 'Full History'
@@ -3625,66 +3731,78 @@ console.log("-----------------29")
     };
      
 console.log("-----------------30")
+console.log(message)
+console.log("-----------------30_00")
+console.log("CHECK CONDITION:",
+    message?.is_recurrent === true,
+    Array.isArray(message?.recent_history),
+    message?.recent_history?.length
+);
 
       userLocationBox.innerHTML = `
 
         <div style="margin-bottom: 10px;">
           <div class="user-id-header">
             <i class="fa-solid fa-user" style="margin-right: 5px;"></i>
-            <span class="userID_text">${translation_location.userID}</span>
+            <span class="userID_text">${translation_location?.userID ?? 'User ID'}</span>
           </div>
           <div class="paddingleft" style="margin-top: 5px; font-size: clamp(7px, 0.8vw, 12px);">
-            <span class="full-user-id-locbox">${message.user_id !== null ? message.user_id : 'No Data'}</span>
-            <span class="truncated-user-id-locbox">${message.user_id !== null ? message.user_id.substring(0, 8) : 'No Data'}</span>
+            <span class="full-user-id-locbox">${message?.user_id ?? 'No Data'}</span>
+            <span class="truncated-user-id-locbox">${message?.user_id ? message.user_id.substring(0, 8) : 'No Data'}</span>
           </div>
         </div>
-
-        <div style="margin-bottom: 10px;">
-          <div class="user-status" style="margin-bottom: 5px; font-weight: bold;">
-            <i class="fa-solid fa-history" style="margin-right: 5px;"></i>
-            <span class="user-history-status">
-              ${message.is_recurrent ? translation_location.user_history_recurrent : translation_location.user_history_new}
-            </span>
-          </div>
-          <div class="last-4-messages" style="position: relative; display: inline-block; cursor: pointer;">
-            <span style="text-decoration: underline;">${translation_location.last_four_messages}</span>
-
-            <div class="tooltip-messages" style="
-                  display: none;
-                  position: absolute;
-                  top: 20px;
-                  left: 0;
-                  background: #fff;
-                  border: 1px solid #ccc;
-                  padding: 5px;
-                  z-index: 10;
-                  max-width: 300px;
-                  max-height: 150px;
-                  overflow-y: auto;
-                  font-size: 12px;
-                  box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-              ${message.recent_history.map(m => `
-                  <div style="margin-bottom: 5px;">
-                      <b>${m.timestamp}</b><br>
-                      ${m.user_message ? 'User: ' + m.user_message + '<br>' : ''}
-                      ${m.mode === 'automatic' ? 'Bot: ' + m.bot_message : (m.agent || 'Admin') + ': ' + m.bot_message}
-                  </div>
-              `).join('')}
+        ${message?.is_recurrent === true && Array.isArray(message?.recent_history) && 
+            message?.recent_history.length > 0 
+          ? `
+          <div style="margin-bottom: 10px;">
+            <div class="user-status" style="background-color: #ebeded; padding: 10px; font-weight: bold; border-radius: 4px; font-size: clamp(8px, 1.2vw, 15px);">
+              <i class="fa-solid fa-history" style="margin-right: 5px;"></i>
+              <span class="user-history-status">
+                ${message?.is_recurrent ? translation_location?.user_history_recurrent : translation_location?.user_history_new ?? 'No Data'}
+              </span>
             </div>
-          </div>
-          <div class="full-history" style="margin-top: 5px; cursor: pointer; text-decoration: underline; color: blue;">
-              ${translation_location.full_history}
-          </div>
+            <div class="last-4-messages" style="position: relative; display: block; width: 100%; margin-top:5px; cursor: pointer; color: darkblue; padding-left: 15px; font-size: clamp(8px, 0.9vw, 12px)">
+              <span style="text-decoration: underline;">${translation_location?.last_four_messages ?? 'Last 4 Messages'}</span>
 
-        </div>
+              <div class="tooltip-messages" style="
+                    display: none;
+                    position: absolute;
+                    color: #555454;
+                    top: 100%;
+                    left: 0px;
+                    background: #fff;
+                    border: 1px solid #ccc;
+                    padding: 5px;
+                    z-index: 99999;
+                    border-radius: 12px;
+                    max-width: 300px;
+                    max-height: 150px;
+                    overflow-y: auto;
+                    font-size: 12px;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                ${(message?.recent_history ?? []).map(m => `
+                  <div style="margin-bottom: 5px;">
+                    <b>${m?.timestamp ?? 'No Timestamp'}</b><br>
+                    ${m?.user_message ? 'User: ' + m.user_message + '<br>' : ''}
+                    ${m?.bot_message ? (m?.mode === 'automatic' ? 'Bot: ' + m.bot_message : (m?.agent ?? 'Admin') + ': ' + m.bot_message) : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            <div class="full-history" style="margin-top: 5px; cursor: pointer; text-decoration: underline; font-size: clamp(8px, 0.9vw, 12px); padding-left: 15px;">
+                ${translation_location?.full_history ?? 'Full History'}
+            </div>
+
+          </div>
+        ` : ""}
 
         <div style="margin-bottom: 10px;">
           <div style="background-color: #ebeded; padding: 10px; font-weight: bold; font-size: clamp(8px, 1.2vw, 15px); border-radius: 4px;">
             <i class="fa-solid fa-location-dot" style="margin-right: 5px;"></i>
-            <span class="location_userlocationbox">${translation_location.location}</span>
+            <span class="location_userlocationbox">${translation_location?.location ?? 'Location'}</span>
           </div>
           <div class="paddingleft" style="margin-top: 5px; display: flex; align-items: center; font-size: clamp(7px, 0.8vw, 12px);">
-            ${message.location ?? 'No Data'}
+            ${message?.location ?? 'No Data'}
           </div>
         </div>
 
@@ -3695,29 +3813,30 @@ console.log("-----------------30")
         <div style="margin-bottom: 10px;">
           <div style="background-color: #ebeded; padding: 10px; font-weight: bold; font-size: clamp(5px, 1.2vw, 15px); border-radius: 4px;">
             <i class="fa-solid fa-arrows-left-right" style="margin-right: 5px;"></i>
-            <span class="longitude_userlocationbox">${translation_location.longitude}</span>
+            <span class="longitude_userlocationbox">${translation_location?.longitude ?? 'Longitude'}</span>
           </div>
           <div class="paddingleft" style="margin-top: 5px; display: flex; align-items: center; font-size: clamp(5px, 0.8vw, 12px);">
-            ${message.longitude ?? 'No Data'}
+            ${message?.longitude ?? 'No Data'}
           </div>
         </div>
 
         <div style="margin-bottom: 10px;">
           <div style="background-color: #ebeded; padding: 10px; font-weight: bold; font-size: clamp(5px, 1.2vw, 15px); border-radius: 4px;">
             <i class="fa-solid fa-arrows-up-down" style="margin-right: 5px;"></i>  
-            <span class="latitude_userlocationbox">${translation_location.latitude}</span>
+            <span class="latitude_userlocationbox">${translation_location?.latitude ?? 'Latitude'}</span>
           </div>
           <div class="paddingleft" style="margin-top: 5px; display: flex; align-items: center; font-size: clamp(5px, 0.8vw, 12px);">
-            ${message.latitude ?? 'No Data'}
+            ${message?.latitude ?? 'No Data'}
           </div>
         </div>
         
       `;
-
+console.log("-----------------30_0")
           // Show tooltip on hover
-      const last4Elements = document.querySelectorAll('.last-4-messages');
+      const last4Elements = userLocationBox.querySelectorAll('.last-4-messages');
         last4Elements.forEach(el => {
           const tooltip = el.querySelector('.tooltip-messages');
+          if (!tooltip) return;
           el.addEventListener('mouseenter', () => tooltip.style.display = 'block');
           el.addEventListener('mouseleave', () => tooltip.style.display = 'none');
         });
@@ -4086,6 +4205,7 @@ function removeAdminResponseControls_manual(userId, tabIndex) {
 
 
 function switchToManualModeforOneUser_manual(userId, language, tabIndex) {
+  console.log("°°°°°°°  °°°°°°°°°  °°°°°°°°°°°°°°")
   const tabContent = colleaguesChats[tabIndex];
   if (!tabContent) return;
 
@@ -4152,14 +4272,74 @@ function switchToManualModeforOneUser_manual(userId, language, tabIndex) {
 }
 
 
-function switchToManualModeforOneUser(language) {    // For The original rectangle initiated the manual / automatic response
-  console.log("1")
-  let userId=0
-  if (activeRectangle){
-    userId=activeRectangle.dataset.userId
-  }else{
-    userId=prependeduserId
+
+
+
+
+
+  ////////////////////////////////////////////////
+  //  CREATE CHATBOX FOR MANUAL IN AUTOMATIC   //
+  //////////////////////////////////////////////
+
+
+async function uploadFileorImage(blob) {
+ 
+
+
+  const formData = new FormData();
+  formData.append("file", blob);
+  formData.append("org_id", user_org);
+  formData.append("user_id", user_id);
+  
+  const response = await fetch("/api/upload_file", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const data = await response.json();
+    // Use a switch to determine reason
+    let errorMessage;
+    switch (data.detail) {
+      case "invalid_format":
+        errorMessage = "Invalid file format";
+        break;
+      case "file_too_large":
+        errorMessage = "File size exceeds 5 MB limit";
+        break;
+      default:
+        errorMessage = "Upload failed";
+    }
+    throw new Error(errorMessage);
   }
+
+  const data = await response.json();
+  if (data.file_url) return data.file_url;
+
+  // fallback for old backend image_url
+  if (data.image_url) return data.image_url;
+
+}
+
+
+function resetAdminAttachment() {
+  adminAttachment = { data: null, mime_type: null };
+
+  previewImg.src = "#";
+  previewImg.style.display = "none";
+
+  attachIcon.style.display = "block";
+
+  attachBtn.classList.remove("has-file");
+
+  fileInput.value = "";
+}
+
+
+
+function switchToManualModeforOneUser(language, userId) {    // For The original rectangle initiated the manual / automatic response
+  console.log("1*1*~")
+
   
   const chatContainer = document.querySelector(`.chat-container[data-user-id="${userId}"]`);
     // Get the chatBox within the chatContainer
@@ -4179,17 +4359,150 @@ function switchToManualModeforOneUser(language) {    // For The original rectang
   const placeholderText = language === 'hu' ? 'Írd ide az üzeneted...' : 'Type your response...';
 
   adminResponseControls.innerHTML = `
+    <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" class="admin-file-input" hidden>
     <textarea class="manual-response" placeholder="${placeholderText}"></textarea>
+    <button type="button" class="admin-attach-btn">
+      <span class="material-symbols-rounded">attach_file</span>
+      <div class="preview-wrapper">
+        <img src="#" class="admin-attach-preview">
+        <span class="preview-cancel material-symbols-rounded">close</span>
+      </div>
+    </button>
     <button class="send-response">${sendText}</button>
   `;
+
+  // Handle file selection & preview
+
   adminResponseControls.style.display = 'flex';
   adminResponseControls.style.alignItems = 'flex-start';
   if (!chatContainer.querySelector('.admin-response-controls')) {
   chatContainer.appendChild(adminResponseControls);
 }
+
+
+
+  
+
   // Add click event listener to send the response
   const responseInput = adminResponseControls.querySelector('.manual-response');
   const sendButton = adminResponseControls.querySelector('.send-response');
+
+
+
+  const fileInput = adminResponseControls.querySelector('.admin-file-input');
+  const attachBtn = adminResponseControls.querySelector('.admin-attach-btn');
+  const attachIcon = attachBtn.querySelector('span');
+  const previewWrapper = attachBtn.querySelector('.preview-wrapper');
+  const previewImg = adminResponseControls.querySelector('.admin-attach-preview');
+  const cancelBtn = attachBtn.querySelector('.preview-cancel');
+
+  // Store uploaded attachment info
+  let adminAttachment = { data: null, mime_type: null };
+  let isUploading = false;
+  const MAX_FILE_SIZE = 5 * 1024 * 1024;
+  const ALLOWED_TYPES = [
+    "image/jpeg","image/png","image/gif",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  ];
+
+  // Auto-expand textarea
+  responseInput.style.overflowY = 'hidden';
+  responseInput.style.resize = 'none';
+  responseInput.style.height = '30px';
+  responseInput.addEventListener('input', function() {
+    this.style.height = '30px';
+    if (this.scrollHeight > this.clientHeight) this.style.height = this.scrollHeight + 'px';
+  });
+
+  // Open file dialog
+  attachBtn.addEventListener('click', () => fileInput.click());
+
+  // Handle file selection & preview
+  fileInput.addEventListener('change', async (e) => {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    if (!ALLOWED_TYPES.includes(file.type)) return alert("Unsupported file type");
+    if (file.size > MAX_FILE_SIZE) return alert("File too large");
+
+     isUploading = true;
+
+    // Determine preview image and border radius
+    if (file.type.startsWith('image/')) {
+      previewImg.src = URL.createObjectURL(file);
+      previewImg.style.borderRadius = '50%'; // circle for images
+    } else if (file.type.includes('pdf')) {
+      previewImg.src = '/static/pdf.png';
+      previewImg.style.borderRadius = '0%'; // square for files
+      previewImg.style.width = '30px';
+      previewImg.style.height = '30px';
+   
+    } else if (file.type.includes('word')) {
+      previewImg.src = '/static/word.png';
+      previewImg.style.borderRadius = '0%';
+      previewImg.style.width = '30px';
+      previewImg.style.height = '30px';
+   
+    } else if (file.type.includes('excel') || file.type.includes('spreadsheetml')) {
+      previewImg.src = '/static/excel.png';
+      previewImg.style.borderRadius = '0%';
+      previewImg.style.width = '30px';
+      previewImg.style.height = '30px';
+
+    } else {
+      previewImg.src = '/static/file.png';
+      previewImg.style.borderRadius = '0%';
+      previewImg.style.width = '30px';
+      previewImg.style.height = '32px';
+ 
+    }
+
+    previewWrapper.style.display = "block";
+    attachIcon.style.display = 'none'; // hide icon
+    
+
+    cancelBtn.addEventListener("click", (e) => {
+      e.stopPropagation(); // prevent file picker
+
+      adminAttachment = { data: null, mime_type: null };
+
+      previewImg.src = "#";
+      previewWrapper.style.display = "none";
+      attachIcon.style.display = "block";
+
+      fileInput.value = "";
+    });
+
+    try {
+      // Upload to backend → get permanent URL
+      const permanentUrl = await uploadFileorImage(file);
+
+      // Replace image preview with permanent URL if image
+      if (file.type.startsWith('image/')) previewImg.src = permanentUrl;
+
+      // Store uploaded file info
+      adminAttachment = {
+        data: permanentUrl,
+        mime_type: file.type
+      };
+    } catch (err) {
+      console.error("Upload failed:", err);
+      previewImg.alt = "Upload failed";
+      adminAttachment = { data: null, mime_type: null };
+      alert("Upload failed");
+    } finally {
+      isUploading = false;
+      URL.revokeObjectURL(file);
+    }
+  });
+
+
+
+
 
   // Set the initial height and style of the textarea
   responseInput.style.overflowY = 'hidden'; // Hide vertical scrollbar
@@ -4233,6 +4546,21 @@ function switchToManualModeforOneUser(language) {    // For The original rectang
   });
 }
 
+
+
+
+
+
+
+
+  
+  //////////////////////////////////////////
+  //  CREATE CHATBOX FOR AUTOMATIC MODE   //
+  //////////////////////////////////////////
+
+
+
+
   function createChatBox_automatic(userId, tabContent) {
     // Create the container for the chatbox and response controls
     const chatContainer = document.createElement('div');
@@ -4250,6 +4578,21 @@ function switchToManualModeforOneUser(language) {    // For The original rectang
 
     return chatContainer; // Return the entire container, not just chatBox
   }
+
+
+
+
+
+
+
+
+  //////////////////////////////////////////
+  //  CREATE CHATBOX FOR MANUAL OVERALL   //
+  //////////////////////////////////////////
+
+
+
+
 
 
   function createChatBox(userId, tabContent, tabIndex) {
@@ -7089,9 +7432,18 @@ function updateAdminIntervention_fornewlyjoined(data, stateparameter){
     // Create the admin response controls to be fixed at the bottom
     const adminResponseControls = document.createElement('div');
     adminResponseControls.className = 'admin-response-controls';
+
+    // Check selected language and set appropriate text
+    const sendText = language === 'hu' ? 'Küldés' : 'Send Response';
+    const placeholderText = language === 'hu' ? 'Írd ide az üzeneted...' : 'Type your response...';
+
     adminResponseControls.innerHTML = `
-      <textarea class="manual-response" placeholder="${language === 'hu' ? 'Írd ide az üzneted...' : 'Type your response...'}"></textarea>
-      <button class="send-response">${language === 'hu' ? 'Küldés' : 'Send Response'}</button>
+      <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" class="admin-file-input" hidden>
+      <textarea class="manual-response" placeholder="${placeholderText}"></textarea>
+      <button type="button" class="admin-attach-btn">
+        <span class="material-symbols-rounded">attach_file</span>
+      </button>
+      <button class="send-response">${sendText}</button>
     `;
 
 
@@ -8281,7 +8633,7 @@ console.log("-----------------28")
       location: language === 'hu' ? 'Hely' : 'Location',
       longitude: language === 'hu' ? 'Hosszúság' : 'Longitude',
       latitude: language === 'hu' ? 'Szélesség' : 'Latitude',
-      last_four_messages: language === 'hu' ? 'Utolsó 4 üzenet' : 'Last 4 messages',
+      last_four_messages: language === 'hu' ? 'Legutóbbi 4 üzenet' : 'Last 4 messages',
       user_history_recurrent: language === 'hu' ? 'Visszatérő felhasználó' : 'Returning User',
       user_history_new: language === 'hu' ? 'Új felhasználó' : 'New User',
       full_history: language === 'hu' ? 'Teljes előzmény' : 'Full History'
@@ -8303,45 +8655,46 @@ console.log("-----------------28")
         <span class="truncated-user-id-locbox">${message.user_id !== null ? message.user_id.substring(0, 8) : 'No Data'}</span>
       </div>
     </div>
-
-    <div style="margin-bottom: 10px;">
-      <div class="user-status" style="margin-bottom: 5px; font-weight: bold;">
-        <i class="fa-solid fa-history" style="margin-right: 5px;"></i>
-        <span class="user-history-status">
-          ${message.is_recurrent ? translation_location.user_history_recurrent : translation_location.user_history_new}
-        </span>
-      </div>
-      <div class="last-4-messages" style="position: relative; display: inline-block; cursor: pointer;">
-        <span style="text-decoration: underline;">${translation_location.last_four_messages}</span>
-
-        <div class="tooltip-messages" style="
-              display: none;
-              position: absolute;
-              top: 20px;
-              left: 0;
-              background: #fff;
-              border: 1px solid #ccc;
-              padding: 5px;
-              z-index: 10;
-              max-width: 300px;
-              max-height: 150px;
-              overflow-y: auto;
-              font-size: 12px;
-              box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-          ${message.recent_history.map(m => `
-              <div style="margin-bottom: 5px;">
-                  <b>${m.timestamp}</b><br>
-                  ${m.user_message ? 'User: ' + m.user_message + '<br>' : ''}
-                  ${m.mode === 'automatic' ? 'Bot: ' + m.bot_message : (m.agent || 'Admin') + ': ' + m.bot_message}
-              </div>
-          `).join('')}
+    ${message.is_recurrent && message.recent_history?.length ? `
+      <div style="margin-bottom: 10px;">
+        <div class="user-status" style="margin-bottom: 5px; font-weight: bold; font-size: clamp(7px, 0.8vw, 12px)">
+          <i class="fa-solid fa-history" style="margin-right: 5px;"></i>
+          <span class="user-history-status">
+            ${message.is_recurrent ? translation_location.user_history_recurrent : translation_location.user_history_new}
+          </span>
         </div>
-      </div>
-      <div class="full-history" style="margin-top: 5px; cursor: pointer; text-decoration: underline; color: blue;">
-          ${translation_location.full_history}
-      </div>
+        <div class="last-4-messages" style="position: relative; display: inline-block; cursor: pointer; font-size: clamp(7px, 0.8vw, 12px)">
+          <span style="text-decoration: underline;">${translation_location.last_four_messages}</span>
 
-    </div>
+          <div class="tooltip-messages" style="
+                display: none;
+                position: absolute;
+                top: 20px;
+                left: 0;
+                background: #fff;
+                border: 1px solid #ccc;
+                padding: 5px;
+                z-index: 10;
+                max-width: 300px;
+                max-height: 150px;
+                overflow-y: auto;
+                font-size: 12px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+            ${message.recent_history.map(m => `
+                <div style="margin-bottom: 5px;">
+                    <b>${m.timestamp}</b><br>
+                    ${m.user_message ? 'User: ' + m.user_message + '<br>' : ''}
+                    ${m.mode === 'automatic' ? 'Bot: ' + m.bot_message : (m.agent || 'Admin') + ': ' + m.bot_message}
+                </div>
+            `).join('')}
+          </div>
+        </div>
+        <div class="full-history" style="margin-top: 5px; cursor: pointer; text-decoration: underline; color: blue; font-size: clamp(7px, 0.8vw, 12px)">
+            ${translation_location.full_history}
+        </div>
+
+      </div>
+    ` : ""}
 
     <div style="margin-bottom: 10px;">
       <div style="background-color: #ebeded; padding: 10px; font-weight: bold;  font-size: clamp(8px, 1.2vw, 15px); border-radius: 4px;">
@@ -9234,7 +9587,7 @@ console.log("-----------------28")
       location: language === 'hu' ? 'Hely' : 'Location',
       longitude: language === 'hu' ? 'Hosszúság' : 'Longitude',
       latitude: language === 'hu' ? 'Szélesség' : 'Latitude',
-      last_four_messages: language === 'hu' ? 'Utolsó 4 üzenet' : 'Last 4 messages',
+      last_four_messages: language === 'hu' ? 'Legutóbbi 4 üzenet' : 'Last 4 messages',
       user_history_recurrent: language === 'hu' ? 'Visszatérő felhasználó' : 'Returning User',
       user_history_new: language === 'hu' ? 'Új felhasználó' : 'New User',
       full_history: language === 'hu' ? 'Teljes előzmény' : 'Full History'
@@ -9254,45 +9607,46 @@ console.log("-----------------28")
         <span class="truncated-user-id-locbox">${message.user_id !== null ? message.user_id.substring(0, 8) : 'No Data'}</span>
       </div>
     </div>
-
-    <div style="margin-bottom: 10px;">
-      <div class="user-status" style="margin-bottom: 5px; font-weight: bold;">
-        <i class="fa-solid fa-history" style="margin-right: 5px;"></i>
-        <span class="user-history-status">
-          ${message.is_recurrent ? translation_location.user_history_recurrent : translation_location.user_history_new}
-        </span>
-      </div>
-      <div class="last-4-messages" style="position: relative; display: inline-block; cursor: pointer;">
-        <span style="text-decoration: underline;">${translation_location.last_four_messages}</span>
-
-        <div class="tooltip-messages" style="
-              display: none;
-              position: absolute;
-              top: 20px;
-              left: 0;
-              background: #fff;
-              border: 1px solid #ccc;
-              padding: 5px;
-              z-index: 10;
-              max-width: 300px;
-              max-height: 150px;
-              overflow-y: auto;
-              font-size: 12px;
-              box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-          ${message.recent_history.map(m => `
-              <div style="margin-bottom: 5px;">
-                  <b>${m.timestamp}</b><br>
-                  ${m.user_message ? 'User: ' + m.user_message + '<br>' : ''}
-                  ${m.mode === 'automatic' ? 'Bot: ' + m.bot_message : (m.agent || 'Admin') + ': ' + m.bot_message}
-              </div>
-          `).join('')}
+    ${message.is_recurrent && message.recent_history?.length ? `
+      <div style="margin-bottom: 10px;">
+        <div class="user-status" style="margin-bottom: 5px; font-weight: bold; font-size: clamp(7px, 0.8vw, 12px)">
+          <i class="fa-solid fa-history" style="margin-right: 5px;"></i>
+          <span class="user-history-status">
+            ${message.is_recurrent ? translation_location.user_history_recurrent : translation_location.user_history_new}
+          </span>
         </div>
-      </div>
-      <div class="full-history" style="margin-top: 5px; cursor: pointer; text-decoration: underline; color: blue;">
-          ${translation_location.full_history}
-      </div>
+        <div class="last-4-messages font-size: clamp(7px, 0.8vw, 12px)" style="position: relative; display: inline-block; cursor: pointer;">
+          <span style="text-decoration: underline;">${translation_location.last_four_messages}</span>
 
-    </div>
+          <div class="tooltip-messages" style="
+                display: none;
+                position: absolute;
+                top: 20px;
+                left: 0;
+                background: #fff;
+                border: 1px solid #ccc;
+                padding: 5px;
+                z-index: 10;
+                max-width: 300px;
+                max-height: 150px;
+                overflow-y: auto;
+                font-size: 12px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+            ${message.recent_history.map(m => `
+                <div style="margin-bottom: 5px;">
+                    <b>${m.timestamp}</b><br>
+                    ${m.user_message ? 'User: ' + m.user_message + '<br>' : ''}
+                    ${m.mode === 'automatic' ? 'Bot: ' + m.bot_message : (m.agent || 'Admin') + ': ' + m.bot_message}
+                </div>
+            `).join('')}
+          </div>
+        </div>
+        <div class="full-history" style="margin-top: 5px; cursor: pointer; text-decoration: underline; color: blue; font-size: clamp(7px, 0.8vw, 12px)">
+            ${translation_location.full_history}
+        </div>
+
+      </div>
+    ` : ""}
 
     <div style="margin-bottom: 10px;">
       <div style="background-color: #ebeded; padding: 10px; font-weight: bold;  font-size: clamp(8px, 1.2vw, 15px); border-radius: 4px;">
@@ -9431,18 +9785,53 @@ console.log("-----------------28")
     /////////////////////////////////                                /////////////////////////////////
 
 
-        // Now use these values in your socket connection
+        // Client is connecting:
         const socket = io("https://redrain1230.loophole.site", {
-            transports: ["websocket"],
+            //transports: ["websocket"],
             query: {
                 user_id: user_id,
                 user_org: user_org
             }
         });
 
+        console.log("Socket object created:", socket);
+
+        socket.on("connect", () => {
+            console.log("CONNECTED");
+            console.log("Socket connected:", socket.connected);
+            console.log("Socket id:", socket.id);
+        });
+
+        let currentSocketId = null;
+
+        socket.on("connect", () => {
+            if (currentSocketId && currentSocketId !== socket.id) {
+                console.warn("⚠️ SOCKET ID CHANGED!", currentSocketId, "→", socket.id);
+            }
+            currentSocketId = socket.id;
+        });
+
+        socket.on("disconnect", (reason) => {
+            console.warn("DISCONNECTED:", reason);
+        });
+
+        socket.io.on("reconnect_attempt", () => {
+            console.warn("🔄 Reconnect attempt...");
+        });
+
+        socket.io.on("reconnect", (attempt) => {
+            console.warn("✅ Reconnected after", attempt, "attempts");
+            console.log("New socket id:", socket.id);
+        });
+
+        socket.io.on("reconnect_error", (err) => {
+            console.error("Reconnect error:", err);
+        });
+
 
 
         socket.on("history_start", (data) => {
+          console.log("HISTORY START ______ @@@@@@@@ ____ HISTORY START")
           clearUIState();                  // Reset variables and DOM
           createDefaultTabForAutomaticMode();
           showInitialWaitingText()
@@ -9472,6 +9861,10 @@ console.log("-----------------28")
       window.location = "/logout";
     });
 
+    socket.on("force_logout_index", () => {
+    document.cookie = "session_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+    window.location.href = "/";
+});
    
       
 
@@ -9510,17 +9903,19 @@ function processMessageQueue2() {
 }
 
 
-socket.on('new_message_FirstUser', function(payload) {
+socket.on('new_message_FirstUser', async function(payload) {
+  console.log("HEEwre:")
+  console.log(payload)
 
-  (async () => {
- 
+  try {
+    
   const messages = Array.isArray(payload.messages) ? payload.messages : [payload.messages];
   const totalMessagesToSend = payload.total_messages || messages.length
+  console.log("Payload messages array:", messages);
   
-  
+ 
   messages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-  
   sentMessageCount = 0;
   isBatchMode = totalMessagesToSend > 1;
 
@@ -9575,7 +9970,12 @@ socket.on('new_message_FirstUser', function(payload) {
     totalMessagesToSend = 0;
     sentMessageCount = 0;
   }
-    })();
+ 
+
+
+    }catch (err) {
+        console.error("Error in new_message_FirstUser handler:", err);
+    }
  
 });
 
@@ -10487,7 +10887,7 @@ document.getElementById('lang-hu').addEventListener('click', function() {
 // Set language on page load
 window.onload = function() {
   if (typeof translations !== 'undefined') {
-  const language = localStorage.getItem('language') || 'hu';
+  //const language = localStorage.getItem('language') || 'hu';
   setLanguage(language);
   }
 };
@@ -10509,7 +10909,7 @@ function setLanguage(language) {
     }
   });
 
-  // Update dynamically changing elements
+  // Update dynamically changing elements above setLanguage works on elements that already exist static having data-lang
   updateDynamicText(language);
 }
 
@@ -10546,6 +10946,7 @@ const translations = {
     chatPlaceholder: "Message to colleagues...",
     chatSendButton: "Send",
     historyLoading: "Reloading chat history",
+    view_attachment: "Attachment",
     
     
   },
@@ -10580,6 +10981,7 @@ const translations = {
     chats: "Üzenetek",
     logout: "Kijelentkezés",
     historyLoading: "Előzmények betöltése",
+    view_attachment:"Melléklet",
 
   }
 };
@@ -10800,11 +11202,21 @@ function updateDynamicText(language) {
   if (backButton) {
       backButton.textContent = translations[language]['backButton'];
   }
+
+  document.querySelectorAll('.attachment-wrapper [data-lang]').forEach(el => {
+        const langKey = el.getAttribute('data-lang');
+        if (translations[language][langKey]) {
+            el.innerHTML = translations[language][langKey];
+        }
+    });
+
+
 }
 
 
 function clearUIState() {
   // Clear DOM containers
+  console.log("*+!___*+!___*+!___*+!___*+!___*+!___*+!___*+!___*+!___*+!___*+!___*+!___*+!___*+!___*+!___*+!___*+!___*+!___*+!___")
 
   if (dotAnimation !== null) {
     clearInterval(dotAnimation);
@@ -10833,6 +11245,9 @@ function clearUIState() {
   for (const key in automaticResponseStates) delete automaticResponseStates[key];
   for (const key in counterForAddAdminMessage) delete counterForAddAdminMessage[key];
   for (const key in counterForManualModeAddMessage) delete counterForManualModeAddMessage[key];
+  
+  console.log("Snapshot userElements after clearing:", JSON.stringify(userElements));
+  console.log("Number of keys in userElements:", Object.keys(userElements).length);
 
   // Reset primitives / booleans
   manualMode = false;

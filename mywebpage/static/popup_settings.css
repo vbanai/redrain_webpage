@@ -155,7 +155,7 @@ body.show-chatbot .chatbot-popup{
 }
 
 .header-info .logo-text{
-   display: block;        /* default block for text */
+  display: block;        /* default block for text */
   margin: 0;             /* remove default h2 margin */
   line-height: 1;        /* remove extra spacing under text */
   color: var(--everything-which-is-white);

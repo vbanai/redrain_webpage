@@ -106,9 +106,9 @@ async def lifespan(app: FastAPI):
     if app.state.redis_client:
         try:
             app.state.bg_tasks = [
-                asyncio.create_task(supervisor(redis_listener, "redis_listener")),
-                asyncio.create_task(supervisor(send_admin_heartbeat, "admin_heartbeat")),
-                asyncio.create_task(supervisor(cleanup_idle_sessions, "idle_logout")),
+                asyncio.create_task(supervisor(redis_listener, "redis_listener", app)),
+                asyncio.create_task(supervisor(send_admin_heartbeat, "admin_heartbeat", app)),
+                asyncio.create_task(supervisor(cleanup_idle_sessions, "idle_logout", app)),
             ]
             print("Background tasks started")
         except Exception as e:

@@ -1,3 +1,27 @@
+{% set plan_map = {
+  "en": {"Basic": "Basic", "Gold": "Gold", "Platinum": "Platinum"},
+  "hu": {"Basic": "Alap", "Gold": "Arany", "Platinum": "Platina"}
+} %}
+
+{% set status_map = {
+  "en": {
+    "active": "active",
+    "cancelled": "cancelled",
+    "cancel_scheduled": "scheduled for cancellation"
+  },
+  "hu": {
+    "active": "aktív",
+    "cancelled": "törölt",
+    "cancel_scheduled": "törlésre előkészítve"
+  }
+} %}
+
+{% set labels = {
+  "en": {"period": "renewal", "unlimited": "unlimited"},
+  "hu": {"period": "megújítás", "unlimited": "korlátlan"}
+} %}
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -104,39 +128,7 @@
         flex-shrink: 0;  /* Prevent shrinking the block */
       }
 
-      @media screen and (max-width: 880px) {
-        .header0 {
-          background-color: rgba(0, 0, 0, 1) !important; /* Force black background */
-          flex-direction: column; /* Stack elements vertically */
-          align-items: center; /* Center align items */
-          height: auto; /* Adjust height dynamically */
-        }
-        .inner_container {
-        
-          margin-top: calc(95px + 20vh) !important;
-        }
-        .left-section{
-          margin-top:5px;
-        }
-
-        .middle-section {
-          position: relative; /* Remove absolute positioning */
-          left: auto;
-          transform: none;
-          width: 100%; /* Full width */
-          justify-content: center;
-          margin-top: 10px;
-        }
-        
-
-        .right-section {
-          width: 100%; /* Full width */
-          justify-content: center; /* Center align */
-          margin-right: 0; /* Remove margin */
-          margin-top: 10px;
-          margin-bottom: 5px;
-        }
-      }
+  
 
       
       .language-switcher {
@@ -432,6 +424,10 @@ select {
 
 /* Media query for smaller screens */
 @media (max-width: 768px) {
+
+     .header0 .left-section img {
+    display: none;
+  }
     .container-chat-grid {
         max-width: 220px; /* Adjust width */
         max-height: 200px; /* Adjust height */
@@ -454,6 +450,9 @@ select {
         max-height: 160px;
         padding: 5px;
     }
+     .header0 .left-section img {
+    display: none;
+  }
 
     .container-chat-grid img {
         max-height: 35%;
@@ -783,6 +782,10 @@ select {
 
 
 
+
+
+
+
   </style>
 </head>
 <body>
@@ -794,33 +797,8 @@ select {
       <ul>
         <li class="nav_item">
           <a href="/serviceselector" class="nav_link buttonsubscription" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" data-lang="dashboard">Dashboard</a>
-          <div id="navItem">
-            <a href="#services" class="buttonsubscription" id="buttonSubscription" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" data-lang="chatwidget">Chat widget</a>
-            <div class="dropdown-content" id="dropdownContent">
-              {% if user_role in ['Manager', 'Team Leader']  %}
-                <a href="#service1" id="dashboardLink0" data-lang="design">Design</a>
-              {% endif %}
-              {% if user_role in ['Manager', 'Team Leader'] %}
-                <a href="#service1" id="dashboardLink" data-lang="settings">Settings</a>
-              {% endif %}
-              {% if user_role in ['Manager', 'Team Leader'] %}
-                <a href="#service1" id="dashboardLink" data-lang="currentpopup">Popup</a>
-              {% endif %}
-
-            </div>
-          </div>
-          <!-- <a href="#services" class="nav_link buttonsubscription" id="form-open">Resource Management</a> -->
-          {% if user_role in ['Manager', 'Team Leader'] %}
-            <div id="navItem2">
-              <a href="#services" class="buttonsubscription" id="buttonSubscription2" style="font-size: clamp(0.8rem, 1.2vw, 1.03rem);" data-lang="resourcemanagement">Resources</a>
-              <div class="resource-dropdown-content" id="resourcedropdownContent">
-                <a href="#" id="form-colleagues" data-lang="colleaguesonline">Colleagues on board</a>
-                <a href="#service1" id="form-Invitation" data-lang="invitation">Invitation</a>
-                <a href="#" id="form-roleManagement" data-lang="manageroles">Manage Roles</a>
-                <a href="#service1" id="form-Removal" data-lang="removeresource">Remove Resource</a>
-              </div>
-            </div>
-          {% endif %}
+          
+         
         </li>
         
       </ul>
@@ -864,45 +842,84 @@ select {
   <input type="hidden" id="csrf_access_token" value="{{ csrf_token }}">
   <section class="home" id="home">
     <div class="subscription-card" style="
-          background-color: white; 
-          padding: 2rem; 
-          max-width: 700px; 
-          margin: 6rem auto 2rem auto; /* push down a bit below header */
-          border-radius: 12px; 
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          font-family: 'Inter', sans-serif;
+        background-color: white; 
+        padding: clamp(1rem, 3vh, 2rem); 
+        max-width: 700px; 
+        margin: 5rem auto 2rem auto;
+        border-radius: 12px; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        font-family: 'Inter', sans-serif;
+        display: flex;
+        flex-direction: column;
+        gap: clamp(0.3rem, 0.6vh, 0.4rem);
+        max-height: 90vh;
+        box-sizing: border-box;
       ">
       
-      <h2 data-lang="current_subscription" style="margin-bottom: 1rem; text-align:center;">Current Subscription</h2>
+      <h2 data-lang="current_subscription"
+          style="margin-bottom:clamp(0.4rem,1.0vh,0.7rem);text-align:center;font-size:clamp(0.8rem, 1.5vw, 1.2rem);">
+        Current Subscription
+      </h2>
 
       {% if subscription %}
-        <p><strong data-lang="plan_label">Plan:</strong> {{ subscription.name }}</p>
-        <p><strong data-lang="monthly_chats">Monthly chats allowed:</strong> {{ subscription.max_chats_per_month }}</p>
-        <p><strong data-lang="price_label">Price per month:</strong>
-            {{ price if price else "N/A" }} HUF
-        </p>
-        <p><strong data-lang="seats_label">Additional seats:</strong> {{ client.seats if client.seats else 0 }}</p>
+
+      <p style="font-size:clamp(0.5rem,1.2vw,0.8rem); flex-shrink:1;">
+        <strong data-lang="plan_label">Plan:</strong>
+        {{ plan_map[language][subscription.name] }}
+        {%- if client.subscription_status or client.subscription_end_date -%}
+          , {{ status_map[language][client.subscription_status] }}
+          {%- if client.subscription_end_date -%}
+            , {{ labels[language].period }}: {{ client.subscription_end_date.strftime('%Y-%m-%d') }}
+          {%- endif -%}
+        {%- endif -%}
+      </p>
+
+      <p style="font-size:clamp(0.5rem, 1.2vw, 0.8rem); flex-shrink:1;">
+        <strong data-lang="monthly_chats">Monthly chats allowed:</strong>
+        {{ labels[language].unlimited if subscription.max_chats_per_month == 0 else subscription.max_chats_per_month }}
+      </p>
+
+      <p style="font-size:clamp(0.5rem, 1.2vw, 0.8rem) ; flex-shrink:1;">
+        <strong data-lang="price_label">Price per month:</strong>
+        {% if price %}
+          {{price}} {{client_currency}}
+        {% endif %}
+      </p>
+
+      <p style="font-size:clamp(0.5rem, 1.2vw, 0.8rem); flex-shrink:1;">
+        <strong data-lang="seats_label">Seats:</strong>
+        {{ client.seats if client.seats else 0 }}
+      </p>
+
+      <button id="cancelSubscriptionBtn"
+        data-lang="cancel_subscription"
+        style="background:none;border:none;color:#d9534f;cursor:pointer;text-decoration:underline;font-size:clamp(0.5rem, 1.2vw, 0.8rem)">
+      </button>
+
       {% else %}
-        <p data-lang="no_subscription">No active subscription. {{ service_message }}</p>
+      <p style="font-size:clamp(0.5rem, 1.2vw, 0.8rem); flex-shrink:1;" data-lang="no_subscription">
+        No active subscription. {{ service_message }}
+      </p>
       {% endif %}
 
-      <hr style="margin: 1.5rem 0;" />
 
-      <h3 data-lang="change_plan" style="margin-bottom: 1rem; text-align:center;">Change Plan or Add Seats</h3>
+      <hr style="margin: 0.6rem 0;" />
 
-      <form id="subscriptionForm" style="display: flex; flex-direction: column; gap: 1rem;">
+      <h2 data-lang="change_plan" style="margin-bottom: clamp(0.5rem,1.5vh,1rem);  text-align:center; font-size: clamp(0.6rem, 1.4vw, 1.0rem);">Change Plan or Add Seats</h3>
+
+      <form id="subscriptionForm" style="display: flex; flex-direction: column; gap: clamp(0.5rem,1.5vh,1rem); font-size: clampclamp(0.5rem, 1.2vw, 0.9rem); flex-shrink:1;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <input type="hidden" name="client_id" value="{{ client.id }}">
+        <input type="hidden" id="currentClientId" name="client_id" value="{{ client.id }}">
 
         <!-- Plan selector with hover info -->
-        <label for="plan" data-lang="select_plan">Select Plan:</label>
-        <div style="position:relative;">
-            <select name="plan_id" id="plan" style="padding:0.5rem; width:100%; cursor:pointer;">
-                <option value="Basic" data-tooltip="TEST">Basic</option>
-                <option value="Gold" data-tooltip="TEST">Gold</option>
-                <option value="Platinum" data-tooltip="TEST">Platinum</option>
+        <label for="plan" data-lang="select_plan" style="font-size:clamp(0.5rem, 1.2vw, 0.8rem);">Select Plan:</label>
+        <div id="plan-wrapper" style="position:relative;">
+            <select name="plan_id" id="plan" style="font-size:clamp(0.5rem, 1.2vw, 0.8rem); padding:0.2rem; width:100%; cursor:pointer;">
+                <option style="font-size:clamp(0.5rem, 1.2vw, 0.8rem);" data-lang="plan_basic" value="1" {% if subscription and subscription.id == 1 %}selected{% endif %}>Basic</option>
+                <option style="font-size:clamp(0.5rem, 1.2vw, 0.8rem);" data-lang="plan_gold" value="2" {% if subscription and subscription.id == 2 %}selected{% endif %}>Gold</option>
+                <option style="font-size:clamp(0.5rem, 1.2vw, 0.8rem);" data-lang="plan_platinum" value="3" {% if subscription and subscription.id == 3 %}selected{% endif %}>Platinum</option>
             </select>
-            <div id="tooltip" style="
+            <div id="tooltip" data-lang="tier_specification" style="
                 position:absolute;
                 background:white;
                 border:1px solid #ccc;
@@ -914,12 +931,15 @@ select {
                 pointer-events:none;
                 z-index:10;
                 transition: opacity 0.1s ease-in-out;
+                font-size:clamp(0.5rem, 1.2vw, 0.8rem);
+                background-color: #fafcff;
+                
             "></div>
         </div>
-
+ 
         <!-- Additional seats -->
-        <label for="seats" data-lang="select_seats">Additional Seats:</label>
-        <input type="number" name="seats" id="seats"
+        <label for="seats" data-lang="select_seats" style="font-size:clamp(0.5rem, 1.2vw, 0.8rem);">Additional Seats:</label>
+        <input style="font-size:clamp(0.8rem, 1.2vw, 0.9rem); " type="number" name="additional_seats" id="seats"
             value="0"
             min="0" max="50" style="padding:0.5rem; width:100%;" />
 
@@ -927,29 +947,35 @@ select {
         <div>
             <input type="checkbox" id="auto_upgrade" name="auto_upgrade"
                 value="1" {% if client.auto_upgrade %}checked{% endif %}>
-            <label for="auto_upgrade" data-lang="auto_upgrade_label">
+            <label  style="font-size:clamp(0.5rem, 1.2vw, 0.8rem);" for="auto_upgrade" data-lang="auto_upgrade_label">
                 Allow automatic upgrade if max chats/month is reached
             </label>
         </div>
 
         <button type="submit" style="
-            padding:0.7rem 1.2rem; 
+            padding:clamp(0.4rem,1.3vh,0.6rem) clamp(0.8rem,1.8vw,1.0rem); 
             background-color:#4a90e2; 
             color:white; 
             border:none; 
             border-radius:6px; 
             cursor:pointer;
         " data-lang="update_subscription">
-            Update Subscription
+            Update/Create Subscription
         </button>
       </form>
     </div>
+    <div id="flash-messages"></div>
   </section>
-  <div id="flash-messages"></div>
+
 
 
 
   <script>
+
+
+
+
+
 
 
 
@@ -959,63 +985,210 @@ select {
 
   document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById("subscriptionForm");
-    const csrfToken = document.getElementById("csrf_access_token").value;
     const API_BASE = "https://redrain1230.loophole.site"; 
+    const csrfToken = document.getElementById("csrf_access_token").value;
 
+    
     form.addEventListener("submit", async (e) => {
-      e.preventDefault(); // prevent normal form submit
+        e.preventDefault();
 
-      const formData = new FormData(form);
-      formData.set("auto_upgrade", form.auto_upgrade.checked ? "1" : "0");
+        const formData = new FormData(form);
+        formData.set("auto_upgrade", form.auto_upgrade.checked ? "1" : "0");
 
+        try {
+            const response = await fetch(`${API_BASE}/subscription/create_checkout_session`, {
+                method: "POST",
+                headers: {
+                    "X-CSRF-Token": csrfToken
+                },
+                body: formData
+            });
+            const data = await response.json();
+            //My backend returns:  "checkout_url": "https://checkout....
+            if (data.checkout_url) {
+                // Redirect user to Stripe Checkout or the current page(technically the same page but count as new) to show the flashes
+                window.location.href = data.checkout_url;
+            } else if (data.error) {
+                const flashMessages = document.getElementById("flash-messages");
+                flashMessages.innerHTML = `<div class="flash danger">${data.error}</div>`;
+            } else {
+                console.error("Checkout session failed", data);
+            }
+
+        } catch (err) {
+            const flashMessages = document.getElementById("flash-messages");
+            flashMessages.innerHTML = `<div class="flash danger">Network or server error.</div>`;
+            console.error(err);
+        }
+    });
+});
+
+
+   //////////////////////////////////////////////////////
+  //        STRIPE REDIRECT FLASH HANDLER             //
+  //////////////////////////////////////////////////////
+
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status'); // "success" or "failure"
+    const type = urlParams.get('type');     // optional: "upgrade", "downgrade", "new"
+    const clientId = urlParams.get('client_id'); // needed for polling backend
+
+    // Determine language
+    const backendLang = "{{ language }}"; // Jinja variable
+    const storedLang = localStorage.getItem('language');
+    const language = backendLang && backendLang !== "" ? backendLang : (storedLang || 'hu');
+
+
+
+    const flashMessages = document.getElementById("flash-messages");
+
+    function showFlash(message, type = "info") {
+        flashMessages.innerHTML = ""; // clear previous messages
+        const div = document.createElement("div");
+        div.className = `flash ${type}`;
+        div.textContent = message;
+        flashMessages.appendChild(div);
+
+        // Remove flash after 3 seconds
+        setTimeout(() => {
+            if (div.parentNode) flashMessages.removeChild(div);
+        }, 3000);
+    }
+
+    // --- Initial flash on redirect ---
+    if (status) {
+        let message = "";
+        let typeClass = status === "success" ? "success" : "danger";
+
+        if (status === "success") {
+            if (type === "upgrade") message = translations[language].success_upgrade;
+            else if (type === "downgrade") message = translations[language].success_downgrade;
+            else if (type === "same") message = translations[language].success_same;
+            else message = translations[language].success_new;
+        } else {
+            message = translations[language].failure;
+        }
+
+        showFlash(message, typeClass);
+    }
+
+    // --- Poll backend to check invoice.paid ---
+    if (status === "success" && clientId) {
+        async function checkSubscriptionStatus() {
+            try {
+                const res = await fetch(`/api/client/subscription-status?client_id=${clientId}`);
+                const data = await res.json();
+
+                if (data.status === "active") {
+                    showFlash(translations[language].active, "success");
+                    return true; // stop polling
+
+                } else if (data.status === "past_due") {
+                    showFlash(translations[language].payment_failed || "Payment failed!", "danger");
+                    return false; // or true to stop polling
+                } else {
+                    // Show "pending" flash based on type (upgrade/downgrade/new)
+                    let pendingMsg = translations[language].success_new;
+                    if (type === "upgrade") pendingMsg = translations[language].success_upgrade;
+                    else if (type === "downgrade") pendingMsg = translations[language].success_downgrade;
+                    else if (type === "same") pendingMsg = translations[language].success_same;
+
+                    showFlash(pendingMsg, "info");
+                    return false; // continue polling
+                }
+            } catch (err) {
+                console.error("Subscription status check failed:", err);
+                return false;
+            }
+        }
+
+        let attempts = 0;
+        const maxAttempts = 6; // 6 x 5s = 30s max
+        const interval = setInterval(async () => {
+            attempts++;
+            const done = await checkSubscriptionStatus();
+            if (done || attempts >= maxAttempts) clearInterval(interval);
+        }, 5000);
+    }
+
+    // Clean URL params so flash doesn't show again
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+});
+
+
+
+
+
+
+
+
+
+
+  //////////////////////////////////////////////////////
+  //        Cancellation                              //
+  //////////////////////////////////////////////////////
+
+
+  document.addEventListener('DOMContentLoaded', function () {
+
+    const btn = document.getElementById("cancelSubscriptionBtn");
+    if (!btn) return;
+   //fetch POST is just as dangerous as form POST that is why we need CSRF token even if we don't do form submission
+    const API_BASE = "https://redrain1230.loophole.site";
+    const csrfToken = document.getElementById("csrf_access_token").value;
+    const language = localStorage.getItem('language') || 'hu';
+
+    const confirmText = translations[language].cancel_confirm;
+    const successText = translations[language].cancel_success;
+
+    btn.addEventListener("click", async () => {
+   
+      // Step 1: confirm dialog
+      if (!confirm(confirmText)) return;
+      console.log("ClientID")
+      const currentClientId = document.getElementById("currentClientId").value;
+      
+      console.log(currentClientId)
       try {
-        const response = await fetch(`${API_BASE}/subscription/change`, {
+
+        // Step 2: call backend cancel route
+        const response = await fetch(`${API_BASE}/cancel_subscription`, {
           method: "POST",
           headers: {
-            "X-CSRF-Token": csrfToken,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "X-CSRF-Token": csrfToken
           },
-          body: formData,
+          //here we are just sending the clientId no need to send form like above
+          body: JSON.stringify({ client_id: currentClientId })
         });
 
         const data = await response.json();
-        const flashMessages = document.getElementById("flash-messages");
-        if (!flashMessages) return;
 
-        // Clear old messages
-        flashMessages.innerHTML = "";
-
-        const language = localStorage.getItem('language') || 'hu';
-
-        if (data.messages) {
-          data.messages.forEach(message => {
-            const div = document.createElement("div");
-            div.className = `flash ${message.category}`;
-            div.textContent =
-              message[`text_${language}`] ||
-              message.text_en ||
-              "Error";
-            flashMessages.appendChild(div);
-
-            // fade-out after 3.5s
-            setTimeout(() => {
-              div.classList.add("fade-out");
-              div.addEventListener("transitionend", () => div.remove());
-            }, 3500);
-          });
-        }
-
-        if (data.success) {
-          form.reset(); // optional: reset inputs after success
+        if (data.status === "scheduled") {
+          showFlash(successText, "success");
+          pollCancellationStatus(currentClientId, language);
+        } else {
+          showFlash(data.error || "Cancel failed", "danger");
         }
 
       } catch (err) {
-        const flashMessages = document.getElementById("flash-messages");
-        flashMessages.innerHTML = `<div class="flash danger">Network or server error.</div>`;
         console.error(err);
+        showFlash("Network error", "danger");
       }
+
     });
+
   });
+
+
+
+
+
+  
+
+
 
 
 
@@ -1087,6 +1260,10 @@ select {
     //             TRANSLATION PART                    //
     ////////////////////////////////////////////////////
 
+   
+  
+
+
 
     // Translation object
   const translations = {
@@ -1127,6 +1304,42 @@ select {
         sample:"Sample widget",
         subscription:"Subscription",
         dashboard:"Dashboard",
+        cancel_subscription: "Cancel subscription",
+        cancel_confirm: "Are you sure you want to cancel your subscription?",
+        cancel_success: "Subscription will cancel at the end of the billing period.",
+        change_plan:"Plan and Extra Seats",
+        select_plan: "Select Plan:",
+       
+        success_new: "Creating subscription…",
+        success_upgrade: "Upgrading subscription…",
+        success_downgrade: "Downgrading subscription…",
+        success_same:"Tier remains the same",
+        active: "Subscription active!",
+        payment_failed: "An error occurred during payment.",
+        current_subscription:"Current subscription",
+        plan_label:"Plan",
+        monthly_chats:"Monthly chats allowed:",
+        price_label:"Price per month:",
+        seats_label:"Seats",
+        plan_basic:"Basic",
+        plan_gold:"Gold",
+        plan_platinum: "Platinum",
+        select_seats: "Additional Seats:",
+        update_subscription: "Update/Create Subscription",
+        auto_upgrade_label: "Allow automatic upgrade if max chats/month is reached",
+        no_subscription:"No active subscription",
+        tier_specification: `
+          {% raw %}
+          <strong>Basic tier:</strong> 500 query/month, 1 seat.<br>
+          Price: {{basic_price}}, additional seat: {{basic_extra}}.<br><br>
+
+          <strong>Gold tier:</strong> 2000 query/month, 4 seats.<br>
+          Price: {{gold_price}}, additional seat: {{gold_extra}}.<br><br>
+
+          <strong>Platinum tier:</strong> unlimited query per month, 10 seats.<br>
+          Price: {{platinum_price}}, additional seat: {{platinum_extra}}.
+          {% endraw %}
+          `,
 
 
         
@@ -1168,10 +1381,42 @@ select {
         greeting2: "Kérlek válassz egy szolgáltatást!",
         subscription:"Előfizetés",
         dashboard:"Kezelőfelület",
-        
-        
-          
-        logout:"Kijelentkezés",       
+        cancel_subscription: "Előfizetés lemondása",
+        cancel_confirm: "Biztosan le szeretnéd mondani az előfizetést?",
+        cancel_success: "Az előfizetés a számlázási időszak végén megszűnik.",
+        change_plan:"Előfizetési csomagok és tagságok",
+        success_new: "Az előfizetés létrehozása folyamatban…",
+        success_upgrade: "A magasabb előfizetési csomag beállítása folyamatban…",
+        success_downgrade: "Az alacsonyabb előfizetési csomag beállítása folyamatban…",
+        success_same:"Az előfizetési csomag nem változik...",
+        active: "Előfizetés aktív!",
+        payment_failed: "Hiba történt a fizetés során.",
+        select_plan: "Válassz előfizetési csomagot:",
+        current_subscription:"Jelenlegi előfizetés",
+        plan_label:"Csomag:",
+        monthly_chats:"Havonta engedélyezett chatek száma:",
+        price_label:"Havi előfizetés díja:",
+        seats_label:"Tagok száma:",
+        plan_basic:"Alap",
+        plan_gold:"Arany",
+        plan_platinum: "Platina",
+        select_seats:"Extra tagság:",
+        logout:"Kijelentkezés",  
+        update_subscription: "Létrehozás/Frissítés",
+        auto_upgrade_label: "Automatikus csomagváltás engedélyezése havi chat limit elérésénél",  
+        no_subscription:"Nincs előfizetésed", 
+        tier_specification: `
+        {% raw %}
+        <strong>Alap csomag:</strong> 500 kérdés-válasz havonta, 1 felhasználói fiók.<br>
+        Ár: {{basic_price}}, további felhasználó: {{basic_extra}}.<br><br>
+
+        <strong>Arany csomag:</strong> 2000 kérdés-válasz havonta, 4 felhasználói fiók.<br>
+        Ár: {{gold_price}}, további felhasználó: {{gold_extra}}.<br><br>
+
+        <strong>Platina csomag:</strong> korlátlan kérdés-válasz havonta, 10 felhasználói fiók.<br>
+        Ár: {{platinum_price}}, további felhasználó: {{platinum_extra}}.
+        {% endraw %}
+        `,
     }
   };
 
@@ -1239,28 +1484,53 @@ select {
   }
 
 
-  const select = document.getElementById('plan');
+  
+    //////////////////////////////////////////////////////
+    //             TOOLTIP                             //
+    ////////////////////////////////////////////////////
+
+   
+  const tierPrices = {{ tier_prices | tojson }};
+  const currency = "{{ currency }}";
+  const wrapper = document.getElementById('plan-wrapper');
+  const backendLang = "{{ language }}"; // Jinja variable
+  const storedLang = localStorage.getItem('language');
+  const language = backendLang && backendLang !== "" ? backendLang : (storedLang || 'hu');
+
+
+  
   const tooltip = document.getElementById('tooltip');
 
-  select.addEventListener('mousemove', (e) => {
-    const option = select.options[select.selectedIndex];
-    const text = option.dataset.tooltip;
-    if(text) {
-      tooltip.textContent = text;
-      tooltip.style.display = 'block';
-      tooltip.style.opacity = '1';
-      tooltip.style.top = (e.offsetY + 25) + 'px';
-      tooltip.style.left = (e.offsetX) + 'px';
-    } else {
-      tooltip.style.opacity = '0';
-      tooltip.style.display = 'none';
+
+  function injectTierPrices(text) {
+    {% raw %}
+      return text.replace(/{{(.*?)}}/g, (_, key) => tierPrices[key] ?? "");
+    {% endraw %}
     }
+  console.log("+++++++++++", wrapper)
+
+  
+  const tierText = injectTierPrices(
+    translations[language].tier_specification
+  );
+
+  console.log("ijijijij")
+
+
+  wrapper.addEventListener('mouseenter', () => {
+    console.log(":::::::::::::")
+    tooltip.innerHTML = tierText;
+    console.log(tierText)
+    tooltip.style.display = 'block';
   });
 
-  select.addEventListener('mouseleave', () => {
-    tooltip.style.opacity = '0';
+  wrapper.addEventListener('mouseleave', () => {
     tooltip.style.display = 'none';
   });
+
+
+  
+  
 
 
 
