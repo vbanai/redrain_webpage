@@ -241,6 +241,7 @@
             .circle-dropdown-content a,
             .dropdown-content a {
             color: rgb(9, 13, 44);
+            font-size: clamp(0.85rem, 1.2vw, 1.1rem);
             padding: 12px 16px;
             text-decoration: none;
             display: block;
@@ -566,9 +567,10 @@
         </section>
         <script>
             // Assign the Flask variables to JavaScript variables
-            const user_id = "{{ user_id }}";
-            const user_org = "{{ user_org }}";
-            let language="{{ language }}";
+            const user_id = {{ user_id | tojson }};
+            const user_org = {{ user_org | tojson }};
+            let language = {{ language | tojson }};
+            const admin_name= {{ user_name | tojson }};
         </script>
         <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>

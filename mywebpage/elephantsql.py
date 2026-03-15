@@ -230,7 +230,7 @@ class ChatHistory(Base):
     __tablename__ = 'chat_messages'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     client_id = Column(Integer, ForeignKey('clients.id'), nullable=True)
     user_id = Column(Unicode(36))  # User ID, can be alphanumeric
     message = Column(UnicodeText)  # Use UnicodeText for large text fields
@@ -409,3 +409,21 @@ def enrich_event_with_local_timestamp(event_data, tz_name='UTC'):
 
 
 
+async def get_client_code_by_client_id(client_id: int):
+    """Retrieve client_code based on the client_id asynchronously."""
+    try:
+        async with async_session_scope() as session:
+            result = await session.execute(
+                select(Client.client_code).where(Client.id == client_id)
+            )
+            client_code = result.scalar_one_or_none()
+
+            if client_code:
+                return client_code
+            else:
+                print("No client found with the given client_id.")
+                return None
+
+    except Exception as e:
+        print(f"Error retrieving client_code: {e}")
+        return None

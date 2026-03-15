@@ -387,7 +387,7 @@ function showInitialWaitingText() {
 
       const initialText = document.createElement('p'); // Create another paragraph for the main text
       initialText.style.marginTop = '30vh';
-      initialText.style.marginLeft = '24vw';
+      initialText.style.marginLeft = '4vw';
       initialText.classList.add('initial-text'); // Add the class for styling
 
       // Set the translated waiting text (without dots)
@@ -2549,15 +2549,15 @@ async function appendMessage(message) {
       messageElement.className = 'message';
       messageElement.innerHTML = `
           <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
-            <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
+            <span class="timestamp"><strong>${translation_Sent_User.sentAT}:</strong> ${formattedTime}</span>
           
-            <span class="user-input">${translation_Sent_User.User}: ${message.user_message}</span>
+            <span class="user-input"><strong>${translation_Sent_User.User}:</strong> ${message.user_message}</span>
           </div>
           ${message.bot_message ? `<div class="admin-message"><span class="bot-response">
             ${
           message.bot_message === awaitingText || message.bot_message === 'Awaiting Admin Response...' 
           ? awaitingText 
-          : `Bot: ${message.bot_message}`}
+          : `<strong>Bot:</strong> ${message.bot_message}`}
            </span></div>` : ''}
       `;
 console.log("-----------------27")
@@ -2862,7 +2862,7 @@ console.log("-----------------28")
     const bottomMiddleSection=Chats_automatic[0];
     const bottomRightSection=locations_automatic[0];
     const topMiddleSection=topMiddleButtons[0]
-    const language = localStorage.getItem('language') || 'hu';
+    const language = localStorage.getItem('language') || language;
     const translation_Sent_User = {
       sentAT: language === 'hu' ? 'A Küldés ideje' : 'Sent at',
       User: language === 'hu' ? 'Ügyfél' : 'User',
@@ -2885,6 +2885,7 @@ console.log("-----------------28")
     console.log(message.user_id)
     console.log(userElements[message.user_id])
     console.log(" ___________________ END_______")
+     
     if (!userElements[message.user_id]&& message.user_id){
       // Create the 'Chats' label
       prependeduserId=message.user_id
@@ -2947,7 +2948,16 @@ console.log("-----------------28")
       updateButtonStyles(adminResponseButton, automaticResponseStates[message.user_id]);
      
       console.log("-----------------4")
+
+
+
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Click event to toggle button text and color + handling the waiting message if we should append or not
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+     
+      
+
       adminResponseButton.onclick = () => {
         console.log("ADmin REsponse button click 1")
         automaticResponseStates[message.user_id] = !automaticResponseStates[message.user_id];
@@ -2982,6 +2992,15 @@ console.log("-----------------5")
         if(automaticResponseStates[message.user_id]){
           // Manual mode → show avatar
           avatar.style.display = "flex";
+
+
+
+
+          /////////////////////////////////////////////////////////////////////////////////////////
+          ///   SWITCH TO MANUAL MODE IN AUTOMATIC - creating the input box and logic
+          /////////////////////////////////////////////////////////////////////////////////////////
+        
+
 
           switchToManualModeforOneUser(language, message.user_id)  // THIS CREATES THE IMPUTBOX FOR ADMINS IN AUTOMATIC - MANUAL MODE
 
@@ -3279,6 +3298,36 @@ console.log("-----------------13")
   
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+      //////////////////////////////////////////////////////////
+      ////////////////                    //////////////////////
+      //////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
+
+
+
       /////////////////////////////////////////////////////////////////
       //////////     AUTOMATIC OR MANUAL / USER    ///////////////////
       ///////////////////////////////////////////////////////////////
@@ -3308,8 +3357,8 @@ console.log("-----------------13")
                   else if (mime.includes('word') || mime.includes('msword') || mime.includes('officedocument.wordprocessingml')) icon = '📝';
                   attachmentHtml = `
                     <a href="${data}" target="_blank" class="attachment-link">
-                      <span class="attachment-icon">${icon}</span>
                       <span data-lang="view_attachment"></span>
+                      <span class="attachment-icon">${icon}</span>
                     </a>
                   `;
               }
@@ -3325,11 +3374,12 @@ console.log("-----------------13")
           // fallback: leave message.user_message as is
       }
   }
-  
+  //bot_message: mindig aiapp-ból jön, admin_response: mindig az admin_app input mezőjéből, amit az adminisztrátor válaszol
   if (automaticResponseStates[message.user_id] || (!message.bot_message && message.admin_response)){  //automaticResponseStates tricky check what is written on the button if manual intervention needed it is automatic mode but the value is false as have manual intervention on the button
         console.log("%MESSSAGE CHECK%")
         console.log(message)
         console.log("MESSAGECHECK END")
+        const adminDisplayName = message.admin_name || "Admin";
         chatBox = Chats_automatic[message.user_id];
       
         // Update message logic remains the same
@@ -3352,13 +3402,20 @@ console.log("-----------------13")
           if (adminResponseElement) {
       
             const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
-        
-     console.log("-----------------15")
-            adminResponseElement.textContent = message.admin_response
-              ? `Admin: ${message.admin_response}`
-              : awaitingText;
+            
+     console.log("-------A sima ügy appendeljük a waiting helyére az admin választ----------15")
+            if (message.admin_response || attachmentHtml) {
+                adminResponseElement.innerHTML = `<strong>${adminDisplayName}:</strong> ${message.admin_response || ''}${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}`;
+            } else {
+                adminResponseElement.innerHTML = awaitingText;
+            }
+            updateDynamicText(language);
+            if (!counterForAddAdminMessage[message.user_id]) {
+              counterForAddAdminMessage[message.user_id] = 0;
+            }
+            counterForAddAdminMessage[message.user_id] += 1;
           }
-          if (!message.admin_response) { //here we have scenario when awaiting admin response hasn't been answered, as automatic anwsered we had, but new message from chatapp arrived
+          if (!message.admin_response && (!message.attachment || !message.attachment.data)) { //here we have scenario when awaiting admin response hasn't been answered, but new message from chatapp arrived
             awaitingMessageElement.remove();
             chatBox.classList.add('awaiting-response');
             chatBox.classList.remove('not-awaiting-response');
@@ -3389,7 +3446,7 @@ console.log("-----------------13")
             // Create admin message content and style it to align on the left
             const adminMessageContent = `
               <div class="admin-message">
-                ${message.admin_response ? `<span class="admin-response">Admin: ${message.admin_response}</span>` : `<span class="admin-response">${awaitingText}</span>`}
+                ${message.admin_response ? `<span class="admin-response"><strong>${adminDisplayName}:</strong> ${message.admin_response}</span>` : `<span class="admin-response">${awaitingText}</span>`}
               </div>
             `;
       
@@ -3432,7 +3489,8 @@ console.log("-----------------13")
 
 
 
-       console.log("-----------------18")     
+       console.log("-----------------18-----------")
+       console.log(attachmentHtml)     
 
       
             //chatBox.appendChild(messageElement);
@@ -3440,48 +3498,114 @@ console.log("-----------------13")
 
           } else {
           
-//       NORMAL FIRST MANUAL RESPONSE SECOND PART:
+//       NORMAL FIRST MANUAL RESPONSE:
 
             chatBox.classList.add('not-awaiting-response');
             chatBox.classList.remove('awaiting-response');
             userRectangle.classList.remove('awaiting-response'); // Remove class from user rectangle
+            if (!counterForAddAdminMessage[message.user_id]) {
+                counterForAddAdminMessage[message.user_id] = 0;
+              }
             counterForAddAdminMessage[message.user_id] += 1;
           }
        
           const botResponseElement = awaitingMessageElement.querySelector('.bot-response');  ///??? maybe it is not necessary never we have it in manual mode
           if (botResponseElement) {
-      
             const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
 
-            botResponseElement.textContent = message.admin_response
-              ? `Admin: ${message.admin_response}`
+            botResponseElement.innerHTML = message.admin_response
+              ? `<strong>${adminDisplayName}:</strong> ${message.admin_response}${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}`
               : awaitingText;
           }
 
         } else {
 
           console.log("-----------------19")
-  //  THIS IS ACTIVATED WHEN WE ADD A SECOND MESSAGE MANUALLY:
-
+  //  THIS IS ACTIVATED WHEN WE ADD A SECOND MESSAGE MANUALLY, NO WAITING ELEMENT:
+          // de szerintem ide sohasem jön mert nincs manual_response, majd check később!!!
           console.log("IDEBEJÖN?_1")
-          if (message.manual_response){
+          if (typeof message.bot_message === "undefined"){
+            
+            chatBox.classList.add('not-awaiting-response');
+            chatBox.classList.remove('awaiting-response');
+            userRectangle.classList.remove('awaiting-response'); // Remove class from user rectangle
+            if (counterForAddAdminMessage[message.user_id]>0){
+              console.log("counteradminmessage>0????")
+
+            
           
             // Create admin message content and style it to align on the left
             const messageElement = document.createElement('div');
             messageElement.className = 'message';
+            const awaitingText = language === 'hu'
+              ? 'Adminisztrátori válaszra várakozás...'
+              : 'Awaiting Admin Response...';
+
             const adminMessageContent = `
-            <div class="admin-message">
-              ${message.admin_response ? `<span class="admin-response">Admin: ${message.admin_response}</span>` : '<span class="admin-response"> </span>'}
-            </div>
-            `;
+              <div class="admin-message">
+
+                ${
+                  message.admin_response || message.attachment?.data
+                    ? `
+                      <span class="admin-response"><strong>${adminDisplayName}:</strong>${message.admin_response ? ` ${message.admin_response}` : ''}</span>
+
+                      ${
+                        message.attachment?.data
+                          ? `<div class="attachment-wrapper">${attachmentHtml}</div>`
+                          : ''
+                      }
+                    `
+                    : `<span class="admin-response">${awaitingText}</span>`
+                }
+
+              </div>
+              `;
    console.log("-----------------20")   
             // Append user message first (right-aligned) and admin message after (left-aligned)
             messageElement.innerHTML = adminMessageContent;
       
             chatBox.appendChild(messageElement);
+
+            console.log("----------XXX-------24")    
+              // Append user message first (right-aligned) and admin message after (left-aligned)
+              
+
+            // Use message.timestamp if exists, otherwise current time
+            const tsString = message.timestamp || '';
+                            
+
+            const hiddenTimestampSpan = document.createElement('span');
+            hiddenTimestampSpan.className = 'hidden-timestamp';
+            hiddenTimestampSpan.style.display = 'none';
+            hiddenTimestampSpan.textContent = tsString;
+            messageElement.appendChild(hiddenTimestampSpan);
+
+            console.log("HIDDEN TIMESTAMP::")
+            console.log(hiddenTimestampSpan)
+
+            // Find where to insert based on timestamp
+            const chatMessages = Array.from(chatBox.getElementsByClassName('message'));
+            const insertBeforeIndex = chatMessages.findIndex(el => {
+              const ts = el.querySelector('.hidden-timestamp');
+              return ts && new Date(ts.textContent) > new Date(tsString);
+            });
+
+            // Insert in correct place or append if no later message
+            if (insertBeforeIndex === -1) {
+              chatBox.appendChild(messageElement);
+            } else {
+              chatBox.insertBefore(messageElement, chatMessages[insertBeforeIndex]);
+            }
+            }
+            updateDynamicText(language);
+        
+
+              // * itt másodszor hozááadódik, de ha nincs usesr message akkor azt szimplán kicsréljük miert ugyanazt messageElement-et hazsnáljuk mint előbb
+              
+console.log("---------XXX--------25")
             counterForAddAdminMessage[message.user_id] = 1;
 
-//  THIS IS ACTIVATED WHEN WE ADD A SECOND MESSAGE MANUALLY:
+//  THIS IS ACTIVATED WHEN WE ADD A  MESSAGE FROM CHATBOT MANUALLY, NO WAITING ELEMENT:
 
           }else{
           console.log("IDEBEJÖN?_2", message)
@@ -3512,7 +3636,7 @@ console.log("-----------------13")
           const adminMessageContent = `
           <div class="admin-message">
             ${message.admin_response ? 
-              `<span class="admin-response">Admin: ${message.admin_response}</span>` 
+              `<span class="admin-response"><strong>${adminDisplayName}:</strong> ${message.admin_response}</span>` 
               : `<span class="admin-response">${awaitingText}</span>`}
           </div>
         `;
@@ -3549,13 +3673,13 @@ console.log("-----------------23")
 
     
           //chatBox.appendChild(messageElement);
-          counterForAddAdminMessage[message.user_id] += 1;
+          //counterForAddAdminMessage[message.user_id] += 1;
           console.log("counterellenőrzés")
           console.log(counterForAddAdminMessage[message.user_id])
           
     
           // Add class based on the presence of an admin response
-          if (!message.admin_response) {
+      
             // **  ide jön
             console.log("7")
             chatBox.classList.add('awaiting-response');
@@ -3563,63 +3687,9 @@ console.log("-----------------23")
             userRectangle.classList.add('awaiting-response'); // Add class to user rectangle
             counterForAddAdminMessage[message.user_id] = 0;
        
-//  THIS IS ACTIVATED WHEN WE ADD A SECOND MESSAGE MANUALLY:
 
-          } else {
-            console.log("8")
-            chatBox.classList.add('not-awaiting-response');
-            chatBox.classList.remove('awaiting-response');
-            userRectangle.classList.remove('awaiting-response'); // Remove class from user rectangle
-            if (counterForAddAdminMessage[message.user_id]>0){
-              console.log("counteradminmessage>0????")
-              // Create admin message content and style it to align on the left
-              const adminMessageContent = `
-              <div class="admin-message">
-                ${message.admin_response ? `<span class="admin-response">Admin: ${message.admin_response}</span>` : '<span class="admin-response"> </span>'}
-              </div>
-              `;
-    console.log("-----------------24")    
-              // Append user message first (right-aligned) and admin message after (left-aligned)
-              messageElement.innerHTML = adminMessageContent;
 
-              // Use message.timestamp if exists, otherwise current time
-              const tsString = message.timestamp || '';
-                              
-
-              const hiddenTimestampSpan = document.createElement('span');
-              hiddenTimestampSpan.className = 'hidden-timestamp';
-              hiddenTimestampSpan.style.display = 'none';
-              hiddenTimestampSpan.textContent = tsString;
-              messageElement.appendChild(hiddenTimestampSpan);
-
-              console.log("HIDDEN TIMESTAMP:")
-              console.log(hiddenTimestampSpan)
-
-              // Find where to insert based on timestamp
-              const chatMessages = Array.from(chatBox.getElementsByClassName('message'));
-              const insertBeforeIndex = chatMessages.findIndex(el => {
-                const ts = el.querySelector('.hidden-timestamp');
-                return ts && new Date(ts.textContent) > new Date(tsString);
-              });
-
-              // Insert in correct place or append if no later message
-              if (insertBeforeIndex === -1) {
-                chatBox.appendChild(messageElement);
-              } else {
-                chatBox.insertBefore(messageElement, chatMessages[insertBeforeIndex]);
-              }
-
-              // * itt másodszor hozááadódik, de ha nincs usesr message akkor azt szimplán kicsréljük miert ugyanazt messageElement-et hazsnáljuk mint előbb
-              
-console.log("-----------------25")
-              
-              //chatBox.appendChild(messageElement);
-       
-
-            }
-            counterForAddAdminMessage[message.user_id] += 1;
-            
-          }
+          
         }
       }
 console.log("-----------------26")
@@ -3638,15 +3708,15 @@ console.log("-----------------26")
       messageElement.className = 'message';
       messageElement.innerHTML = `
           <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
-            <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
+            <span class="timestamp"><strong>${translation_Sent_User.sentAT}:</strong> ${formattedTime}</span>
           
-            <span class="user-input">${translation_Sent_User.User}: ${message.user_message}</span>
+            <span class="user-input"><strong>${translation_Sent_User.User}:</strong> ${message.user_message}</span>
           </div>
           ${message.bot_message ? `<div class="admin-message"><span class="bot-response">
             ${
           message.bot_message === awaitingText || message.bot_message === 'Awaiting Admin Response...' 
           ? awaitingText 
-          : `Bot: ${message.bot_message}`}
+          : `<strong>Bot:</strong> ${message.bot_message}`}
            </span></div>` : ''}
       `;
 console.log("-----------------27")
@@ -3951,6 +4021,30 @@ console.log("-----------------35")
 ///////////////////////////////////////////////////////////////
 ///////////////////////   END OF APPEND //////////////////////
 /////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4282,14 +4376,14 @@ function switchToManualModeforOneUser_manual(userId, language, tabIndex) {
   //////////////////////////////////////////////
 
 
-async function uploadFileorImage(blob) {
+async function uploadFileorImage(blob, userId) {
  
 
 
   const formData = new FormData();
   formData.append("file", blob);
   formData.append("org_id", user_org);
-  formData.append("user_id", user_id);
+  formData.append("user_id", userId);
   
   const response = await fetch("/api/upload_file", {
     method: "POST",
@@ -4322,19 +4416,48 @@ async function uploadFileorImage(blob) {
 }
 
 
-function resetAdminAttachment() {
-  adminAttachment = { data: null, mime_type: null };
 
-  previewImg.src = "#";
-  previewImg.style.display = "none";
 
-  attachIcon.style.display = "block";
+function showTempMessage(text, container) {
+  // Remove existing message if present
+  const existing = container.querySelector(".temp-message");
+  if (existing) existing.remove();
 
-  attachBtn.classList.remove("has-file");
+  const tempMsg = document.createElement("div");
+  tempMsg.className = "temp-message";
 
-  fileInput.value = "";
+  tempMsg.innerText = text;
+
+  // Styling for overlay
+  tempMsg.style.position = 'absolute';
+  tempMsg.style.top = '0';
+  tempMsg.style.left = '50%';
+  tempMsg.style.transform = 'translateX(-50%)';
+  tempMsg.style.backgroundColor = 'rgba(0,0,0,0.8)';
+  tempMsg.style.color = '#fff';
+  tempMsg.style.padding = '4px 8px';
+  tempMsg.style.borderRadius = '4px';
+  tempMsg.style.fontSize = '12px';
+  tempMsg.style.zIndex = '9999'; // on top of everything in the container
+
+  // Make sure container is relative for positioning
+  container.style.position = container.style.position || 'relative';
+
+  container.appendChild(tempMsg);
+
+  // Auto-remove after 4 seconds
+  setTimeout(() => tempMsg.remove(), 3000);
+
+  return tempMsg;
 }
 
+function t(key, language) {
+    return translations[language]?.[key] || translations["en"][key];
+  }
+  
+function getCurrentLanguage() {
+  return localStorage.getItem('language') || 'hu';
+}
 
 
 function switchToManualModeforOneUser(language, userId) {    // For The original rectangle initiated the manual / automatic response
@@ -4421,13 +4544,48 @@ function switchToManualModeforOneUser(language, userId) {    // For The original
   // Open file dialog
   attachBtn.addEventListener('click', () => fileInput.click());
 
+  // Copy pasting
+  responseInput.addEventListener("paste", async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+
+        // If this is an image (screenshot)
+        if (item.type.startsWith("image/")) {
+            e.preventDefault(); // don't paste as base64
+
+            const file = item.getAsFile();
+            if (file) {
+                // Feed the file to the existing file input
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                fileInput.files = dt.files;
+
+                // Trigger your existing 'change' listener
+                fileInput.dispatchEvent(new Event('change'));
+            }
+            return; // stop further processing for this paste
+        }
+    }
+});
+
+
   // Handle file selection & preview
   fileInput.addEventListener('change', async (e) => {
     const file = fileInput.files[0];
     if (!file) return;
 
-    if (!ALLOWED_TYPES.includes(file.type)) return alert("Unsupported file type");
-    if (file.size > MAX_FILE_SIZE) return alert("File too large");
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      showTempMessage(t("invalidFormat", getCurrentLanguage()), adminResponseControls);
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      showTempMessage(t("fileTooLarge", getCurrentLanguage()), adminResponseControls);
+      return;
+    }
 
      isUploading = true;
 
@@ -4439,25 +4597,25 @@ function switchToManualModeforOneUser(language, userId) {    // For The original
       previewImg.src = '/static/pdf.png';
       previewImg.style.borderRadius = '0%'; // square for files
       previewImg.style.width = '30px';
-      previewImg.style.height = '30px';
+      previewImg.style.height = '38px';
    
     } else if (file.type.includes('word')) {
       previewImg.src = '/static/word.png';
       previewImg.style.borderRadius = '0%';
-      previewImg.style.width = '30px';
-      previewImg.style.height = '30px';
+      previewImg.style.width = '35px';
+      previewImg.style.height = '38px';
    
     } else if (file.type.includes('excel') || file.type.includes('spreadsheetml')) {
       previewImg.src = '/static/excel.png';
       previewImg.style.borderRadius = '0%';
-      previewImg.style.width = '30px';
-      previewImg.style.height = '30px';
+      previewImg.style.width = '34px';
+      previewImg.style.height = '38px';
 
     } else {
       previewImg.src = '/static/file.png';
       previewImg.style.borderRadius = '0%';
-      previewImg.style.width = '30px';
-      previewImg.style.height = '32px';
+      previewImg.style.width = '34px';
+      previewImg.style.height = '38px';
  
     }
 
@@ -4477,9 +4635,11 @@ function switchToManualModeforOneUser(language, userId) {    // For The original
       fileInput.value = "";
     });
 
+    let uploadingMsg = showTempMessage(t("uploadInProgress", getCurrentLanguage()), adminResponseControls);
+
     try {
       // Upload to backend → get permanent URL
-      const permanentUrl = await uploadFileorImage(file);
+      const permanentUrl = await uploadFileorImage(file, userId);
 
       // Replace image preview with permanent URL if image
       if (file.type.startsWith('image/')) previewImg.src = permanentUrl;
@@ -4489,11 +4649,13 @@ function switchToManualModeforOneUser(language, userId) {    // For The original
         data: permanentUrl,
         mime_type: file.type
       };
+      if (uploadingMsg) uploadingMsg.remove();
+      showTempMessage(t("uploadSuccess", getCurrentLanguage()), adminResponseControls);
     } catch (err) {
       console.error("Upload failed:", err);
       previewImg.alt = "Upload failed";
       adminAttachment = { data: null, mime_type: null };
-      alert("Upload failed");
+      showTempMessage(t("uploadFailed", getCurrentLanguage()), adminResponseControls);
     } finally {
       isUploading = false;
       URL.revokeObjectURL(file);
@@ -4508,29 +4670,92 @@ function switchToManualModeforOneUser(language, userId) {    // For The original
   responseInput.style.overflowY = 'hidden'; // Hide vertical scrollbar
   responseInput.style.resize = 'none'; // Prevent manual resizing
   responseInput.style.height = '30px'; // Set an initial height (min-height)
+  
 
+  // sendning FREEZE INFO when starting typing:
+
+  let typingStarted = false;
+  let typingPingInterval = null;
   // Auto-expand the textarea only when it exceeds the initial height
   responseInput.addEventListener('input', function () {
     this.style.height = '30px'; // Reset the height to the initial value
     if (this.scrollHeight > this.clientHeight) {
       this.style.height = (this.scrollHeight) + 'px'; // Expand if the content overflows
     }
-  });
+    
+    // -------- TYPING START --------
+    if (!typingStarted && this.value.trim() !== "") {
+
+      typingStarted = true;
+      console.log("TYping?????")
+      socket.emit("admin_typing_start", {
+        user_id: userId,
+        admin_name: admin_name
+      });
+      console.log("TYping????? megvolt")
+      // keep lock alive
+      if (typingPingInterval) clearInterval(typingPingInterval);
+
+      typingPingInterval = setInterval(() => {
+        socket.emit("admin_typing_ping", {
+          user_id: userId,
+          admin_name: admin_name
+        });
+      }, 3000);
+
+    }
+
+    // -------- TYPING STOP IF CLEARED --------
+    if (typingStarted && this.value.trim() === "") {
+      socket.emit("admin_typing_stop", { user_id: userId, admin_name: admin_name });
+      typingStarted = false;
+      if (typingPingInterval) { clearInterval(typingPingInterval); typingPingInterval = null; }
+    }
+
+    // Optional blur stop
+    responseInput.addEventListener("blur", () => {
+      if (!typingStarted) return;
+      socket.emit("admin_typing_stop", { user_id: userId, admin_name: admin_name });
+      typingStarted = false;
+      if (typingPingInterval) { clearInterval(typingPingInterval); typingPingInterval = null; }
+    });
+      });
 
   
   async function sendResponse() {
     const response = responseInput.value;
-    if (response) {
+    // prevent sending while upload still running
+    if (isUploading) {
+      showTempMessage(t("uploadInProgress", getCurrentLanguage()), adminResponseControls);
+      return;
+    }
+    if (response || (adminAttachment && adminAttachment.data)) {
       const timestamp = new Date().toISOString();
        try {
-          socket.emit('admin_response', { user_id: userId, response: response, timestamp: timestamp });
+          socket.emit('admin_response', { user_id: userId, response: response, timestamp: timestamp, attachment: adminAttachment });
           console.log("RESP !!!!!!!!!!!!!!!!!!!!!!!: ", response)
-          await handleAdminResponse(chatBox, response, null, timestamp);
+          await handleAdminResponse(chatBox, response, null, timestamp, adminAttachment);
+          
+          // stop freeze the typing slot here as well
+          socket.emit("admin_typing_stop", { user_id: userId, admin_name: admin_name });
+
+          typingStarted = false;
+
+          if (typingPingInterval) {
+            clearInterval(typingPingInterval);
+            typingPingInterval = null;
+          }
        } catch (error) {
           console.error("Error in handleAdminResponse:", error);
        }
        responseInput.value = '';
        responseInput.style.height = '30px';
+
+      adminAttachment = { data: null, mime_type: null };
+      previewImg.src = '#';
+      previewWrapper.style.display = 'none';
+      attachIcon.style.display = 'block';
+      fileInput.value = '';
        
     }
  }
@@ -4560,7 +4785,6 @@ function switchToManualModeforOneUser(language, userId) {    // For The original
 
 
 
-
   function createChatBox_automatic(userId, tabContent) {
     // Create the container for the chatbox and response controls
     const chatContainer = document.createElement('div');
@@ -4572,6 +4796,8 @@ function switchToManualModeforOneUser(language, userId) {    // For The original
     chatBox.className = 'chat-box_automatic not-awaiting-response';
     chatBox.dataset.sessionId = userId;
     chatContainer.appendChild(chatBox);
+
+
 
     // Append the entire chat container to the tab content
     tabContent.appendChild(chatContainer);
@@ -4815,8 +5041,8 @@ async function uploadImage(blob) {
 }
   
 
-async function handleAdminResponse(chatBox, response, optionalParam = null, timestamp=null, imageUrl=null) {
-    
+async function handleAdminResponse(chatBox, response, optionalParam = null, timestamp=null, attachment=null, adminDisplayName=null) {
+
     // const awaitingMessageElement = Array.from(chatBox.getElementsByClassName('message')).find(el => {
     //     const botResponseElement = el.querySelector('.bot-response');
     //     const adminResponseElement = el.querySelector('.admin-response');
@@ -4839,6 +5065,7 @@ async function handleAdminResponse(chatBox, response, optionalParam = null, time
     });
 
     if (awaitingMessageElement || counterForAddAdminMessage[chatBox.dataset.sessionId]>0 || optionalParam>0) {
+      console.log("van AWAITING ELEMENTS?")
       let userMessage = "";
       const ts = timestamp || new Date().toISOString();
       if (awaitingMessageElement){
@@ -4863,12 +5090,13 @@ async function handleAdminResponse(chatBox, response, optionalParam = null, time
         
         const latestMessage = {
             timestamp: ts,
-            user_message: userMessage,
+            user_message: attachment ? JSON.stringify({ text: userMessage, attachment }) : userMessage,
             admin_response: response,
             user_id: sessionId,
-            image_url: imageUrl
+            attachment: attachment || null, // top-level attachment for convenience
+            admin_name:adminDisplayName
         };
-        console.log("LATESTMESSAGE")
+                console.log("LAATESTMESSAGE")
         console.log(latestMessage)
         console.log("timestamp")
         console.log(timestamp)
@@ -4885,7 +5113,7 @@ async function handleAdminResponse(chatBox, response, optionalParam = null, time
         const message = {
           response: response,
           user_id: sessionId,
-          image_url: imageUrl
+          attachment: attachment || null 
         };
   
         // Send the message over the WebSocket
@@ -6531,6 +6759,29 @@ function editTabCreation(){
 
 
 function updateAdminIntervention_response_ManualMode(data){
+
+      let attachmentHtml = '';
+
+      if (data.attachment && data.attachment.data) {
+          const mime = data.attachment.mime_type;
+          const fileUrl = data.attachment.data;
+
+          if (mime && mime.startsWith('image/')) {
+              attachmentHtml = `<img src="${fileUrl}" class="attachment" />`;
+          } else {
+              let icon = '📎';
+              if (mime?.includes('pdf')) icon = '📄';
+              else if (mime?.includes('word') || mime?.includes('msword') || mime?.includes('officedocument.wordprocessingml')) icon = '📝';
+              else if (mime?.includes('excel') || mime?.includes('spreadsheetml')) icon = '📊';
+
+              attachmentHtml = `
+                  <a href="${fileUrl}" target="_blank" class="attachment-link">
+                      <span data-lang="view_attachment"></span>
+                      <span class="attachment-icon">${icon}</span>
+                  </a>
+              `;
+          }
+      }
       chatBox = colleaguesChats[data.tabIndex].querySelector(`.chat-container[data-user-id="${data.user_id}"]`);
       // Update message logic remains the same
 
@@ -6556,11 +6807,23 @@ function updateAdminIntervention_response_ManualMode(data){
       const language = localStorage.getItem('language') || 'hu';
       const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
       if (awaitingMessageElement) {
-        awaitingMessageElement.querySelector('.admin-response').textContent = data.response
-          ? `Admin: ${data.response}`
-          : awaitingText;
 
-        
+      const adminResponseElement = awaitingMessageElement.querySelector('.admin-response');
+
+      if (adminResponseElement) {
+          if (data.response || attachmentHtml) {
+
+              adminResponseElement.innerHTML = `
+                  <strong>Admin:</strong>
+                  ${data.response ? data.response : ''}
+                  ${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}
+              `;
+
+          } else {
+              adminResponseElement.textContent = awaitingText;
+          }
+      }
+
         chatBox.classList.add('not-awaiting-response');
         chatBox.classList.remove('awaiting-response');
         const userRectangle01 = document.querySelector(`.user-rectangle[data-user-id="${ data.user_id}"]`);
@@ -6568,29 +6831,33 @@ function updateAdminIntervention_response_ManualMode(data){
     
         counterForManualModeAddMessage[data.tabIndex][data.user_id] += 1;   
       } else {
-            chatContainer = colleaguesChats[data.tabIndex].querySelector(`.chat-container[data-user-id="${data.user_id}"]`);
-            chatBox = chatContainer.querySelector('.chat-box');
             const messageElement = document.createElement('div');
             messageElement.className = 'message';
-            // Create admin message content and style it to align on the left
+
             const adminMessageContent = `
               <div class="admin-message">
-                ${data.response
-                  ? data.flag === "deleted"
-                    ? `<span class="admin-response">${data.response}</span>`  // If message is deleted, no Admin: prefix
-                    : `<span class="admin-response">Admin: ${data.response}</span>`  // Otherwise, include Admin: prefix
-                  : '<span class="admin-response"></span>'  // If no admin response, show "Awaiting Admin Response..."
+                ${
+                  data.response || attachmentHtml
+                    ? data.flag === "deleted"
+                      ? `<span class="admin-response">${data.response || ''}</span>
+                        ${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}`
+                      : `<span class="admin-response"><strong>Admin:</strong> ${data.response || ''}</span>
+                        ${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}`
+                    : `<span class="admin-response"></span>`
                 }
               </div>
             `;
-            // Append user message first (right-aligned) and admin message after (left-aligned)
+
             messageElement.innerHTML = adminMessageContent;
-            chatBox.appendChild(messageElement); 
+
+            chatBox.appendChild(messageElement);
+
             if (data.awaiting === false) {
-              counterForManualModeAddMessage[tabIndex][message.user_id]=1;
-            }  
-        }
-        checkAwaitingResponse(data.tabIndex)
+              counterForManualModeAddMessage[data.tabIndex][data.user_id] = 1;
+                  }
+            }
+
+      checkAwaitingResponse(data.tabIndex);
       
     
     };
@@ -7209,14 +7476,6 @@ function updateAdminIntervention(data){    // update the rectangles' state getti
   const userRectangle = rectangle_automatic[data.user_id];
   const avatar = userRectangle.querySelector('.human-avatar');
 
-  if (automaticResponseStates[data.user_id]) {
-    
-  } else {
-   
-  }
-
-
-
   userButtonStates[data.user_id] = automaticResponseStates[data.user_id] ? 'automaticResponse' : 'adminIntervention';
   chatBox = Chats_automatic[data.user_id];
 
@@ -7236,48 +7495,237 @@ function updateAdminIntervention(data){    // update the rectangles' state getti
     // Create the admin response controls to be fixed at the bottom
     const adminResponseControls = document.createElement('div');
     adminResponseControls.className = 'admin-response-controls';
+
+      // Check selected language and set appropriate text
+    const sendText = language === 'hu' ? 'Küldés' : 'Send Response';
+    const placeholderText = language === 'hu' ? 'Írd ide az üzeneted...' : 'Type your response...';
+      
     adminResponseControls.innerHTML = `
-      <textarea class="manual-response" placeholder="${language === 'hu' ? 'Írd ide az üzneted...' : 'Type your response...'}"></textarea>
-      <button class="send-response">${language === 'hu' ? 'Küldés' : 'Send Response'}</button>
-    `;
-    adminResponseControls.style.display = 'flex';
-    adminResponseControls.style.alignItems = 'flex-start';
-    chatContainer.appendChild(adminResponseControls);
+    <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" class="admin-file-input" hidden>
+    <textarea class="manual-response" placeholder="${placeholderText}"></textarea>
+    <button type="button" class="admin-attach-btn">
+      <span class="material-symbols-rounded">attach_file</span>
+      <div class="preview-wrapper">
+        <img src="#" class="admin-attach-preview">
+        <span class="preview-cancel material-symbols-rounded">close</span>
+      </div>
+    </button>
+    <button class="send-response">${sendText}</button>
+  `;
 
-    // Add click event listener to send the response
-    const responseInput = adminResponseControls.querySelector('.manual-response');
-    const sendButton = adminResponseControls.querySelector('.send-response');
+  // Handle file selection & preview
 
-    // Set the initial height and style of the textarea
-    responseInput.style.overflowY = 'hidden'; // Hide vertical scrollbar
-    responseInput.style.resize = 'none'; // Prevent manual resizing
-    responseInput.style.height = '30px'; // Set an initial height (min-height)
+  adminResponseControls.style.display = 'flex';
+  adminResponseControls.style.alignItems = 'flex-start';
+  if (!chatContainer.querySelector('.admin-response-controls')) {
+  chatContainer.appendChild(adminResponseControls);
+}
 
-    // Auto-expand the textarea only when it exceeds the initial height
-    responseInput.addEventListener('input', function () {
-      this.style.height = '30px'; // Reset the height to the initial value
-      if (this.scrollHeight > this.clientHeight) {
-        this.style.height = (this.scrollHeight) + 'px'; // Expand if the content overflows
-      }
+
+
+  
+
+  // Add click event listener to send the response
+  const responseInput = adminResponseControls.querySelector('.manual-response');
+  const sendButton = adminResponseControls.querySelector('.send-response');
+
+
+
+  const fileInput = adminResponseControls.querySelector('.admin-file-input');
+  const attachBtn = adminResponseControls.querySelector('.admin-attach-btn');
+  const attachIcon = attachBtn.querySelector('span');
+  const previewWrapper = attachBtn.querySelector('.preview-wrapper');
+  const previewImg = adminResponseControls.querySelector('.admin-attach-preview');
+  const cancelBtn = attachBtn.querySelector('.preview-cancel');
+
+  // Store uploaded attachment info
+  let adminAttachment = { data: null, mime_type: null };
+  let isUploading = false;
+  const MAX_FILE_SIZE = 5 * 1024 * 1024;
+  const ALLOWED_TYPES = [
+    "image/jpeg","image/png","image/gif",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  ];
+
+  // Auto-expand textarea
+  responseInput.style.overflowY = 'hidden';
+  responseInput.style.resize = 'none';
+  responseInput.style.height = '30px';
+  responseInput.addEventListener('input', function() {
+    this.style.height = '30px';
+    if (this.scrollHeight > this.clientHeight) this.style.height = this.scrollHeight + 'px';
+  });
+
+  // Open file dialog
+  attachBtn.addEventListener('click', () => fileInput.click());
+
+  // Copy pasting
+  responseInput.addEventListener("paste", async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+
+        // If this is an image (screenshot)
+        if (item.type.startsWith("image/")) {
+            e.preventDefault(); // don't paste as base64
+
+            const file = item.getAsFile();
+            if (file) {
+                // Feed the file to the existing file input
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                fileInput.files = dt.files;
+
+                // Trigger your existing 'change' listener
+                fileInput.dispatchEvent(new Event('change'));
+            }
+            return; // stop further processing for this paste
+        }
+    }
+});
+
+
+  // Handle file selection & preview
+  fileInput.addEventListener('change', async (e) => {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      showTempMessage(t("invalidFormat", getCurrentLanguage()), adminResponseControls);
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      showTempMessage(t("fileTooLarge", getCurrentLanguage()), adminResponseControls);
+      return;
+    }
+
+     isUploading = true;
+
+    // Determine preview image and border radius
+    if (file.type.startsWith('image/')) {
+      previewImg.src = URL.createObjectURL(file);
+      previewImg.style.borderRadius = '50%'; // circle for images
+    } else if (file.type.includes('pdf')) {
+      previewImg.src = '/static/pdf.png';
+      previewImg.style.borderRadius = '0%'; // square for files
+      previewImg.style.width = '30px';
+      previewImg.style.height = '38px';
+   
+    } else if (file.type.includes('word')) {
+      previewImg.src = '/static/word.png';
+      previewImg.style.borderRadius = '0%';
+      previewImg.style.width = '35px';
+      previewImg.style.height = '38px';
+   
+    } else if (file.type.includes('excel') || file.type.includes('spreadsheetml')) {
+      previewImg.src = '/static/excel.png';
+      previewImg.style.borderRadius = '0%';
+      previewImg.style.width = '34px';
+      previewImg.style.height = '38px';
+
+    } else {
+      previewImg.src = '/static/file.png';
+      previewImg.style.borderRadius = '0%';
+      previewImg.style.width = '34px';
+      previewImg.style.height = '38px';
+ 
+    }
+
+    previewWrapper.style.display = "block";
+    attachIcon.style.display = 'none'; // hide icon
+    
+
+    cancelBtn.addEventListener("click", (e) => {
+      e.stopPropagation(); // prevent file picker
+
+      adminAttachment = { data: null, mime_type: null };
+
+      previewImg.src = "#";
+      previewWrapper.style.display = "none";
+      attachIcon.style.display = "block";
+
+      fileInput.value = "";
     });
 
-    async function sendResponse() {
-      const response = responseInput.value;
-      if (response) {
-        const timestamp = new Date().toISOString();
-        try {
-          console.log("RESP -*-*-*-*-*-*-*-*-*-*-*-: ", response)
-          console.log("DATA: ", data)
-            socket.emit('admin_response', { user_id: data.user_id, response: response, timestamp: timestamp });
-            await handleAdminResponse(chatBox, response, counterForAddAdminMessage[data.user_id]);
-        } catch (error) {
-            console.error("Error in handleAdminResponse:", error);
-        }
-        responseInput.value = '';
-        responseInput.style.height = '30px';
-        
-      }
-  }
+    let uploadingMsg = showTempMessage(t("uploadInProgress", getCurrentLanguage()), adminResponseControls);
+
+    try {
+      // Upload to backend → get permanent URL
+      const permanentUrl = await uploadFileorImage(file, userId);
+
+      // Replace image preview with permanent URL if image
+      if (file.type.startsWith('image/')) previewImg.src = permanentUrl;
+
+      // Store uploaded file info
+      adminAttachment = {
+        data: permanentUrl,
+        mime_type: file.type
+      };
+      if (uploadingMsg) uploadingMsg.remove();
+      showTempMessage(t("uploadSuccess", getCurrentLanguage()), adminResponseControls);
+    } catch (err) {
+      console.error("Upload failed:", err);
+      previewImg.alt = "Upload failed";
+      adminAttachment = { data: null, mime_type: null };
+      showTempMessage(t("uploadFailed", getCurrentLanguage()), adminResponseControls);
+    } finally {
+      isUploading = false;
+      URL.revokeObjectURL(file);
+    }
+  });
+
+
+
+
+
+  // Set the initial height and style of the textarea
+  responseInput.style.overflowY = 'hidden'; // Hide vertical scrollbar
+  responseInput.style.resize = 'none'; // Prevent manual resizing
+  responseInput.style.height = '30px'; // Set an initial height (min-height)
+
+  // Auto-expand the textarea only when it exceeds the initial height
+  responseInput.addEventListener('input', function () {
+    this.style.height = '30px'; // Reset the height to the initial value
+    if (this.scrollHeight > this.clientHeight) {
+      this.style.height = (this.scrollHeight) + 'px'; // Expand if the content overflows
+    }
+  });
+
+  
+  async function sendResponse() {
+    const response = responseInput.value;
+    // prevent sending while upload still running
+    if (isUploading) {
+      showTempMessage(t("uploadInProgress", getCurrentLanguage()), adminResponseControls);
+      return;
+    }
+    if (response || (adminAttachment && adminAttachment.data)) {
+      const timestamp = new Date().toISOString();
+       try {
+          socket.emit('admin_response', { user_id: userId, response: response, timestamp: timestamp, attachment: adminAttachment });
+          console.log("RESP !!!!!!!!!!!!!!!!!!!!!!!: ", response)
+          await handleAdminResponse(chatBox, response, null, timestamp, adminAttachment);
+       } catch (error) {
+          console.error("Error in handleAdminResponse:", error);
+       }
+       responseInput.value = '';
+       responseInput.style.height = '30px';
+
+      adminAttachment = { data: null, mime_type: null };
+      previewImg.src = '#';
+      previewWrapper.style.display = 'none';
+      attachIcon.style.display = 'block';
+      fileInput.value = '';
+       
+    }
+ }
 
     sendButton.addEventListener('click', sendResponse);
 
@@ -7382,9 +7830,10 @@ function updateAdminIntervention(data){    // update the rectangles' state getti
 
 
 
-function updateAdminIntervention_fornewlyjoined(data, stateparameter){
+function updateAdminIntervention_fornewlyjoined(userId, stateparameter){
   const language = localStorage.getItem('language') || 'hu';
-  userButtons[data].textContent = stateparameter ? translations[language]['manualIntervention'] : translations[language]['automaticResponse'];
+  automaticResponseStates[userId] = stateparameter; 
+  userButtons[userId].textContent = stateparameter ? translations[language]['manualIntervention'] : translations[language]['automaticResponse'];
   function updateButtonStyles(adminResponseButton, isAutomaticResponseNeeded) {
     if (isAutomaticResponseNeeded) {
         adminResponseButton.style.backgroundColor = '#007bff'; // Blue for Automatic Response
@@ -7396,31 +7845,24 @@ function updateAdminIntervention_fornewlyjoined(data, stateparameter){
         adminResponseButton.onmouseout = () => adminResponseButton.style.backgroundColor = '#28a745'; // Original green color
     }
 }
-  updateButtonStyles(userButtons[data], stateparameter); // Update styles based on new state
+  updateButtonStyles(userButtons[userId], stateparameter); // Update styles based on new state
 
   
   // Togle the admin icon on the rectangle
-  const userRectangle = rectangle_automatic[data];
+  const userRectangle = rectangle_automatic[userId];
   const avatar = userRectangle.querySelector('.human-avatar');
 
-  // if (automaticResponseStates[data]) {
-  //     // Manual mode → show avatar
-  //     avatar.style.display = "flex";
-  // } else {
-  //     // Automatic mode → hide avatar
-  //     avatar.style.display = "none";
-  // }
 
     // Immediate hover effect if hovering during click
-    userButtons[data].style.backgroundColor = stateparameter ? '#0056b3' : '#218838';
+    userButtons[userId].style.backgroundColor = stateparameter ? '#0056b3' : '#218838';
 
-  userButtonStates[data] = stateparameter ? 'automaticResponse' : 'adminIntervention';
-  chatBox = Chats_automatic[data];
+  userButtonStates[userId] = stateparameter ? 'automaticResponse' : 'adminIntervention';
+  chatBox = Chats_automatic[userId];
 
 
   if(stateparameter){
     avatar.style.display = "flex";
-    const chatContainer = document.querySelector(`.chat-container[data-user-id="${data}"]`);
+    const chatContainer = document.querySelector(`.chat-container[data-user-id="${userId}"]`);
 
    
     // Get the chatBox within the chatContainer
@@ -7429,105 +7871,274 @@ function updateAdminIntervention_fornewlyjoined(data, stateparameter){
       // Adjust the height to account for the admin response controls
       chatBox.style.height = 'calc(100% - 60px)';
     }
-    // Create the admin response controls to be fixed at the bottom
-    const adminResponseControls = document.createElement('div');
-    adminResponseControls.className = 'admin-response-controls';
 
-    // Check selected language and set appropriate text
-    const sendText = language === 'hu' ? 'Küldés' : 'Send Response';
-    const placeholderText = language === 'hu' ? 'Írd ide az üzeneted...' : 'Type your response...';
+    let adminResponseControls = chatContainer.querySelector('.admin-response-controls');
+    if (!adminResponseControls) {
+      // Create the admin response controls to be fixed at the bottom
+      adminResponseControls = document.createElement('div');
+      adminResponseControls.className = 'admin-response-controls';
 
-    adminResponseControls.innerHTML = `
-      <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" class="admin-file-input" hidden>
-      <textarea class="manual-response" placeholder="${placeholderText}"></textarea>
-      <button type="button" class="admin-attach-btn">
-        <span class="material-symbols-rounded">attach_file</span>
-      </button>
-      <button class="send-response">${sendText}</button>
-    `;
+      // Check selected language and set appropriate text
+      const sendText = language === 'hu' ? 'Küldés' : 'Send Response';
+      const placeholderText = language === 'hu' ? 'Írd ide az üzeneted...' : 'Type your response...';
+
+      adminResponseControls.innerHTML = `
+        <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" class="admin-file-input" hidden>
+        <textarea class="manual-response" placeholder="${placeholderText}"></textarea>
+        <button type="button" class="admin-attach-btn">
+          <span class="material-symbols-rounded">attach_file</span>
+          <div class="preview-wrapper">
+            <img src="#" class="admin-attach-preview">
+            <span class="preview-cancel material-symbols-rounded">close</span>
+          </div>
+        </button>
+        <button class="send-response">${sendText}</button>
+      `;
+
+      // Handle file selection & preview
+
+      adminResponseControls.style.display = 'flex';
+      adminResponseControls.style.alignItems = 'flex-start';
+      
+      chatContainer.appendChild(adminResponseControls);
+    
 
 
-    adminResponseControls.style.display = 'flex';
-    adminResponseControls.style.alignItems = 'flex-start';
-    chatContainer.appendChild(adminResponseControls);
 
-    // Add click event listener to send the response
-    const responseInput = adminResponseControls.querySelector('.manual-response');
-    const sendButton = adminResponseControls.querySelector('.send-response');
+      
 
-    // Set the initial height and style of the textarea
-    responseInput.style.overflowY = 'hidden'; // Hide vertical scrollbar
-    responseInput.style.resize = 'none'; // Prevent manual resizing
-    responseInput.style.height = '30px'; // Set an initial height (min-height)
+      // Add click event listener to send the response
+      const responseInput = adminResponseControls.querySelector('.manual-response');
+      const sendButton = adminResponseControls.querySelector('.send-response');
 
-    // Auto-expand the textarea only when it exceeds the initial height
-    responseInput.addEventListener('input', function () {
-      this.style.height = '30px'; // Reset the height to the initial value
-      if (this.scrollHeight > this.clientHeight) {
-        this.style.height = (this.scrollHeight) + 'px'; // Expand if the content overflows
-      }
-    });
 
-    async function sendResponse() {
-      const response = responseInput.value;
-      if (response) {
-        const timestamp = new Date().toISOString();
-        try {
-            console.log("NEM HINNÉM %%%%%%%%%%%%%%")
-            socket.emit('admin_response', { user_id: data, response: response, timestamp: timestamp });
-            await handleAdminResponse(chatBox, response, counterForAddAdminMessage[data]);
-        } catch (error) {
-            console.error("Error in handleAdminResponse:", error);
+
+      const fileInput = adminResponseControls.querySelector('.admin-file-input');
+      const attachBtn = adminResponseControls.querySelector('.admin-attach-btn');
+      const attachIcon = attachBtn.querySelector('span');
+      const previewWrapper = attachBtn.querySelector('.preview-wrapper');
+      const previewImg = adminResponseControls.querySelector('.admin-attach-preview');
+      const cancelBtn = attachBtn.querySelector('.preview-cancel');
+
+      // Store uploaded attachment info
+      let adminAttachment = { data: null, mime_type: null };
+      let isUploading = false;
+      const MAX_FILE_SIZE = 5 * 1024 * 1024;
+      const ALLOWED_TYPES = [
+        "image/jpeg","image/png","image/gif",
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ];
+
+      // Auto-expand textarea
+      responseInput.style.overflowY = 'hidden';
+      responseInput.style.resize = 'none';
+      responseInput.style.height = '30px';
+      responseInput.addEventListener('input', function() {
+        this.style.height = '30px';
+        if (this.scrollHeight > this.clientHeight) this.style.height = this.scrollHeight + 'px';
+      });
+
+      // Open file dialog
+      attachBtn.addEventListener('click', () => fileInput.click());
+
+      // Copy pasting
+      responseInput.addEventListener("paste", async (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+
+            // If this is an image (screenshot)
+            if (item.type.startsWith("image/")) {
+                e.preventDefault(); // don't paste as base64
+
+                const file = item.getAsFile();
+                if (file) {
+                    // Feed the file to the existing file input
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    fileInput.files = dt.files;
+
+                    // Trigger your existing 'change' listener
+                    fileInput.dispatchEvent(new Event('change'));
+                }
+                return; // stop further processing for this paste
+            }
         }
-        responseInput.value = '';
-        responseInput.style.height = '30px';
-        
-      }
-  }
-
-    sendButton.addEventListener('click', sendResponse);
-
-    // Add 'Enter' key event listener for input box
-    responseInput.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        sendResponse();
-      }
     });
 
 
+      // Handle file selection & preview
+      fileInput.addEventListener('change', async (e) => {
+        const file = fileInput.files[0];
+        if (!file) return;
 
+        if (!ALLOWED_TYPES.includes(file.type)) {
+          showTempMessage(t("invalidFormat", getCurrentLanguage()), adminResponseControls);
+          return;
+        }
 
+        if (file.size > MAX_FILE_SIZE) {
+          showTempMessage(t("fileTooLarge", getCurrentLanguage()), adminResponseControls);
+          return;
+        }
+
+        isUploading = true;
+
+        // Determine preview image and border radius
+        if (file.type.startsWith('image/')) {
+          previewImg.src = URL.createObjectURL(file);
+          previewImg.style.borderRadius = '50%'; // circle for images
+        } else if (file.type.includes('pdf')) {
+          previewImg.src = '/static/pdf.png';
+          previewImg.style.borderRadius = '0%'; // square for files
+          previewImg.style.width = '30px';
+          previewImg.style.height = '38px';
+      
+        } else if (file.type.includes('word')) {
+          previewImg.src = '/static/word.png';
+          previewImg.style.borderRadius = '0%';
+          previewImg.style.width = '35px';
+          previewImg.style.height = '38px';
+      
+        } else if (file.type.includes('excel') || file.type.includes('spreadsheetml')) {
+          previewImg.src = '/static/excel.png';
+          previewImg.style.borderRadius = '0%';
+          previewImg.style.width = '34px';
+          previewImg.style.height = '38px';
+
+        } else {
+          previewImg.src = '/static/file.png';
+          previewImg.style.borderRadius = '0%';
+          previewImg.style.width = '34px';
+          previewImg.style.height = '38px';
     
-    const messageElement = document.createElement('div');
-    messageElement.className = 'message';
+        }
 
-    // Create admin message content and style it to align on the left
-  
+        previewWrapper.style.display = "block";
+        attachIcon.style.display = 'none'; // hide icon
+        
 
-    const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
+        cancelBtn.addEventListener("click", (e) => {
+          e.stopPropagation(); // prevent file picker
 
-    
-    const adminMessageContent = `
-      <div class="admin-message">
-        <span class="admin-response">${awaitingText}</span>
-      </div>
-    `;
+          adminAttachment = { data: null, mime_type: null };
 
-    // Append user message first (right-aligned) and admin message after (left-aligned)
-    messageElement.innerHTML = adminMessageContent;
-    chatBox.appendChild(messageElement);
-    chatBox.classList.remove('not-awaiting-response');
-    chatBox.classList.add('awaiting-response');
-    rectangle_automatic[data].classList.add('awaiting-response'); // Add class to user rectangle
+          previewImg.src = "#";
+          previewWrapper.style.display = "none";
+          attachIcon.style.display = "block";
+
+          fileInput.value = "";
+        });
+
+        let uploadingMsg = showTempMessage(t("uploadInProgress", getCurrentLanguage()), adminResponseControls);
+
+        try {
+          // Upload to backend → get permanent URL
+          const permanentUrl = await uploadFileorImage(file, userId);
+
+          // Replace image preview with permanent URL if image
+          if (file.type.startsWith('image/')) previewImg.src = permanentUrl;
+
+          // Store uploaded file info
+          adminAttachment = {
+            data: permanentUrl,
+            mime_type: file.type
+          };
+          if (uploadingMsg) uploadingMsg.remove();
+          showTempMessage(t("uploadSuccess", getCurrentLanguage()), adminResponseControls);
+        } catch (err) {
+          console.error("Upload failed:", err);
+          previewImg.alt = "Upload failed";
+          adminAttachment = { data: null, mime_type: null };
+          showTempMessage(t("uploadFailed", getCurrentLanguage()), adminResponseControls);
+        } finally {
+          isUploading = false;
+          URL.revokeObjectURL(file);
+        }
+      });
+
+      // Set the initial height and style of the textarea
+      responseInput.style.overflowY = 'hidden'; // Hide vertical scrollbar
+      responseInput.style.resize = 'none'; // Prevent manual resizing
+      responseInput.style.height = '30px'; // Set an initial height (min-height)
+
+      // Auto-expand the textarea only when it exceeds the initial height
+      responseInput.addEventListener('input', function () {
+        this.style.height = '30px'; // Reset the height to the initial value
+        if (this.scrollHeight > this.clientHeight) {
+          this.style.height = (this.scrollHeight) + 'px'; // Expand if the content overflows
+        }
+      });
+
+      async function sendResponse() {
+        const response = responseInput.value;
+        // prevent sending while upload still running
+        if (isUploading) {
+          showTempMessage(t("uploadInProgress", getCurrentLanguage()), adminResponseControls);
+          return;
+        }
+        if (response || (adminAttachment && adminAttachment.data)) {
+          const timestamp = new Date().toISOString();
+          try {
+              console.log("NEM HINNÉM %%%%%%%%%%%%%%!")
+              const adminDisplayName = admin_name || "Admin";
+              socket.emit('admin_response', { user_id: userId, response: response, admin_name:adminDisplayName, timestamp: timestamp, attachment: adminAttachment });
+              console.log("socket %%%%%%%%%%%%%%: ", userId)
+              console.log("counter 2. message: ", counterForAddAdminMessage[userId])
+              console.log(chatBox, response, counterForAddAdminMessage[userId], timestamp, adminAttachment)
+              await handleAdminResponse(chatBox, response, counterForAddAdminMessage[userId], timestamp, adminAttachment, adminDisplayName);
+              console.log("%%%%%%%% check %%%%%%")
+            } catch (error) {
+              console.error("Error in handleAdminResponse:", error);
+          }
+          responseInput.value = '';
+          responseInput.style.height = '30px';
+
+          adminAttachment = { data: null, mime_type: null };
+          previewImg.src = '#';
+          previewWrapper.style.display = 'none';
+          attachIcon.style.display = 'block';
+          fileInput.value = '';
+          
+        }
+    }
+      sendButton.addEventListener('click', sendResponse);
+      // Add 'Enter' key event listener for input box
+      responseInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          sendResponse();
+        }
+      });
+      
+      const messageElement = document.createElement('div');
+      messageElement.className = 'message';
+
+      // Create admin message content and style it to align on the left
+      const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
+      const adminMessageContent = `
+        <div class="admin-message">
+          <span class="admin-response">${awaitingText}</span>
+        </div>
+      `;
+
+      // Append user message first (right-aligned) and admin message after (left-aligned)
+      messageElement.innerHTML = adminMessageContent;
+      chatBox.appendChild(messageElement);
+      counterForAddAdminMessage[userId] = 1;
+      chatBox.classList.remove('not-awaiting-response');
+      chatBox.classList.add('awaiting-response');
+      rectangle_automatic[userId].classList.add('awaiting-response'); // Add class to user rectangle
+    }
   }else{
     avatar.style.display = "none";
-    removeAdminResponseControls(data)
-
-
-    
-
- 
+    removeAdminResponseControls(userId)
 
     const awaitingMessageElement = Array.from(chatBox.getElementsByClassName('message')).find(el => {
     const botResponseElement = el.querySelector('.bot-response');
@@ -7552,11 +8163,64 @@ function updateAdminIntervention_fornewlyjoined(data, stateparameter){
   }
 }
 
+
+
+
+
+
+
+
+
+
+
+
 function updateAdminIntervention_response(data){
+
+  console.log("idejön?")
+  console.log(data)
+  let attachmentHtml = '';
+
+  // Check if message.user_message is JSON with attachment
+  if (typeof data.user_message === 'string' && data.user_message.trim().startsWith('{')) {
+      try {
+          const msgObj = JSON.parse(data.user_message);
+
+          // If there is an attachment, extract it
+          if (msgObj.attachment) {
+              const mime = msgObj.attachment.mime_type;
+              const data_ = msgObj.attachment.data;
+
+              if (mime?.startsWith('image/')) {
+                  attachmentHtml = `<img src="${data_}" class="attachment" />`;
+              } else {
+                  // PDF/DOCX or other → small icon + link
+                  let icon = '📝';
+                  if (mime.includes('pdf')) icon = '📄';
+                  else if (mime.includes('word') || mime.includes('msword') || mime.includes('officedocument.wordprocessingml')) icon = '📝';
+                  attachmentHtml = `
+                    <a href="${data_}" target="_blank" class="attachment-link">
+                      <span data-lang="view_attachment"></span>
+                      <span class="attachment-icon">${icon}</span>
+                    </a>
+                  `;
+              }
+
+              // Now **replace message.user_message with only the text**
+              data.user_message = msgObj.text || '';
+          } else {
+              // No attachment → keep user_message as is
+              data.user_message = msgObj.text || '';
+          }
+      } catch (e) {
+          console.warn("Failed to parse user_message JSON:", e);
+          // fallback: leave message.user_message as is
+      }
+  }
   console.log(data)
   console.log("UPDATEADMININTERV????")
   chatBox = Chats_automatic[data.user_id];
   console.log(chatBox)
+  const adminDisplayName = data.admin_name || "Admin";
   // Update message logic remains the same
 
 
@@ -7583,36 +8247,99 @@ function updateAdminIntervention_response(data){
   const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
   if (awaitingMessageElement) {
     console.log("Van awaiting element ----- !!!")
+    console.log("1")
     const responseElement = awaitingMessageElement.querySelector('.admin-response, .bot-response');
     if (responseElement) {
-      responseElement.textContent = data.response ? `Admin: ${data.response}` : awaitingText;
-    }
-
+      console.log("2")
+      //responseElement.textContent = data.response ? `Admin: ${data.response}` : awaitingText;
+      responseElement.innerHTML = `<strong>${adminDisplayName}:</strong> ${data.response || ''}${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}`;
+      } else {
+        responseElement.innerHTML = awaitingText;
+      }
+      updateDynamicText(language);
+    
+    console.log("3")
 
     
     chatBox.classList.add('not-awaiting-response');
     chatBox.classList.remove('awaiting-response');
     rectangle_automatic[data.user_id].classList.remove('awaiting-response'); // Remove class from user rectangle
+    if (!counterForAddAdminMessage[data.user_id]) {
+      console.log("4")
+      counterForAddAdminMessage[data.user_id] = 0;
+    }
+    console.log("5")
     counterForAddAdminMessage[data.user_id] += 1;
-    
+    console.log("!! counterUPDATED: ", counterForAddAdminMessage[data.user_id] )
     
   } else {
 
         console.log("Nincs awaiting element ----- !!!")
 
         const messageElement = document.createElement('div');
+        const awaitingText = language === 'hu'
+              ? 'Adminisztrátori válaszra várakozás...'
+              : 'Awaiting Admin Response...';
         messageElement.className = 'message';
         // Create admin message content and style it to align on the left
+        
         const adminMessageContent = `
-        <div class="admin-message">
-          ${data.response ? `<span class="admin-response">Admin: ${data.response}</span>` : '<span class="admin-response"> </span>'}
-        </div>
-        `;
+              <div class="admin-message">
+
+                ${
+                  data.response || data.attachment?.data
+                    ? `
+                      <span class="admin-response"><strong>${adminDisplayName}:</strong>${data.response ? ` ${data.response}` : ''}</span>
+
+                      ${
+                        data.attachment?.data
+                          ? `<div class="attachment-wrapper">${attachmentHtml}</div>`
+                          : ''
+                      }
+                    `
+                    : `<span class="admin-response">${awaitingText}</span>`
+                }
+
+              </div>
+              `;
+
   
         // Append user message first (right-aligned) and admin message after (left-aligned)
         messageElement.innerHTML = adminMessageContent;
   
-        chatBox.appendChild(messageElement);
+   
+        const tsString = data.timestamp || '';
+
+        const hiddenTimestampSpan = document.createElement('span');
+        hiddenTimestampSpan.className = 'hidden-timestamp';
+        hiddenTimestampSpan.style.display = 'none';
+        hiddenTimestampSpan.textContent = tsString;
+        messageElement.appendChild(hiddenTimestampSpan);
+
+        const chatMessages = Array.from(chatBox.getElementsByClassName('message'));
+        const insertBeforeIndex = chatMessages.findIndex(el => {
+          const ts = el.querySelector('.hidden-timestamp');
+          return ts && new Date(ts.textContent) > new Date(tsString);
+        });
+
+        if (insertBeforeIndex === -1) {
+          chatBox.appendChild(messageElement);
+        } else {
+          chatBox.insertBefore(messageElement, chatMessages[insertBeforeIndex]);
+        }
+        updateDynamicText(language);
+        counterForAddAdminMessage[data.user_id] = 1;
+
+
+        
+
+
+
+
+        
+
+
+
         chatBox.scrollTo({
           top: chatBox.scrollHeight,
           behavior: 'smooth'
@@ -9766,9 +10493,19 @@ console.log("-----------------28")
   await new Promise(requestAnimationFrame);
 
 
-
-
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     /////////////////////////////////                                 /////////////////////////////////
@@ -9783,6 +10520,17 @@ console.log("-----------------28")
     /////////////////////////////////                                /////////////////////////////////
     //        SOCKET     ////////////                                //       SOCKET      ////////////
     /////////////////////////////////                                /////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
 
 
         // Client is connecting:
@@ -9806,7 +10554,7 @@ console.log("-----------------28")
 
         socket.on("connect", () => {
             if (currentSocketId && currentSocketId !== socket.id) {
-                console.warn("⚠️ SOCKET ID CHANGED!", currentSocketId, "→", socket.id);
+                console.warn("SOCKET ID CHANGED!", currentSocketId, "→", socket.id);
             }
             currentSocketId = socket.id;
         });
@@ -9816,11 +10564,11 @@ console.log("-----------------28")
         });
 
         socket.io.on("reconnect_attempt", () => {
-            console.warn("🔄 Reconnect attempt...");
+            console.warn("Reconnect attempt...");
         });
 
         socket.io.on("reconnect", (attempt) => {
-            console.warn("✅ Reconnected after", attempt, "attempts");
+            console.warn("Reconnected after", attempt, "attempts");
             console.log("New socket id:", socket.id);
         });
 
@@ -9910,7 +10658,7 @@ socket.on('new_message_FirstUser', async function(payload) {
   try {
     
   const messages = Array.isArray(payload.messages) ? payload.messages : [payload.messages];
-  const totalMessagesToSend = payload.total_messages || messages.length
+  let totalMessagesToSend = payload.total_messages || messages.length
   console.log("Payload messages array:", messages);
   
  
@@ -9937,7 +10685,13 @@ socket.on('new_message_FirstUser', async function(payload) {
           // AUTO MODE — only one tab
           const adminButton = userButtons[message.user_id];
           if (adminButton && !automaticResponseStates[message.user_id]) {
-            adminButton.click();
+            //adminButton.click();
+            socket.emit("human_support_request_state_change", {
+              user_id: message.user_id,
+              state: true
+            });
+            
+            updateAdminIntervention_fornewlyjoined(message.user_id, true);
             console.log("Triggered manual mode for user (AUTO mode):", message.user_id);
           }
 
@@ -10647,6 +11401,45 @@ async function handleSingleEvent(event) {
       await appendMessage(message);
     }
 
+    // Normalize text for comparison
+    const text = (message.user_message || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[.!?]$/g, "");
+
+    if (["ügyintézőt kérek", "please connect me to a colleague"].includes(text)) {
+
+        if (!manualMode) {
+          // AUTO MODE — only one tab
+          const adminButton = userButtons[message.user_id];
+          if (adminButton && !automaticResponseStates[message.user_id]) {
+            //adminButton.click();
+            updateAdminIntervention_fornewlyjoined(message.user_id, true);
+            console.log("Triggered manual mode for user (AUTO mode):", message.user_id);
+          }
+
+        } else {
+          const tabIndex = Object.keys(rectangle).find(index => {
+            const rect = rectangle[index];
+            return rect && rect.querySelector(`.user-rectangle[data-user-id="${message.user_id}"]`);
+          });
+
+          if (tabIndex) {
+            const button = topMiddleSection[tabIndex]?.querySelector(
+              `.button-container[data-user-id="${message.user_id}"] button.admin-intervention`
+            );
+            if (button && !automaticResponseStates_overallManual[tabIndex][message.user_id]) {
+              button.click();
+              console.log("Triggered manual mode for user:", message.user_id, "in tab:", tabIndex);
+            } else {
+              console.warn("Button not found or already in manual for user:", message.user_id);
+            }
+          } else {
+            console.warn("No tab found for user:", message.user_id);
+          }
+        }
+      }
+
   } else if (event.event_type === 'message_distribution') {
     const { message, tab_uniqueId, specialArg } = event.data;
     if (message && tab_uniqueId && manualMode) {
@@ -10862,6 +11655,96 @@ socket.on('tab_mode_changed', (data) => {
 });
 
 
+let typingTimers = {};
+socket.on("admin_typing_update", (data) => {
+
+  const { user_id, admin_name, typing } = data;
+
+  const chatContainer = document.querySelector(`.chat-container[data-user-id="${user_id}"]`);
+  if (!chatContainer) return;
+
+  const responseInput = chatContainer.querySelector('.manual-response');
+  if (!responseInput) return;
+
+  const language = localStorage.getItem('language') || 'en';
+
+  if (typing) {
+
+    if (!responseInput.dataset.originalPlaceholder) {
+      responseInput.dataset.originalPlaceholder = responseInput.placeholder;
+    }
+
+    responseInput.placeholder =
+      language === 'hu'
+        ? `${admin_name} ír éppen...`
+        : `${admin_name} is typing...`;
+
+    responseInput.classList.add('typing-active');
+
+    // 👇 auto-clear if no update arrives
+    clearTimeout(typingTimers[user_id]);
+    typingTimers[user_id] = setTimeout(() => {
+
+      responseInput.placeholder =
+        responseInput.dataset.originalPlaceholder || 'Type your response...';
+
+      responseInput.classList.remove('typing-active');
+
+    }, 21000); // slightly longer than Redis TTL
+
+  } else {
+
+    clearTimeout(typingTimers[user_id]);
+
+    responseInput.placeholder =
+      responseInput.dataset.originalPlaceholder || 'Type your response...';
+
+    responseInput.classList.remove('typing-active');
+  }
+
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 //-----------------------------  LANGUAGE --------------------
 
@@ -10947,6 +11830,12 @@ const translations = {
     chatSendButton: "Send",
     historyLoading: "Reloading chat history",
     view_attachment: "Attachment",
+    invalidFormat: "Only JPG, JPEG, PNG and GIF images, pdf, word and excel files are allowed.",
+    fileTooLarge: "File size exceeds 5 MB limit.",
+    uploadInProgress: "Uploading file...",
+    uploadSuccess: "File uploaded successfully!",
+    uploadFailed: "Upload failed",
+    
     
     
   },
@@ -10982,6 +11871,11 @@ const translations = {
     logout: "Kijelentkezés",
     historyLoading: "Előzmények betöltése",
     view_attachment:"Melléklet",
+    invalidFormat: "Csak JPG, JPEG, PNG és GIF képek, pdf, word és excel fileok engedélyezettek.",
+    fileTooLarge: "A fájl mérete meghaladja az 5 MB-ot.",
+    uploadInProgress: "Feltöltés folyamatban...",
+    uploadSuccess: "A fájl sikeresen feltöltve!",
+    uploadFailed: "Feltöltés sikertelen"
 
   }
 };
@@ -11105,12 +11999,12 @@ function updateDynamicText(language) {
 
     if (timestampElement) {
       const timestampText = timestampElement.textContent.split(': ')[1] || ''; // Preserve timestamp value
-      timestampElement.textContent = `${translations2_loc.sentAT}: ${timestampText}`;
+      timestampElement.innerHTML = `<strong>${translations2_loc.sentAT}:</strong> ${timestampText}`;
     }
 
     if (userInputElement) {
       const userMessageText = userInputElement.textContent.split(': ')[1] || ''; // Preserve user message
-      userInputElement.textContent = `${translations2_loc.User}: ${userMessageText}`;
+      userInputElement.innerHTML = `<strong>${translations2_loc.User}:</strong> ${userMessageText}`;
     }
   });
 

@@ -56,9 +56,8 @@ def normalize_timestamp(ts: str) -> str:
 
 async def classify_topic(input_text, fastapi_app):
 
-     # WAIT until model is loaded
+    # WAIT until model is loaded
     await fastapi_app.state.models_loaded_event.wait()
-
 
     minilm_model = fastapi_app.state.minilm_model_encoder_for_clf_classifier
     lr_classifier = fastapi_app.state.lr_classifier
@@ -74,9 +73,16 @@ async def classify_topic(input_text, fastapi_app):
     4: "Szolgáltatás",
     5: "Egyéb"
     }
+
+
     emb = await asyncio.to_thread(minilm_model.encode, [input_text])
+    
     pred = await asyncio.to_thread(lr_classifier.predict, [emb[0]])
-    return label_reverse[pred]
+    pred = int(pred[0])
+    
+    result = label_reverse[pred]
+    
+    return result
 
 
 
@@ -89,8 +95,8 @@ async def classify_and_save(payload, fastapi_app):
     try:
         message = payload["message"]
         user_id = message["user_id"]
-        org_id = message["org_id"]
-        standalone_prediction = message["standalone_prediction"]
+        org_id = int(message["org_id"])
+        standalone_prediction = message.get("standalone_prediction", 0) 
         user_message = message["user_message"]
         non_standalone_input = message["input_for_not_standalone_topic_classification"]
         bot_message = message["bot_message"]
@@ -746,54 +752,35 @@ async def logout_user(app, *, session_id: str, reason: str = "manual"):
 
     session_key = f"session:{session_id}"
     user_data = await redis.hgetall(session_key)
+
     if not user_data:
         return False  # already logged out
 
     user_id = user_data.get("user_id")
     org_id = user_data.get("user_org")
 
+    if not org_id:
+        await redis.delete(session_key)
+        return False
 
+    # Find sockets belonging to this session
+    org_sids = await redis.smembers(f"org:{org_id}:connections")
+    session_sids = []
 
-    org_id_int = int(org_id) if org_id else None
+    for sid in org_sids:
+        conn = await redis.hgetall(f"connection:{sid}")
+        if conn and conn.get("session_id") == session_id:
+            session_sids.append(sid)
 
-    # --- Redis cleanup ---
+    # Delete the session
     await redis.delete(session_key)
 
-    if user_id and org_id:
-        await redis.delete(f"online:{org_id}:{user_id}")
-        await redis.srem(f"org:{org_id}:connections", session_id)
-        await redis.delete(f"connection:{session_id}")
+    # Disconnect sockets → triggers disconnect handler
+    for sid in session_sids:
+        await sio.emit("force_logout_index", {"reason": reason}, to=sid)
+        await sio.disconnect(sid)
 
-        # Notify remaining org connections
-        sids = list(await redis.smembers(f"org:{org_id}:connections"))
-
-
-        await asyncio.gather(
-            *(
-                sio.emit(
-                    "user_online_status_changed",
-                    {"user_id": user_id, "is_online": False},
-                    to=sid
-                )
-                for sid in sids
-            ),
-            return_exceptions=True
-        )
-
-        # --- DB cleanup when last user leaves ---
-        if not sids and org_id_int:
-            async with async_session_scope() as db:
-                await db.execute(
-                    delete(OrgEventLog).where(OrgEventLog.org_id == org_id_int)
-                )
-                await db.execute(
-                    update(Client)
-                    .where(Client.id == org_id_int)
-                    .values(
-                        mode="automatic",
-                        last_manualmode_triggered_by=None
-                    )
-                )
+    print(f"[Logout] session {session_id} logged out ({len(session_sids)} sockets)")
 
     return True
 

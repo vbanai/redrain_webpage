@@ -105,7 +105,7 @@ import httpx
 from fastapi import HTTPException
 from sqlalchemy.orm import selectinload
 from fastapi.responses import PlainTextResponse
-from mywebpage.elephantsql import Client, Subscription, SubscriptionPrice, ClientBehaviorHistory, ClientConfigHistory, Role, User, OrgEventLog, update_client_mode, enrich_event_with_local_timestamp
+from mywebpage.elephantsql import Client, Subscription, SubscriptionPrice, ClientBehaviorHistory, ClientConfigHistory, Role, User, OrgEventLog, update_client_mode, enrich_event_with_local_timestamp, get_client_code_by_client_id
 from mywebpage.chats import fetch_chat_messages
 from datetime import datetime, timedelta 
 from mywebpage.mainpulation_weeklyreport import user_querry_forquickreview, locationranking, longitude_latitude, longitude_latitude_detailed, fetch_chat_messages_weekly
@@ -369,9 +369,10 @@ async def upload_file(
         file_bytes = await file.read()
         if len(file_bytes) > MAX_FILE_SIZE:
             raise HTTPException(status_code=400, detail="file_too_large")
-
+        
+        client_code = await get_client_code_by_client_id(int(org_id))
         # Create unique blob name
-        blob_name = f"fileuploads/{org_id}/{user_id}/{uuid.uuid4()}{extension}"
+        blob_name = f"fileuploads/{client_code}/{user_id}/{uuid.uuid4()}{extension}"
 
         # Upload to Azure
         blob_client = container_client.get_blob_client(blob_name)
@@ -426,6 +427,26 @@ async def debug_redis_keys(request: Request):
 
 
 
+@router.get("/debug/org-connections/{org_id}")
+async def debug_org_connections(org_id: int, request: Request):
+    redis = request.app.state.redis_client
+
+    key = f"org:{org_id}:connections"
+
+    # Get all socket IDs stored in the set
+    socket_ids = await redis.smembers(key)
+
+    # Redis may return bytes → convert to string
+    socket_ids = [sid.decode() if isinstance(sid, bytes) else sid for sid in socket_ids]
+
+    return {
+        "redis_key": key,
+        "connections_count": len(socket_ids),
+        "socket_ids": socket_ids
+    }
+
+
+
 @router.get("/routes")
 async def list_routes(request: Request):
     routes = [route.name for route in request.app.routes]
@@ -477,7 +498,7 @@ async def index(
         async with async_session_scope() as db_session:
             # Fetch client + subscription
             client = await db_session.scalar(
-                select(Client).options(joinedload(Client.subscription)).where(Client.id == user["org_id"])
+                select(Client).options(joinedload(Client.subscription)).where(Client.id == int(user["org_id"]))
             )
             if client:
                 subscription = client.subscription
@@ -593,7 +614,7 @@ async def map_page_detailed(
     cpu_sem=request.app.state.cpu_sem
     # Fetch coordinates in memory-efficient way
     ip_data = await build_coords_from_sources_async(
-        client_id=user["org_id"],
+        client_id=int(user["org_id"]),
         start_dt=from_,
         end_dt=to_,
         table_name="chat_messages",
@@ -633,7 +654,7 @@ async def map_page(request: Request):
     if not user:
         return templates.TemplateResponse("map.html", {"request": request, "ip_data": []})
 
-    ip_data = await longitude_latitude(user["org_id"], redis, cpu_pool=cpu_pool, cpu_sem=cpu_sem,)
+    ip_data = await longitude_latitude(int(user["org_id"]), redis, cpu_pool=cpu_pool, cpu_sem=cpu_sem,)
     cleaned_ip_data = [
         entry for entry in ip_data if entry["location"]["lat"] is not None and entry["location"]["lng"] is not None
     ]
@@ -680,7 +701,7 @@ async def serviceselector_vbanai(
     email = current_user["email"]
     email_prefix = email.split("@")[0] if email else ""
     user_id = current_user["id"]
-    user_org = current_user["org_id"]
+    user_org = int(current_user["org_id"])
     name = current_user["name"]
     user_role = current_user["role"]
     language = current_user.get("language", "hu")
@@ -762,7 +783,7 @@ async def get_users(
         request: Request,
         user: dict = Depends(login_required),  # ensures user is logged in
     ):
-    client_id = user.get("org_id")
+    client_id = int(user.get("org_id"))
     redis = request.app.state.redis_client
 
     session_id = request.cookies.get("session_id")
@@ -1026,7 +1047,7 @@ async def manager_dashboard(
                   new_user = User(
                       email=email,
                       name=name,
-                      client_id=current_user["org_id"],
+                      client_id=int(current_user["org_id"]),
                       role_id=role.id,
                       is_active=False
                   )
@@ -1287,7 +1308,7 @@ async def design_page(
     language = user.get("language", "hu")
 
     user_id = user["id"]
-    user_org = user["org_id"]
+    user_org = int(user["org_id"])
     user_role = user["role"]
     
     if not first_character:
@@ -1406,7 +1427,7 @@ async def popup_settings(
     language = user.get("language", "hu")
 
     user_id = user["id"]
-    user_org = user["org_id"]
+    user_org = int(user["org_id"])
     user_role = user["role"]
     
     if not first_character:
@@ -1563,7 +1584,7 @@ async def manage_previous_layout(
         return RedirectResponse("/logout?reason=expired", status_code=302)
 
     lang = current_user.get("language", "hu")
-    user_org = current_user["org_id"]
+    user_org = int(current_user["org_id"])
     email = current_user.get("email")
     email_prefix = email.split("@")[0] if email else None
 
@@ -1679,7 +1700,7 @@ async def restore_previous_layout(
         return RedirectResponse("/logout?reason=expired", status_code=302)
 
     lang = current_user.get("language", "hu")
-    user_org = current_user["org_id"]
+    user_org = int(current_user["org_id"])
     email = current_user.get("email")
     email_prefix = email.split("@")[0] if email else None
 
@@ -1818,7 +1839,7 @@ async def manage_previous_layout(
         return RedirectResponse("/logout?reason=expired", status_code=302)
 
     lang = current_user.get("language", "hu")
-    user_org = current_user["org_id"]
+    user_org = int(current_user["org_id"])
     email = current_user.get("email")
     email_prefix = email.split("@")[0] if email else None
 
@@ -1942,7 +1963,7 @@ async def restore_previous_layout(
         return RedirectResponse("/logout?reason=expired", status_code=302)
 
     lang = current_user.get("language", "hu")
-    user_org = current_user["org_id"]
+    user_org = int(current_user["org_id"])
     email = current_user.get("email")
     email_prefix = email.split("@")[0] if email else None
 
@@ -2158,9 +2179,9 @@ async def dashboard_vbanai(request: Request, csrf_protect: CsrfProtect=Depends()
     
     # Run CPU-bound helpers concurrently
     user_results, top3locations, mainChartData0 = await asyncio.gather(
-        user_querry_forquickreview(user["org_id"], redis, cpu_pool=cpu_pool, cpu_sem=cpu_sem),
-        locationranking(user["org_id"], redis, cpu_pool=cpu_pool, cpu_sem=cpu_sem),
-        datatransformation_for_chartjs_weekly(user["org_id"], cpu_pool=cpu_pool, cpu_sem=cpu_sem), return_exceptions=True  #Then handle exceptions individually. If one CPU task fails, asyncio.gather doesn't cancel all.
+        user_querry_forquickreview(int(user["org_id"]), redis, cpu_pool=cpu_pool, cpu_sem=cpu_sem),
+        locationranking(int(user["org_id"]), redis, cpu_pool=cpu_pool, cpu_sem=cpu_sem),
+        datatransformation_for_chartjs_weekly(int(user["org_id"]), cpu_pool=cpu_pool, cpu_sem=cpu_sem), return_exceptions=True  #Then handle exceptions individually. If one CPU task fails, asyncio.gather doesn't cancel all.
     )
     usernumber_previousweek, usernumber, average_userquerry, today, previous_monday = user_results
 
@@ -2224,7 +2245,7 @@ async def dashboard_vbanai(request: Request, csrf_protect: CsrfProtect=Depends()
           result = await db_session.execute(
               select(Client)
               .options(selectinload(Client.subscription))  # Preload subscription data
-              .where(Client.id == user["org_id"])  # user from Depends
+              .where(Client.id == int(user["org_id"]))  # user from Depends
           )
           client = result.scalar_one_or_none()
 
@@ -2340,7 +2361,7 @@ async def chats_in_requested_period_weekly(
 
     async with async_session_scope() as db_session:
         result = await db_session.execute(
-            select(Client).where(Client.id == user["org_id"])
+            select(Client).where(Client.id == int(user["org_id"]))
         )
         client = result.scalar_one_or_none()
         client_timezone = client.timezone if client and client.timezone else "UTC"
@@ -2349,7 +2370,7 @@ async def chats_in_requested_period_weekly(
     rows, columns = await fetch_chat_messages_weekly(
         start_date,
         end_date,
-        user["org_id"],
+        int(user["org_id"]),
         client_timezone,
         redis,
         cpu_pool=cpu_pool, 
@@ -2430,7 +2451,7 @@ async def chats_in_requested_period(
     # Fetch client timezone asynchronously
     async with async_session_scope() as db_session:
         result = await db_session.execute(
-            select(Client).where(Client.id == user["org_id"])
+            select(Client).where(Client.id == int(user["org_id"]))
         )
         client = result.scalar_one_or_none()
         client_timezone = client.timezone if client and client.timezone else "UTC"
@@ -2443,17 +2464,17 @@ async def chats_in_requested_period(
     end_utc = end_localized.astimezone(pytz.UTC)
 
     # Run blocking fetch in a thread
-    rows, columns = await fetch_chat_messages(start_utc, end_utc, user["org_id"], client_timezone, frequency, redis, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
+    rows, columns = await fetch_chat_messages(start_utc, end_utc, int(user["org_id"]), client_timezone, frequency, redis, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
     
     
     # Cached topic counts
-    topic_key = f"topic_counts:{user['org_id']}:{start_utc.isoformat()}:{end_utc.isoformat()}"
+    topic_key = f"topic_counts:{int(user['org_id'])}:{start_utc.isoformat()}:{end_utc.isoformat()}"
 
     cached = await redis.get(topic_key)
     if cached:
         topic_counts = json.loads(cached)
     else:
-        topic_counts = await fetch_topic_classification_counts(start_utc, end_utc, user["org_id"])
+        topic_counts = await fetch_topic_classification_counts(start_utc, end_utc, int(user["org_id"]))
         await redis.set(topic_key, json.dumps(topic_counts), ex=3600)
 
 
@@ -2497,7 +2518,7 @@ async def chats_in_requested_period_topic(
     # Fetch client timezone asynchronously
     async with async_session_scope() as db_session:
         result = await db_session.execute(
-            select(Client).where(Client.id == user["org_id"])
+            select(Client).where(Client.id == int(user["org_id"]))
         )
         client = result.scalar_one_or_none()
         client_timezone = client.timezone if client and client.timezone else "UTC"
@@ -2523,16 +2544,16 @@ async def chats_in_requested_period_topic(
     end_utc = end_localized.astimezone(pytz.UTC)
 
     # Run blocking fetch in a thread
-    rows, columns = await fetch_chat_messages(start_utc, end_utc, user["org_id"], client_timezone, frequency, redis, topic)
+    rows, columns = await fetch_chat_messages(start_utc, end_utc, int(user["org_id"]), client_timezone, frequency, redis, topic)
     
     # Cached topic counts
-    topic_key = f"topic_counts:{user['org_id']}:{start_utc.isoformat()}:{end_utc.isoformat()}"
+    topic_key = f"topic_counts:{int(user['org_id'])}:{start_utc.isoformat()}:{end_utc.isoformat()}"
 
     cached = await redis.get(topic_key)
     if cached:
         topic_counts = json.loads(cached)
     else:
-        topic_counts = await fetch_topic_classification_counts(start_utc, end_utc, user["org_id"])
+        topic_counts = await fetch_topic_classification_counts(start_utc, end_utc, int(user["org_id"]))
         await redis.set(topic_key, json.dumps(topic_counts), ex=3600)
 
     return templates.TemplateResponse(
@@ -2618,7 +2639,7 @@ async def chats_deepinsight_landingpage(
                 result = await db_session.execute(
                     select(Client)
                     .options(selectinload(Client.subscription))
-                    .where(Client.id == user["org_id"])
+                    .where(Client.id == int(user["org_id"]))
                 )
                 client = result.scalar_one_or_none()
 
@@ -2643,7 +2664,7 @@ async def chats_deepinsight_landingpage(
 
         # Call your transformation function with UTC-aware datetimes
         data = await datatransformation_for_chartjs(
-            user["org_id"],
+            int(user["org_id"]),
             start_utc.year, start_utc.month, start_utc.day, start_utc.hour, start_utc.minute, start_utc.second,
             end_utc.year, end_utc.month, end_utc.day, end_utc.hour, end_utc.minute, end_utc.second,
             frequency,
@@ -2652,7 +2673,7 @@ async def chats_deepinsight_landingpage(
         
         topic = "topic_all"
         redis_key = (
-            f"deepinsight:{user['org_id']}:" 
+            f"deepinsight:{int(user['org_id'])}:" 
             f"{topic}:"
             f"{int(start_utc.timestamp())}:"
             f"{int(end_utc.timestamp())}"
@@ -2805,7 +2826,7 @@ async def topic_monitoring(
                 result = await db_session.execute(
                     select(Client)
                     .options(selectinload(Client.subscription))
-                    .where(Client.id == user["org_id"])
+                    .where(Client.id == int(user["org_id"]))
                 )
                 client = result.scalar_one_or_none()
 
@@ -2835,7 +2856,7 @@ async def topic_monitoring(
         end_ts = int(end_utc.timestamp())
         topic = "topic_all"
 
-        redis_key = f"deepinsight:{user['org_id']}:{topic}:{start_ts}:{end_ts}"
+        redis_key = f"deepinsight:{int(user['org_id'])}:{topic}:{start_ts}:{end_ts}"
 
         cached = await redis.get(redis_key)
         if cached:
@@ -2843,7 +2864,7 @@ async def topic_monitoring(
         else:
             # only compute if cache missing (should not happen)
             data = await datatransformation_for_chartjs(
-                user["org_id"],
+                int(user["org_id"]),
                 start_utc.year, start_utc.month, start_utc.day, start_utc.hour, start_utc.minute, start_utc.second,
                 end_utc.year, end_utc.month, end_utc.day, end_utc.hour, end_utc.minute, end_utc.second,
                 frequency,
@@ -2910,13 +2931,13 @@ async def topic_monitoring(
 
         
         # Cached topic counts
-        topic_key = f"topic_counts:{user['org_id']}:{start_utc.isoformat()}:{end_utc.isoformat()}"
+        topic_key = f"topic_counts:{int(user['org_id'])}:{start_utc.isoformat()}:{end_utc.isoformat()}"
 
         cached = await redis.get(topic_key)
         if cached:
             topic_counts = json.loads(cached)
         else:
-            topic_counts = await fetch_topic_classification_counts(start_utc, end_utc, user["org_id"])
+            topic_counts = await fetch_topic_classification_counts(start_utc, end_utc, int(user["org_id"]))
             await redis.set(topic_key, json.dumps(topic_counts), ex=3600)
 
             
@@ -3151,7 +3172,7 @@ async def topic_monitoring(
                 result = await db_session.execute(
                     select(Client)
                     .options(selectinload(Client.subscription))
-                    .where(Client.id == user["org_id"])
+                    .where(Client.id == int(user["org_id"]))
                 )
                 client = result.scalar_one_or_none()
 
@@ -3189,7 +3210,7 @@ async def topic_monitoring(
 
         # Call your transformation function with UTC-aware datetimes
         data = await datatransformation_for_chartjs(
-            user["org_id"],
+            int(user["org_id"]),
             start_utc.year, start_utc.month, start_utc.day, start_utc.hour, start_utc.minute, start_utc.second,
             end_utc.year, end_utc.month, end_utc.day, end_utc.hour, end_utc.minute, end_utc.second,
             frequency,
@@ -3342,7 +3363,7 @@ async def detailed_user_data(
         async with async_session_scope() as db_session:
             result = await db_session.execute(
                 select(Client)
-                .where(Client.id == user["org_id"])
+                .where(Client.id == int(user["org_id"]))
             )
             client = result.scalar_one_or_none()
 
@@ -3365,7 +3386,7 @@ async def detailed_user_data(
         cpu_pool = request.app.state.cpu_pool
         cpu_sem = request.app.state.cpu_sem
         final_transformed_data, data_for_final_transformation_copy, timestamp, start_end_date_byfrequency, usernumber, querry_on_average, changesinusernumber, locations = await datatransformation_for_chartjs_detailed(
-            user["org_id"],
+            int(user["org_id"]),
             start_utc.year, start_utc.month, start_utc.day, start_utc.hour, start_utc.minute, start_utc.second,
             end_utc.year, end_utc.month, end_utc.day, end_utc.hour, end_utc.minute, end_utc.second,
             frequency,
@@ -4035,14 +4056,18 @@ async def logout(request: Request,
         # if conn.get("user_id") == user_id:
         #     other_user_sids.append(sid)
 
+    
     # Delete the current session
     await redis.delete(f"session:{session_id}")
+
     # after we loop through the sids belong to this session(browser, device) and delete then separately and do the cleaning, 
     # disconnect handles everything, simple reconnection, sid deletion and logout as well
     for sid in session_sids:
         print("SID LOGOUT: ", sid)
         await sio.emit("force_logout_index", {"reason": reason}, to=sid)
         await sio.disconnect(sid)
+
+    
 
     print(f"User {user_id} logged out (session {session_id})")
 
@@ -4144,7 +4169,7 @@ async def subscription(request: Request,
     email = current_user["email"]
     email_prefix = email.split("@")[0] if email else ""
     user_id = current_user["id"]
-    user_org = current_user["org_id"]
+    user_org = int(current_user["org_id"])
     name = current_user["name"]
     user_role = current_user["role"]
     language = current_user.get("language", "hu")
@@ -4899,13 +4924,16 @@ def normalize_timestamp(ts: str) -> str:
 @router.post("/api/upload_image")
 async def upload_image(
     file: UploadFile = File(...),
-    org_id: str = Form(...),
-    user_id: str = Form(...)
+    user: dict = Depends(get_current_user)
 ):
     """
     Uploads a file to Azure Blob Storage under:
     imageuploads/org_id/user_id/unique_filename
     """
+
+    org_id = int(user["org_id"])
+    user_id = user["user_id"]
+
     try:
         # Generate file extension and path
         extension = os.path.splitext(file.filename)[1]
@@ -4950,9 +4978,10 @@ async def chat_admin_page(
     
 
     user_id = user["id"]
-    user_org = user["org_id"]
+    user_org = int(user["org_id"])
     language = user.get("language", "hu")
     first_character = user.get("first_character")
+    user_name=user["name"]
 
     
     return templates.TemplateResponse(
@@ -4963,6 +4992,7 @@ async def chat_admin_page(
             "first_character": first_character,
             "language": language,
             "user_id": user_id,
+            "user_name": user_name
         },
     )
 
@@ -4978,15 +5008,15 @@ async def get_client_mode(org_id: str) -> str:
     async with async_session_scope() as db_session:
         try:
             result = await db_session.execute(
-                select(Client.mode).where(Client.id == org_id)
+                select(Client.mode).where(Client.id == int(org_id))
             )
             mode = result.scalar_one_or_none()
 
             if mode:
-                print(f"Retrieved mode for org_id={org_id}: {mode}")
+                print(f"Retrieved mode for org_id={int(org_id)}: {mode}")
                 return mode
             else:
-                print(f"No mode found for org_id={org_id}. Defaulting to 'automatic'.")
+                print(f"No mode found for org_id={int(org_id)}. Defaulting to 'automatic'.")
                 return "automatic"
 
         except Exception as e:
@@ -5040,7 +5070,7 @@ async def log_event(org_id, event_type, data, frontend_time=None):
 
         async with async_session_scope() as session:
             event = OrgEventLog(
-                org_id=org_id,
+                org_id=int(org_id),
                 event_type=event_type,
                 data=data,
                 timestamp=timestamp,
@@ -5087,7 +5117,7 @@ async def get_recent_messages(org_id: str, minutes: int = 15, mode: str = "autom
             stream_result = await session.stream(
                 select(OrgEventLog)
                 .where(
-                    OrgEventLog.org_id == org_id,
+                    OrgEventLog.org_id == int(org_id),
                     OrgEventLog.event_type == "new_message",
                     OrgEventLog.timestamp >= cutoff_time,
                 )
@@ -5111,7 +5141,7 @@ async def get_recent_messages(org_id: str, minutes: int = 15, mode: str = "autom
             stream_result = await session.stream(
                 select(OrgEventLog)
                 .where(
-                    OrgEventLog.org_id == org_id,
+                    OrgEventLog.org_id == int(org_id),
                     OrgEventLog.event_type == "new_message",
                     OrgEventLog.timestamp >= day_start,
                     OrgEventLog.data["user_id"].astext.in_(list(user_ids)),
@@ -5127,7 +5157,7 @@ async def get_recent_messages(org_id: str, minutes: int = 15, mode: str = "autom
             # Step 3: Convert events to dictionaries before returning
             return [
                 {
-                    "org_id": event.org_id,
+                    "org_id": int(event.org_id),
                     "event_type": event.event_type,
                     "data": event.data,
                     "timestamp": (
@@ -5176,7 +5206,7 @@ async def should_show_internal_alert(sid: str, redis, org_id: str) -> bool:
             result = await session.execute(
                 select(OrgEventLog)
                 .where(
-                    OrgEventLog.org_id == org_id,
+                    OrgEventLog.org_id == int(org_id),
                     OrgEventLog.event_type == "admin_internal_message",
                 )
                 .order_by(OrgEventLog.timestamp.desc())
@@ -5222,6 +5252,7 @@ async def handle_admin_response(sid, data):
     user_id = None
     admin_name = None
     redis=None
+    attachment=None
 
     try:
         # Fetch connection data from Redis
@@ -5261,10 +5292,13 @@ async def handle_admin_response(sid, data):
     if not org_id:
         print("org_id not found, aborting message forwarding.")
         return
+    
+    attachment = data.get("attachment")
 
     # --- Enrich message data ---
     data["admin_name"] = admin_name
     data["org_id"] = org_id
+    data["attachment"]=attachment
 
     # --- Publish to Redis ---
     try:
@@ -5627,6 +5661,25 @@ async def handle_history_ready(sid, data):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     #############################
     #   DISCONNECT      #########
     #############################
@@ -5656,16 +5709,37 @@ async def handle_disconnect(sid):
         connection_data = await redis.hgetall(connection_key)
 
         if not connection_data:
+            async for key in redis.scan_iter("org:*:connections"):
+                await redis.srem(key, sid)
             print(f"[Redis] No connection record found for {sid}, skipping.")
             return
        
-
+        
         if connection_data:
             # Decode Redis fields
             org_id = int(connection_data["org_id"])
             user_id = int(connection_data["user_id"])
             manual_mode = connection_data.get("manualmode_triggered") == "true"
             session_id = connection_data.get("session_id")
+
+            org_sids = await redis.smembers(f"org:{org_id}:connections")
+            print("ORG SET BEFORE CLEAN:", org_sids)
+            for s in list(org_sids):
+                exists = await redis.exists(f"connection:{s}")
+                print("Checking", s, "exists:", exists)
+
+                if not exists:
+                    print("Removing stale sid:", s)
+                    await redis.srem(f"org:{org_id}:connections", s)
+            
+                session_id = await redis.hget(f"connection:{s}", "session_id")
+                if not session_id or not await redis.exists(f"session:{session_id}"):
+                    print("Removing stale sid:", s)
+
+                    await redis.delete(f"connection:{s}")
+                    await redis.srem(f"org:{org_id}:connections", s)
+
+
 
             # Mark disconnected_at in Redis
             disconnected_at = datetime.utcnow().isoformat()
@@ -5689,11 +5763,11 @@ async def handle_disconnect(sid):
                             return
 
                         # Check for other active admins (still connected)
-                        
-                        await redis.srem(f"org:{org_id}:connections", sid)
-                        print("About to delete", f"connection:{sid}")
                         deleted=await redis.delete(f"connection:{sid}")
                         print("Deleted result:", deleted)
+                        await redis.srem(f"org:{org_id}:connections", sid)
+                        print("About to delete", f"connection:{sid}")
+                        
 
                         org_sids = await redis.smembers(f"org:{org_id}:connections")
                       
@@ -5721,6 +5795,26 @@ async def handle_disconnect(sid):
                         else:
                             print(f"Admin {user_id} from org {org_id} disconnected from session {session_id}, but remained active sessions")
 
+                        for si in list(org_sids):
+                            conn_sess = await redis.hget(f"connection:{si}", "session_id")
+                            if not conn_sess or not await redis.exists(f"session:{conn_sess}"):
+                                print("Grace-period: Removing stale sid:", si)
+                                await redis.delete(f"connection:{si}")
+                                await redis.srem(f"org:{org_id}:connections", si)
+                        
+                        
+
+                        org_sids = await redis.smembers(f"org:{org_id}:connections")
+                        valid_sids = []
+
+                        for s in org_sids:
+                            exists = await redis.exists(f"connection:{s}")
+                            if exists:
+                                valid_sids.append(s)
+                            else:
+                                await redis.srem(f"org:{org_id}:connections", s)
+
+                        org_sids = valid_sids
 
                         print("sidek", org_sids) 
                         if len(org_sids)==0:
@@ -5736,6 +5830,7 @@ async def handle_disconnect(sid):
 
                             
                             try:
+                               
                                 async with async_session_scope() as delayed_session:
                                     await delayed_session.execute(
                                         delete(OrgEventLog).where(OrgEventLog.org_id == org_id)
@@ -6074,7 +6169,7 @@ async def handle_mode_changed(sid, data):
 
 
 
-@sio.on("update_response_state")  # the rectangles' state if it is manual or automatic
+@sio.on("update_response_state")  # the rectangles' state if it is manual(true in automatic) or automatic(false) based on what is written on the button
 async def handle_update_response_state(sid, data):
     print("NA???", data)
 
@@ -6146,10 +6241,14 @@ async def handle_update_response_state(sid, data):
       key = f"user_mode_override:{org_id}"
 
       # Set or update the user's mode in the hash
-      await redis.hset(key, user_id, "manual")
+      if state:
+          await redis.hset(key, user_id, "manual")
 
-      # Set TTL for the entire hash (e.g., 6 hours)
-      await redis.expire(key, 3600 * 6)  # 3600 sec × 6 = 6 hours
+          # Set TTL for the entire hash (e.g., 6 hours)
+          await redis.expire(key, 3600 * 6)  # 3600 sec × 6 = 6 hours
+      else:
+          await redis.hdel(key, user_id)
+          
 
     except Exception as e:
           print(f"Error updating user_mode_override with TTL for org {org_id}, user {user_id}: {e}")
@@ -6194,7 +6293,6 @@ async def handle_update_response_state(sid, data):
                 }
             ),
         )
-        print("OKOKOK")
     except Exception as redis_err:
         print(f"Redis publish error: {redis_err}")
 
@@ -6278,8 +6376,16 @@ async def handle_update_response_state_overallmanual(sid, data):
     )
     # Handle database updates based on the state
     try:
+        # if state:
+        #     await redis.hset(f"user_mode_override:{org_id}", user_id, "manual")
+        # else:
+        #     await redis.hdel(f"user_mode_override:{org_id}", user_id)
+
         if state:
             await redis.hset(f"user_mode_override:{org_id}", user_id, "manual")
+
+            # Set TTL for the entire hash (e.g., 6 hours)
+            await redis.expire(key, 3600 * 6)  # 3600 sec × 6 = 6 hours
         else:
             await redis.hdel(f"user_mode_override:{org_id}", user_id)
 
@@ -6347,6 +6453,7 @@ async def handle_update_response_state_overallmanual(sid, data):
 
 @sio.on("admin_response")
 async def handle_admin_response(sid, data):
+    print("jövünk az updatebe??? data: ", data)
     
     environ = sio.get_environ(sid)  # get environ first
     cookies = environ.get("asgi.scope", {}).get("headers", [])
@@ -6399,12 +6506,20 @@ async def handle_admin_response(sid, data):
     user_id = data['user_id']
     response = data['response']
     timestamp=data['timestamp']
+    attachment = data.get("attachment")
+    admin_name=data.get("admin_name")
+    if attachment and not attachment.get("data"):
+        attachment = None
 
     message_for_log={
         "admin_response": response,
         "user_id": user_id,
+        "user_message": json.dumps({"text": "", "attachment": attachment}) if attachment else "",
         "userMessage" : "",
-        "timestamp" : timestamp
+        "timestamp" : timestamp,
+        "attachment": attachment,
+        "admin_name": admin_name
+
     }
 
     asyncio.create_task(log_event(org_id, 'new_message', message_for_log))
@@ -6417,17 +6532,23 @@ async def handle_admin_response(sid, data):
         sids = await redis.smembers(org_key)
         other_sids = [s for s in sids if s != sid]
         if other_sids:
-            await asyncio.gather(
-                *(sio.emit("response_update", {"user_id": user_id, "response": response}, to=s)
-                    for s in other_sids),
-                return_exceptions=True
-            )
+            if attachment:
+                await asyncio.gather(
+                    *(sio.emit("response_update", {"user_id": user_id, "response": response, "user_message": json.dumps({"text": "", "attachment": attachment}) if attachment else "", "timestamp": timestamp, "attachment": attachment, "admin_name": admin_name}, to=s)
+                        for s in other_sids),
+                    return_exceptions=True
+                )
+            
+            else:
+                await asyncio.gather(
+                    *(sio.emit("response_update", {"user_id": user_id, "response": response, "timestamp": timestamp, "attachment": attachment, "admin_name": admin_name}, to=s)
+                        for s in other_sids),
+                    return_exceptions=True
+                )
     except Exception as db_err:
         print(f"Error fetching SIDs for org_id {org_id}: {db_err}")
 
 
-
-#######  EDDIG KÉSZ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   
 
 
 
@@ -8188,3 +8309,159 @@ async def handle_pending_allocation(sid, data):
     print(f"Published pending_allocation for user {data['user_id']}")
 
 
+@sio.on("admin_typing_start")
+async def handle_admin_typing_start(sid, data):
+    print("Typing??? be??")
+    # Get FastAPI app and Redis
+    fastapi_app = sio.fastapi_app
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        print("Redis not ready yet")
+        await sio.disconnect(sid)
+        return
+    
+    redis = fastapi_app.state.redis_client
+
+    # Validate session
+    environ = sio.get_environ(sid)
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
+    session_id = None
+    for key, value in cookies:
+        if key == b'cookie':
+            cookie_str = value.decode()
+            for c in cookie_str.split(";"):
+                if c.strip().startswith("session_id="):
+                    session_id = c.strip().split("=")[1]
+
+    if not session_id or not await redis.exists(f"session:{session_id}"):
+        await sio.emit("force_logout", {"reason": "Session expired"}, to=sid)
+        await sio.disconnect(sid)
+        return
+
+    user_id = data["user_id"]
+    admin_name = data["admin_name"]
+    
+    # Get org_id from Redis (existing logic)
+    connection_data = await redis.hgetall(f"connection:{sid}")
+    org_id_str = connection_data.get("org_id")
+    if not org_id_str:
+        print(f"No org_id found for sid {sid}")
+        return
+    org_id = int(org_id_str)
+
+    # Store typing in Redis with TTL (10s)
+    await redis.set(f"typing:{org_id}:{user_id}", admin_name, ex=10)
+
+    # Emit to all other SIDs in org
+    org_sids = await redis.smembers(f"org:{org_id}:connections")
+    for s in org_sids:
+        if s != sid:
+            await sio.emit("admin_typing_update", {
+                "user_id": user_id,
+                "admin_name": admin_name,
+                "typing": True
+            }, to=s)
+
+
+# Keeps the typing lock alive while the admin is still typing.
+@sio.on("admin_typing_ping")
+async def handle_admin_typing_ping(sid, data):
+    fastapi_app = sio.fastapi_app
+    redis = fastapi_app.state.redis_client
+
+    user_id = data["user_id"]
+    admin_name = data["admin_name"]
+
+    # Refresh TTL to keep slot alive
+    connection_data = await redis.hgetall(f"connection:{sid}")
+    org_id = int(connection_data.get("org_id", 0))
+    if not org_id: return
+
+    exists = await redis.exists(f"typing:{org_id}:{user_id}")
+    if exists:
+        await redis.set(f"typing:{org_id}:{user_id}", admin_name, ex=10)
+
+
+@sio.on("admin_typing_stop")
+async def handle_admin_typing_stop(sid, data):
+    fastapi_app = sio.fastapi_app
+    redis = fastapi_app.state.redis_client
+
+    user_id = data["user_id"]
+    admin_name = data["admin_name"]
+
+    # Remove the typing lock
+    connection_data = await redis.hgetall(f"connection:{sid}")
+    org_id = int(connection_data.get("org_id", 0))
+    if not org_id: return
+
+    await redis.delete(f"typing:{org_id}:{user_id}")
+
+    # Emit typing stopped to others
+    org_sids = await redis.smembers(f"org:{org_id}:connections")
+    for s in org_sids:
+        if s != sid:
+            await sio.emit("admin_typing_update", {
+                "user_id": user_id,
+                "admin_name": admin_name,
+                "typing": False
+            }, to=s)
+
+
+
+@sio.on("human_support_request_state_change")
+async def human_support_request_state_change(sid, data):
+
+    environ = sio.get_environ(sid)
+    cookies = environ.get("asgi.scope", {}).get("headers", [])
+
+    session_id = None
+    for key, value in cookies:
+        if key == b"cookie":
+            cookie_str = value.decode()
+            for c in cookie_str.split(";"):
+                if c.strip().startswith("session_id="):
+                    session_id = c.strip().split("=")[1]
+
+    fastapi_app = sio.fastapi_app
+
+    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+        await sio.disconnect(sid)
+        return
+
+    redis = fastapi_app.state.redis_client
+
+    # Validate session
+    if not session_id or not await redis.exists(f"session:{session_id}"):
+        await sio.emit("force_logout", {"reason": "Session expired"}, to=sid)
+        await sio.disconnect(sid)
+        return
+
+    # Get org_id from connection
+    try:
+        connection_key = f"connection:{sid}"
+        conn_data = await redis.hgetall(connection_key)
+
+        if not conn_data:
+            return
+
+        org_id_str = conn_data.get("org_id")
+        org_id = int(org_id_str) if org_id_str else 0
+
+    except Exception as e:
+        print(f"Connection lookup error: {e}")
+        return
+
+    user_id = data.get("user_id")
+    state = data.get("state")
+
+    try:
+        key = f"user_mode_override:{org_id}"
+
+        if state:
+            await redis.hset(key, user_id, "manual")
+            await redis.expire(key, 3600 * 6)
+        else:
+            await redis.hdel(key, user_id)
+
+    except Exception as e:
+        print(f"Error updating user_mode_override for org {org_id}, user {user_id}: {e}")

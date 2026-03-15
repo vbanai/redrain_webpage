@@ -325,7 +325,7 @@ height: 100%; /* Or similar rule to ensure it fills the container */
   display: flex; /* Use Flexbox to arrange child elements */
   flex-direction: column; /* Ensure the user message appears above the admin message */
   margin-top: 10px; /* Add some spacing between messages */
-  align-items: stretch; /* Stretch messages to fill the container width */
+  align-items: flex-start; /* Stretch messages to fill the container width */
 }
 
 .user-message {
@@ -338,7 +338,7 @@ height: 100%; /* Or similar rule to ensure it fills the container */
   margin-left: auto; /* Push to the right */
   margin-bottom: 5px; /* Add a bit of space below the user message */
 
-  font-size: clamp(9px, 0.87vw, 14px);
+  font-size: clamp(9px, 0.87vw, 11px);
 }
 
 .attachment-wrapper img.attachment {
@@ -346,7 +346,7 @@ height: 100%; /* Or similar rule to ensure it fills the container */
   margin-top: 6px;
   border-radius: 6px;
   object-fit: contain;
-  float: right; /* optional: float right inside bubble */
+
 }
 
 
@@ -364,15 +364,15 @@ height: 100%; /* Or similar rule to ensure it fills the container */
 }
 
 .admin-message {
-  max-width: 70%; /* Limit width to prevent overflow */
+  max-width: 60%; /* Limit width to prevent overflow */
   align-self: flex-start; /* Align admin messages to the left */
   text-align: left; /* Text alignment to the left */
   background-color: #f1f8e9; /* Light background for admin message */
   padding: 10px;
   border-radius: 10px;
-  margin-right: auto; /* Push to the left */
+  width: fit-content;
   margin-top: 0; /* Ensure no extra margin above admin message */
-  font-size: clamp(9px, 0.87vw, 14px);
+  font-size: clamp(9px, 0.87vw, 11px);
   word-wrap: break-word; /* Allow long words to break and wrap onto the next line */
   white-space: normal; /* Allow text to wrap and use multiple lines */
   overflow-wrap: break-word; /* Break long words if they overflow */
@@ -380,6 +380,8 @@ height: 100%; /* Or similar rule to ensure it fills the container */
   flex-direction: column;
 
 }
+
+
 
 /* Image inside the same bubble, directly under the text */
 .admin-message .chat-image.admin {
@@ -402,7 +404,6 @@ display: block;
 }
 
 .user-input {
-font-weight: bold;
 color: #333;
 }
 
@@ -633,7 +634,7 @@ padding: 5px 10px;
 .attachment-link {
     display: block;
     margin-top: 4px;
-    font-size: 13px;
+    font-size: clamp(10px, 0.89vw, 12px);
     color: #007bff;
     text-decoration: none;
 }
@@ -688,18 +689,34 @@ padding: 5px 10px;
 /* Cancel X */
 .preview-cancel {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   font-size: 16px;
   background: rgba(0,0,0,0.6);
   color: white;
   border-radius: 50%;
-  display: none;
+   opacity: 0;
   cursor: pointer;
 }
 
 /* Show X ONLY when hovering preview */
 .preview-wrapper:hover .preview-cancel {
-  display: block;
+  opacity: 1;
 }
 
+
+.typing-active {
+  animation: typingPulse 1s infinite;
+}
+
+.typing-active::placeholder {
+  color: red;
+  font-weight: bold;
+}
+
+@keyframes typingPulse {
+  0% { box-shadow: 0 0 0px red; }
+  50% { box-shadow: 0 0 6px red; }
+  100% { box-shadow: 0 0 0px red; }
+}
