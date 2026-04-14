@@ -1,8 +1,10 @@
 #https://learn.microsoft.com/en-us/training/entra-external-identities/1-introduction
 #https://www.facebook.com/JTCguitar
 #https://www.facebook.com/guitarsalon
+############
+#REDIS KEYS:
+############
 
-#REDIS KEYS: 
 #  state:{session_id} created  await redis.setex(f"{STATE_KEY_PREFIX}{session_id}", 300, state) TTL: 300 seconds  Deleted after successful /auth.
 #  flash:{uuid} await redis.setex(f"flash:{flash_id}", 30, "Message") TTL: 30 seconds
 #  session:{session_id}  expiry: await redis.expire(f"session:{session_id}", SESSION_TTL
@@ -34,8 +36,20 @@
 # messages_total:{org}:batch_temp
 # tenant:{org_id}:user:{uid}:recent_msgs in function: _update_redis_batch  we use this for chat history for recurrent users
 
+# client:{org_id}:state   fields: mode, last_manualmode_triggered_by
+# client:42:state
+# mode = manual
+# last_manualmode_triggered_by = viktor
+#we have two state global manual or global automatic, and in case of each global state we can set manual or automatic for each user, of course if global is automatic, we won't have key "client:{client_id}:state, but we can set individual user override keys as manual. If it is global manual mode we will have key client:{client_id}:state, initially we won't have user override keys, but we can set user_override _ key as automatic for users
 
 
+
+#############
+#LOGOUT LOGIC
+#############
+
+# we have two different hearbeat for pages like serviceselector where no socketio here we have http route and we check idle
+#    second is constatly emit signal from page with socketio to be refreshed and not interrupt the admin work with logouts
 
 # await redis.publish(
 #     "chatbot:pending_allocations",
@@ -213,8 +227,8 @@ SECRET = os.environ.get("SECRET_KEY", secrets.token_urlsafe(32))
 
 STATE_KEY_PREFIX = "oauth_state:"
 SESSION_KEY_PREFIX = "user_session:"
-SESSION_TTL = 24*3600   # 24 hour
-SESSION_TTL_COOKIE=24*3600
+SESSION_TTL = 60 * 60   # 24 hour
+SESSION_TTL_COOKIE=60 * 60
 
 
 async def save_oauth_state(redis, state: str, session_id: str):
@@ -446,7 +460,6 @@ async def debug_org_connections(org_id: int, request: Request):
     }
 
 
-
 @router.get("/routes")
 async def list_routes(request: Request):
     routes = [route.name for route in request.app.routes]
@@ -460,7 +473,7 @@ async def index(
     redis = request.app.state.redis_client
     session_id = request.cookies.get("session_id")
 
-
+    
 
     # --- Flash message handling ---
     flash_message = None
@@ -806,7 +819,7 @@ async def get_users(
 
         for u in users:
             redis_key = f"online:{client_id}:{u.id}"
-            is_online = await redis.exists(redis_key) == 1
+            is_online = bool(await redis.exists(redis_key))
             users_data.append({
                 "id": u.id,
                 "email": u.email,
@@ -1007,7 +1020,8 @@ async def manager_dashboard(
                           salt="email-confirm",
                       )
                       registration_link = (
-                          f"https://redrain1230.loophole.site/register/confirm?token={token}"
+                          f"https://http://localhost:8001/register/confirm?token={token}"
+                        #  f"https://redrain1230_viktor.loophole.site/register/confirm?token={token}"
                       )
                       # here await send_email is fine: That means awaiting send_email() does not interfere with SQLAlchemy, because the session state is essentially read-only.
                       try:
@@ -1056,7 +1070,8 @@ async def manager_dashboard(
 
                   # Token + registration link
                   token = s.dumps({'email': email, 'lang': lang}, salt="email-confirm")
-                  registration_link = f"https://redrain1230.loophole.site/register/confirm?token={token}"
+                  registration_link = f"https://http://localhost:8001/register/confirm?token={token}"
+                  #registration_link = f"https://redrain1230_viktor.loophole.site/register/confirm?token={token}"
                   print(f"[DEBUG] Registration link for {email}: {registration_link}")
 
 
@@ -3524,7 +3539,7 @@ async def exchange_code_for_token(auth_code: str) -> dict:
     tenant = os.environ.get("B2C_TENANT")
     client_id = os.environ.get("B2C_CLIENT_ID")
     client_secret = os.environ.get("B2C_SECRET_VALUE")
-    redirect_uri = "https://redrain1230.loophole.site/auth"
+    redirect_uri = "https://redrain1230_viktor.loophole.site/auth"
     policy = os.environ.get("B2C_POLICY")
 
     # Ensure all necessary values are present
@@ -3637,12 +3652,14 @@ def get_signing_key(kid: str, jwks: list):
 
 @router.api_route("/login/external", methods=["GET", "POST"])
 async def login_external(request: Request):
+
+    """
     
     # Fetch configuration values from environment variables
     tenant = os.environ.get("B2C_TENANT", "your_tenant_name")  # E.g., "redrainaib2ctenant"
     client_id = os.environ.get("B2C_CLIENT_ID", "your_client_id")
     policy = os.environ.get("B2C_POLICY", "your_policy_name")
-    redirect_uri="https://redrain1230.loophole.site/auth"
+    redirect_uri="https://redrain1230_viktor.loophole.site/auth"
     
     
    
@@ -3704,8 +3721,95 @@ async def login_external(request: Request):
 
     return RedirectResponse(full_url)
 
+    """
+    return await fake_login(request)
 
 
+async def fake_login(request: Request):
+    """
+    Fake login for dev: simulate OAuth + Redis session + cookies
+    """
+
+ 
+    email = request.query_params.get("email") 
+
+    # 2️⃣ Session middleware
+    session_id = request.session.get("session_id")
+    if not session_id:
+        session_id = secrets.token_urlsafe(16)
+        request.session["session_id"] = session_id
+
+    redis = request.app.state.redis_client
+
+    # 3️⃣ Find client
+    client_id = await find_client_by_email(email)
+    if not client_id:
+        return JSONResponse({"error": f"Client not found for {email}"}, status_code=400)
+
+    # 4️⃣ Find user in DB
+    async with async_session_scope() as db_session:
+        result = await db_session.execute(
+            select(User).options(joinedload(User.role)).where(User.email == email)
+        )
+        user = result.scalar_one_or_none()
+
+        if not user:
+            return JSONResponse({"error": "User not found"}, status_code=400)
+
+        if user.is_deleted or not user.is_active:
+            return JSONResponse({"error": "User inactive"}, status_code=400)
+
+        lang = user.language or "hu"
+
+        # 5️⃣ Save session in Redis (same as real flow)
+        now = int(time.time())
+        await redis.hset(f"session:{session_id}", mapping={
+            "user_id": str(user.id),
+            "user_org": str(client_id),
+            "language": lang,
+            "user_role": user.role.role_name if user.role else "Unknown",
+            "first_character": email[0].upper(),
+            "email": email,
+            "name": user.name,
+            "last_active": now
+        })
+        await redis.expire(f"session:{session_id}", SESSION_TTL)
+        await redis.setex(f"online:{client_id}:{user.id}", SESSION_TTL, 1)
+
+    # 6️⃣ Notify via Socket.IO
+    try:
+        sids = await redis.smembers(f"org:{client_id}:connections")
+        for sid in sids:
+            await sio.emit(
+                'user_online_status_changed',
+                {'user_id': user.id, 'is_online': True},
+                to=sid
+            )
+    except Exception as e:
+        print("Socket error:", e)
+
+    # 7️⃣ Return redirect + cookies
+    response = RedirectResponse(url="/serviceselector", status_code=302)
+    secure = request.url.scheme == "https"
+
+    response.set_cookie(
+        "session_id",
+        session_id,
+        httponly=True,
+        secure=secure,
+        samesite="Lax",
+        max_age=SESSION_TTL_COOKIE
+    )
+    response.set_cookie(
+        "lang",
+        lang,
+        httponly=False,
+        secure=secure,
+        samesite="Lax",
+        max_age=SESSION_TTL_COOKIE
+    )
+
+    return response
 
 ###########################################################
 ###########################################################
@@ -3920,8 +4024,11 @@ async def auth(
     return response
 
 
+#  we update: last_active
+#             expire(session)
 
-@router.post("/heartbeat")
+
+@router.post("/heartbeat")   # heartbeat from normal http pages no websocket like service selector
 async def heartbeat(request: Request):
     # Cookie sent: session_id=xG-g5zKwpwhq11b7Um05oQ, session_id = "xG-g5zKwpwhq11b7Um05oQ" 
     session_id = request.cookies.get("session_id")
@@ -3943,6 +4050,9 @@ async def heartbeat(request: Request):
 
     now = int(time.time())
     await redis.hset(session_key, "last_active", now)
+    #  ackground job checks: if now - last_active > IDLE_TIMEOUT:
+    #  So this line tells your system: “User was active JUST NOW”
+
     # UpDATE will be:
     # Key: session:xG-g5zKwpwhq11b7Um05oQ
     # Hash Fields:
@@ -3956,7 +4066,7 @@ async def heartbeat(request: Request):
     #     "name": "Viktor",
     #     "last_active": 1768935640   # <- updated by heartbeat
     # }
-
+    await redis.expire(session_key, SESSION_TTL)  #resets expiration timer
     return JSONResponse({"status": "ok"})
 
 
@@ -3983,66 +4093,55 @@ async def heartbeat(request: Request):
 
 
 
-
-
-
 @router.api_route("/logout", methods=["GET", "POST"])
-async def logout(request: Request, 
-                 current_user: dict | None = Depends(get_current_user),
-                 reason: str = Query("manual")):
+async def logout(request: Request, reason: str = Query("manual")):
+    """
+    Fake logout for dev: clears session + cookies + socket notifications without hitting Azure.
+    """
     
-    
-
- 
-
-    
-    
-    print("scheme:", request.url.scheme)
-    print("index:", request.url_for("index"))
-
-
+    print("STARTING FAKE LOGOUT!!!")
     redis = request.app.state.redis_client
     session_id = request.cookies.get("session_id")
 
-    tenant = os.environ.get("B2C_TENANT")
-    policy = os.environ.get("B2C_POLICY")
+    if not session_id:
+        return RedirectResponse(url="/", status_code=302)
 
-
-
-
-    redirect_uri = quote("https://redrain1230.loophole.site/", safe="")
-    
-
-
-
-    lang = request.cookies.get("lang", "hu")  # fallback to cookie if user not present
-    if lang not in ["en", "hu"]:
-        lang = "hu"
-
-  
-
-    # --- Load session details from Redis ---
-    # user_id = await redis.get(f"session:{session_id}:user_id")
-    # org_id = await redis.get(f"session:{session_id}:user_org")
-
-   
+    # Load session info
     user_id = await redis.hget(f"session:{session_id}", "user_id")
     org_id = await redis.hget(f"session:{session_id}", "user_org")
 
-    if not user_id or not org_id:
-        return RedirectResponse(
-        url="https://redrain1230.loophole.site/",
-        status_code=302
-    )
 
-    print(f"[Logout] Before clearing session: user_id={user_id}, org_id={org_id}")
-    org_id_int = int(org_id) if org_id else None
+    # Remove session from Redis
+    await redis.delete(f"session:{session_id}")
 
-  
-    org_sids = await redis.smembers(f"org:{org_id_int}:connections")
+    # Add flash message
+    lang = request.cookies.get("lang", "hu")
+    flash_id = str(uuid.uuid4())
+    flash_message = {
+        "text": "You have been logged out successfully." if lang == "en" else "Sikeresen kijelentkeztél.",
+        "category": "success"
+    }
+    await redis.setex(f"flash:{flash_id}", FLASH_EXPIRE_SECONDS, json.dumps(flash_message))
+
+
+    # Emit socket events for this session
+    org_sids = await redis.smembers(f"org:{org_id}:connections")
+    print("sids")
+    print(org_sids)
+
+    still_online = False
+
+    for sid in org_sids:
+        conn = await redis.hgetall(f"connection:{sid}")
+        if conn.get("user_id") == str(user_id):
+            still_online = True
+            break
+
+    if not still_online:
+        await redis.delete(f"online:{org_id}:{user_id}")
+                          
+
     session_sids = []
-    #other_user_sids = []
-
     for sid in org_sids:
         conn = await redis.hgetall(f"connection:{sid}")
         if not conn:
@@ -4060,52 +4159,170 @@ async def logout(request: Request,
     # Delete the current session
     await redis.delete(f"session:{session_id}")
 
-    # after we loop through the sids belong to this session(browser, device) and delete then separately and do the cleaning, 
-    # disconnect handles everything, simple reconnection, sid deletion and logout as well
-    for sid in session_sids:
-        print("SID LOGOUT: ", sid)
-        await sio.emit("force_logout_index", {"reason": reason}, to=sid)
-        await sio.disconnect(sid)
+    for sid in org_sids:
+        conn = await redis.hgetall(f"connection:{sid}")
+        if conn.get("session_id") == session_id:
+            try:
+                await sio.call(
+                    "force_logout_index",
+                    {"reason": reason, "flash_id": flash_id},
+                    to=sid,
+                    timeout=2
+                )
+            except Exception:
+                print("[Logout] client did not ACK, forcing disconnect anyway")
 
-    
+            # Ensure socket disconnect anyway
+            print("MEgyünk ide?")
+            await sio.disconnect(sid)
 
-    print(f"User {user_id} logged out (session {session_id})")
+    try:
+        sids = await redis.smembers(f"org:{org_id}:connections")
+
+        await asyncio.gather(
+            *[
+                sio.emit(
+                    'user_online_status_changed',
+                    {'user_id': user_id, 'is_online': False},
+                    to=sid
+                )
+                for sid in sids
+            ],
+            return_exceptions=True
+        )
+
+    except Exception as e:
+        print("Socket error:", e)
 
 
-
-    # Add a flash message in Redis
-    lang = request.cookies.get("lang", "hu") 
-
-    flash_id = str(uuid.uuid4())
-    if reason == "expired":
-        flash_message = {
-            "text": "Your session expired due to inactivity. You have been logged out automatically." if lang == "en" else "Az időkorlát lejárt, ezért a kijelentkezés automatikusan megtörtént.",
-            "category": "warning"
-        }
-    else:
-        flash_message = {
-            "text": "You have been logged out successfully." if lang == "en" else "Sikeresen kijelentkeztél.",
-            "category": "success"
-        }
-    await redis.setex(f"flash:{flash_id}", FLASH_EXPIRE_SECONDS, json.dumps(flash_message))
-
-    # Embed flash_id directly in post_logout_redirect_uri
-    redirect_uri = quote(f"https://redrain1230.loophole.site/?flash_id={flash_id}", safe="")
-    logout_url = (
-        f"https://{tenant}.b2clogin.com/{tenant}.onmicrosoft.com/"
-        f"{policy}/oauth2/v2.0/logout?post_logout_redirect_uri={redirect_uri}"
-    )
-
-    response = RedirectResponse(url=logout_url)
+    # Delete cookies and redirect to home
+    response = RedirectResponse(url=f"/?flash_id={flash_id}", status_code=302)
     response.delete_cookie("session_id")
-    
-        # if "?" in response.headers["Location"]:
-        #     response.headers["Location"] += f"&flash_id={flash_id}"
-        # else:
-        #     response.headers["Location"] += f"?flash_id={flash_id}"
-
-    # Redirect to the B2C logout URL
+    response.delete_cookie("lang")
     return response
+
+
+#    REAL LOGOUT
+# @router.api_route("/logout", methods=["GET", "POST"])
+# async def logout(request: Request, 
+#                  current_user: dict | None = Depends(get_current_user),
+#                  reason: str = Query("manual")):
+    
+    
+
+ 
+
+    
+    
+#     print("scheme:", request.url.scheme)
+#     print("index:", request.url_for("index"))
+
+
+#     redis = request.app.state.redis_client
+#     session_id = request.cookies.get("session_id")
+
+#     tenant = os.environ.get("B2C_TENANT")
+#     policy = os.environ.get("B2C_POLICY")
+
+
+
+
+#     redirect_uri = quote("https://redrain1230_viktor.loophole.site/", safe="")
+    
+
+
+
+#     lang = request.cookies.get("lang", "hu")  # fallback to cookie if user not present
+#     if lang not in ["en", "hu"]:
+#         lang = "hu"
+
+  
+
+#     # --- Load session details from Redis ---
+#     # user_id = await redis.get(f"session:{session_id}:user_id")
+#     # org_id = await redis.get(f"session:{session_id}:user_org")
+
+   
+#     user_id = await redis.hget(f"session:{session_id}", "user_id")
+#     org_id = await redis.hget(f"session:{session_id}", "user_org")
+
+#     if not user_id or not org_id:
+#         return RedirectResponse(
+#         url="https://redrain1230_viktor.loophole.site/",
+#         status_code=302
+#     )
+
+#     print(f"[Logout] Before clearing session: user_id={user_id}, org_id={org_id}")
+#     org_id_int = int(org_id) if org_id else None
+
+  
+#     org_sids = await redis.smembers(f"org:{org_id_int}:connections")
+#     session_sids = []
+#     #other_user_sids = []
+
+#     for sid in org_sids:
+#         conn = await redis.hgetall(f"connection:{sid}")
+#         if not conn:
+#             continue  # skip current session
+        
+#         #session_sids → sockets of THIS browser/device
+#         if conn.get("session_id") == session_id:
+#             session_sids.append(sid)
+
+#         # other_user_sids → all sockets of this user (all devices)
+#         # if conn.get("user_id") == user_id:
+#         #     other_user_sids.append(sid)
+
+    
+#     # Delete the current session
+#     await redis.delete(f"session:{session_id}")
+
+#     # after we loop through the sids belong to this session(browser, device) and delete then separately and do the cleaning, 
+#     # disconnect handles everything, simple reconnection, sid deletion and logout as well
+#     for sid in session_sids:
+#         print("SID LOGOUT: ", sid)
+#         await sio.emit("force_logout_index", {"reason": reason}, to=sid)
+#         await sio.disconnect(sid)
+
+    
+
+#     print(f"User {user_id} logged out (session {session_id})")
+
+
+
+#     # Add a flash message in Redis
+#     lang = request.cookies.get("lang", "hu") 
+
+#     flash_id = str(uuid.uuid4())
+#     if reason == "expired":
+#         flash_message = {
+#             "text": "Your session expired due to inactivity. You have been logged out automatically." if lang == "en" else "Az időkorlát lejárt, ezért a kijelentkezés automatikusan megtörtént.",
+#             "category": "warning"
+#         }
+#     else:
+#         flash_message = {
+#             "text": "You have been logged out successfully." if lang == "en" else "Sikeresen kijelentkeztél.",
+#             "category": "success"
+#         }
+#     await redis.setex(f"flash:{flash_id}", FLASH_EXPIRE_SECONDS, json.dumps(flash_message))
+
+#     # Embed flash_id directly in post_logout_redirect_uri
+#     redirect_uri = quote(f"https://redrain1230_viktor.loophole.site/?flash_id={flash_id}", safe="")
+#     logout_url = (
+#         f"https://{tenant}.b2clogin.com/{tenant}.onmicrosoft.com/"
+#         f"{policy}/oauth2/v2.0/logout?post_logout_redirect_uri={redirect_uri}"
+#     )
+
+#     response = RedirectResponse(url=logout_url)
+#     response.delete_cookie("session_id")
+    
+#         # if "?" in response.headers["Location"]:
+#         #     response.headers["Location"] += f"&flash_id={flash_id}"
+#         # else:
+#         #     response.headers["Location"] += f"?flash_id={flash_id}"
+
+#     # Redirect to the B2C logout URL
+#     return response
 
 
 
@@ -4148,6 +4365,14 @@ async def update_language(request: Request, user: dict = Depends(get_current_use
     ################
     # Payment part #
     ################
+
+
+
+
+
+
+
+
 
 def format_money(amount, currency):
     if currency == "HUF":
@@ -4455,7 +4680,8 @@ async def create_checkout_session(
 
             return {
                 "checkout_url":
-                f"https://redrain1230.loophole.site/subscription?status=success&type={redirect_type}&client_id={client.id}"
+                 f"https://http://localhost:8001/subscription?status=success&type={redirect_type}&client_id={client.id}"
+              #  f"https://redrain1230_viktor.loophole.site/subscription?status=success&type={redirect_type}&client_id={client.id}"
             }
 
         # ----------------------------------
@@ -4494,8 +4720,12 @@ async def create_checkout_session(
                     "seats": str(additional_seats),
                     "currency": client.currency,
                 },
-                success_url = f"https://redrain1230.loophole.site/subscription?status=success&type=new&client_id={client.id}",
-                cancel_url=f"https://redrain1230.loophole.site/subscription?status=failure&client_id={client.id}"
+                success_url = f"http://localhost:8001/subscription?status=success&type=new&client_id={client.id}",
+                cancel_url=f"http://localhost:8001/subscription?status=failure&client_id={client.id}"
+
+
+                # success_url = f"https://redrain1230_viktor.loophole.site/subscription?status=success&type=new&client_id={client.id}",
+                # cancel_url=f"https://redrain1230_viktor.loophole.site/subscription?status=failure&client_id={client.id}"
             )
             # at this point: client.stripe_subscription_id = NULL. not created yet
             return {"checkout_url": session.url}  # we go to stripe page with this
@@ -5516,7 +5746,7 @@ async def connect(sid, environ, auth=None): # connect() is special → Socket.IO
                 "admin_internal_message_close": "null",
             })
             await redis.sadd(org_set_key, socket_id)
-            #await redis.expire(connection_key, 3600 * 6)  # optional TTL for safety
+            await redis.expire(connection_key, 10 * 60)  # optional TTL for safety
             print(f"Connection saved: {connection_key}")
 
             client = await session.get(Client, org_int)
@@ -5534,8 +5764,13 @@ async def connect(sid, environ, auth=None): # connect() is special → Socket.IO
       )
 
 
+# this does : 1.) refresh TTL: await redis.expire(connection_key, 10 * 60)
+#             2.) refresh org-related TTL:  tab_mode_keys → expire 6h
+#                                           user_mode_override → expire 6h
+#            3.) update session activity  await redis.hset(session_key, "last_active", now)
+#                                         await redis.expire(session_key, SESSION_TTL)
 
-@sio.event    # update TTLs
+@sio.event    # update TTLs  for socketio enabled page  Keeps the connection alive
 async def heartbeat(sid):
     environ = sio.get_environ(sid)
     fastapi_app = sio.fastapi_app
@@ -5551,7 +5786,7 @@ async def heartbeat(sid):
     connection_key = f"connection:{sid}"
 
     # Refresh TTL for the connection itself
-    await redis.expire(connection_key, 3600 * 6)  # 6 hours
+    await redis.expire(connection_key, 10 * 60)  # 6 hours
 
     # Get org_id from the connection hash
     connection_data = await redis.hgetall(connection_key)
@@ -5564,7 +5799,11 @@ async def heartbeat(sid):
     org_id = int(org_id_str) 
 
     # Refresh TTL for all tab_mode keys for this org
-    tab_mode_keys = await redis.keys(f"org:{org_id}:tab:*:mode")
+    #tab_mode_keys = await redis.keys(f"org:{org_id}:tab:*:mode")
+    #this is better with scan_iter  non blocking and faster
+    tab_mode_keys = []
+    async for key in redis.scan_iter(f"org:{org_id}:tab:*:mode"):
+        tab_mode_keys.append(key)
     
 
     # Refresh TTL concurrently
@@ -5575,11 +5814,28 @@ async def heartbeat(sid):
 
     # Refresh TTL for user_mode_override key if it exists
     user_mode_key = f"user_mode_override:{org_id}"
-    exists = await redis.exists(user_mode_key)
-    if exists:
-        await redis.expire(user_mode_key, 3600 * 6)  # Extend TTL
-        print(f"[Heartbeat] Refreshed TTL for user_mode_override key for org {org_id}")
     
+    await redis.expire(user_mode_key, 3600 * 6)  # Extend TTL
+    print(f"[Heartbeat] Refreshed TTL for user_mode_override key for org {org_id}")
+
+    
+    session_id = connection_data.get("session_id")
+
+    if session_id:
+        session_key = f"session:{session_id}"
+
+        session_data = await redis.hgetall(session_key)
+
+        if not session_data:
+            print(f"[Heartbeat] Session expired for {sid}")
+            await sio.emit("force_logout", {"reason": "Session expired"}, to=sid)
+            await sio.disconnect(sid)
+            return
+
+        now = int(time.time())
+        await redis.hset(session_key, "last_active", now)
+        await redis.expire(session_key, SESSION_TTL)  # reset with TTL
+        
 
 @sio.on("history_ready")
 async def handle_history_ready(sid, data):
@@ -5784,6 +6040,8 @@ async def handle_disconnect(sid):
                                 break
                         
                         if not still_online:
+                            await redis.delete(f"online:{org_id}:{user_id}")
+                          
                             for sid_ in org_sids:
                                 await sio.emit(
                                     "user_online_status_changed",
@@ -5838,6 +6096,11 @@ async def handle_disconnect(sid):
                                     await delayed_session.execute(
                                         update(Client).where(Client.id == org_id).values(mode="automatic")
                                     )
+                                    await redis.delete(f"user_mode_override:{org_id}")
+
+                                    # DELETE CLIENT STATE FROM REDIS
+                                    await redis.delete(f"client:{org_id}:state")
+
                                     await redis.delete(f"user_mode_override:{org_id}")
 
                         
@@ -6033,6 +6296,8 @@ async def handle_mode_changed(sid, data):
     mode = data.get("mode")
     frontend_time = data.get("frontend_time")
 
+ 
+
 
     
     # --- Lookup connection info in Redis ---
@@ -6054,7 +6319,14 @@ async def handle_mode_changed(sid, data):
         await update_client_mode(org_id, mode)
     except Exception as e:
         print(f"Error updating client mode for org {org_id}: {e}")
-
+    
+    
+    await redis.hset(   # No TTL
+            f"client:{org_id}:state",
+            mapping={
+                "mode": mode  # "manual" or "automatic"
+            }
+        )
 
     #emit('response_state_overall', {'org_id': org_id, 'state': mode}, to=chatbot_sid)
     await redis.publish("chatbot:state_updates", json.dumps({
@@ -6082,6 +6354,13 @@ async def handle_mode_changed(sid, data):
         except Exception as e:
             print(f"Error deleting tab_mode keys for org {org_id}: {e}")
             
+
+    else:
+        try:
+            await redis.delete(f"user_mode_override:{org_id}")
+
+        except Exception as e:
+            print(f"Error deleting UserModeOverride for org {org_id}: {e}")
 
 
             
@@ -6298,139 +6577,139 @@ async def handle_update_response_state(sid, data):
 
 
 
-                                            # RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+#                                             # RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
                                             
-                                            #     RECTANGLE STATE - OVERALMANUAL   UserModeOverride    R
+#                                             #     RECTANGLE STATE - OVERALMANUAL   UserModeOverride    R
 
-                                            # RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+#                                             # RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
   
 
 
-@sio.on("update_response_state_overallmanual")  # the rectangles' state if it is manual or automatic
-async def handle_update_response_state_overallmanual(sid, data):
+# @sio.on("update_response_state_overallmanual")  # the rectangles' state if it is manual or automatic
+# async def handle_update_response_state_overallmanual(sid, data):
 
-    environ = sio.get_environ(sid)  # get environ first
-    cookies = environ.get("asgi.scope", {}).get("headers", [])
-    session_id = None
-    for key, value in cookies:
-        if key == b"cookie":
-            cookie_str = value.decode()
-            for c in cookie_str.split(";"):
-                if c.strip().startswith("session_id="):
-                    session_id = c.strip().split("=")[1]
+#     environ = sio.get_environ(sid)  # get environ first
+#     cookies = environ.get("asgi.scope", {}).get("headers", [])
+#     session_id = None
+#     for key, value in cookies:
+#         if key == b"cookie":
+#             cookie_str = value.decode()
+#             for c in cookie_str.split(";"):
+#                 if c.strip().startswith("session_id="):
+#                     session_id = c.strip().split("=")[1]
 
-    environ = sio.get_environ(sid)
-    fastapi_app = sio.fastapi_app
+#     environ = sio.get_environ(sid)
+#     fastapi_app = sio.fastapi_app
 
-    if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
-        print("Redis not ready yet")
-        await sio.disconnect(sid)
-        return
+#     if not fastapi_app or not getattr(fastapi_app.state, "redis_client", None):
+#         print("Redis not ready yet")
+#         await sio.disconnect(sid)
+#         return
     
    
-    redis = fastapi_app.state.redis_client
+#     redis = fastapi_app.state.redis_client
 
-    # Validate session
-    if not session_id or not await redis.exists(f"session:{session_id}"):
-        await sio.emit("force_logout", {"reason": "Session expired"}, to=sid)
-        await sio.disconnect(sid)
-        return  # Stop further processing
+#     # Validate session
+#     if not session_id or not await redis.exists(f"session:{session_id}"):
+#         await sio.emit("force_logout", {"reason": "Session expired"}, to=sid)
+#         await sio.disconnect(sid)
+#         return  # Stop further processing
     
     
-    org_id=None
-    try:
-        connection_key = f"connection:{sid}"
-        connection_data = await redis.hgetall(connection_key)
+#     org_id=None
+#     try:
+#         connection_key = f"connection:{sid}"
+#         connection_data = await redis.hgetall(connection_key)
 
-        if not connection_data:
-            print(f"[Redis] No connection found for socket_id {sid}")
-            return
+#         if not connection_data:
+#             print(f"[Redis] No connection found for socket_id {sid}")
+#             return
 
-        org_id_str = connection_data.get("org_id")
-        if not org_id_str:
-            print(f"[Redis] Connection for socket_id {sid} has no org_id")
-            return
+#         org_id_str = connection_data.get("org_id")
+#         if not org_id_str:
+#             print(f"[Redis] Connection for socket_id {sid} has no org_id")
+#             return
 
-        org_id = int(org_id_str)
+#         org_id = int(org_id_str)
 
 
 
-    except Exception as e:
-        # Handle any unexpected errors
-        print(f"An error occurred while processing the database operation: {e}")
+#     except Exception as e:
+#         # Handle any unexpected errors
+#         print(f"An error occurred while processing the database operation: {e}")
 
-    user_id = data.get('user_id')
-    state = data.get('state')
-    state = data.get('state')
-    tabindex= data.get('tabindex')
+#     user_id = data.get('user_id')
+#     state = data.get('state')
+#     state = data.get('state')
+#     tabindex= data.get('tabindex')
 
-    timestamp = data.get('frontend_time')  # ISO string
+#     timestamp = data.get('frontend_time')  # ISO string
     
 
-    asyncio.create_task(
-        log_event(org_id, 'response_state_changed_overallmanual', {
-            'user_id': user_id,
-            'state': state,
-            'tabindex':tabindex
-        }, timestamp)
-    )
-    # Handle database updates based on the state
-    try:
-        # if state:
-        #     await redis.hset(f"user_mode_override:{org_id}", user_id, "manual")
-        # else:
-        #     await redis.hdel(f"user_mode_override:{org_id}", user_id)
+#     asyncio.create_task(
+#         log_event(org_id, 'response_state_changed_overallmanual', {
+#             'user_id': user_id,
+#             'state': state,
+#             'tabindex':tabindex
+#         }, timestamp)
+#     )
+#     # Handle database updates based on the state
+#     try:
+#         # if state:
+#         #     await redis.hset(f"user_mode_override:{org_id}", user_id, "manual")
+#         # else:
+#         #     await redis.hdel(f"user_mode_override:{org_id}", user_id)
 
-        if state:
-            await redis.hset(f"user_mode_override:{org_id}", user_id, "manual")
+#         if state:
+#             await redis.hset(f"user_mode_override:{org_id}", user_id, "manual")
 
-            # Set TTL for the entire hash (e.g., 6 hours)
-            await redis.expire(key, 3600 * 6)  # 3600 sec × 6 = 6 hours
-        else:
-            await redis.hdel(f"user_mode_override:{org_id}", user_id)
+#             # Set TTL for the entire hash (e.g., 6 hours)
+#             await redis.expire(key, 3600 * 6)  # 3600 sec × 6 = 6 hours
+#         else:
+#             await redis.hdel(f"user_mode_override:{org_id}", user_id)
 
 
-    except Exception as e:
-        print(f"An error occurred while updating UserModeOverride for user {user_id} in org {org_id}: {e}")
+#     except Exception as e:
+#         print(f"An error occurred while updating UserModeOverride for user {user_id} in org {org_id}: {e}")
     
-    # Broadcast the new state to all connected clients
-    #emit('response_state_update', {'user_id': user_id, 'state': state}, room=org_id, include_self=False)
+#     # Broadcast the new state to all connected clients
+#     #emit('response_state_update', {'user_id': user_id, 'state': state}, room=org_id, include_self=False)
 
-    try:
-        org_key = f"org:{org_id}:connections"
-        sids = await redis.smembers(org_key)  # returns set of bytes
+#     try:
+#         org_key = f"org:{org_id}:connections"
+#         sids = await redis.smembers(org_key)  # returns set of bytes
 
-        other_sids = [s for s in sids if s != sid]
-        if other_sids:
-            await asyncio.gather(
-                *(sio.emit("response_state_update_overallmanual", {"user_id": user_id, "state": state, "tabindex": tabindex, "timestamp": timestamp}, to=s)
-                for s in other_sids),
-                return_exceptions=True
-            )
+#         other_sids = [s for s in sids if s != sid]
+#         if other_sids:
+#             await asyncio.gather(
+#                 *(sio.emit("response_state_update_overallmanual", {"user_id": user_id, "state": state, "tabindex": tabindex, "timestamp": timestamp}, to=s)
+#                 for s in other_sids),
+#                 return_exceptions=True
+#             )
         
-    except Exception as db_err:
-        print(f"Error fetching SIDs for org_id {org_id}: {db_err}")
+#     except Exception as db_err:
+#         print(f"Error fetching SIDs for org_id {org_id}: {db_err}")
 
   
   
 
 
-    #emit('response_state_update2', {'user_id': user_id, 'org_id': org_id, 'state': state}, to=chatbot_sid)
-    # PUBLISH TO REDIS INSTEAD OF EMIT TO SID
-    try:
-        await redis.publish(
-            "chatbot:user_state_update",
-            json.dumps(
-                {
-                    "user_id": user_id,
-                    "org_id": org_id,
-                    "state": state,
-                    "timestamp": timestamp,
-                }
-            ),
-        )
-    except Exception as redis_err:
-        print(f"Redis publish error: {redis_err}")
+#     #emit('response_state_update2', {'user_id': user_id, 'org_id': org_id, 'state': state}, to=chatbot_sid)
+#     # PUBLISH TO REDIS INSTEAD OF EMIT TO SID
+#     try:
+#         await redis.publish(
+#             "chatbot:user_state_update",
+#             json.dumps(
+#                 {
+#                     "user_id": user_id,
+#                     "org_id": org_id,
+#                     "state": state,
+#                     "timestamp": timestamp,
+#                 }
+#             ),
+#         )
+#     except Exception as redis_err:
+#         print(f"Redis publish error: {redis_err}")
 
 
 
@@ -7288,8 +7567,8 @@ async def handle_create_tabs(sid, data):
     
    
     redis = fastapi_app.state.redis_client
-    cpu_pool = fastapi_app.state.cpu_pool
-    cpu_sem = fastapi_app.state.cpu_sem
+    thread_pool = fastapi_app.state.thread_pool
+    thread_sem = fastapi_app.state.thread_sem
   
 
     # Validate session
@@ -7306,59 +7585,60 @@ async def handle_create_tabs(sid, data):
 
 
     
-    # Find the org associated with this socket ID
-    org = None
-    user_id=None
+
+     # Retrieve connection info
     try:
         connection_key = f"connection:{sid}"
         connection_data = await redis.hgetall(connection_key)
+
         if not connection_data:
             print(f"[Redis] No connection found for socket_id {sid}")
             return
-        
+
         org_id_str = connection_data.get("org_id")
-        if not org_id_str:
-            print(f"[Redis] Connection for socket_id {sid} has no org_id")
+        user_id_str = connection_data.get("user_id")
+
+        if not org_id_str or not user_id_str:
+            print(f"[Redis] Missing org_id or user_id for socket {sid}")
             return
 
         org_id = int(org_id_str)
+        user_id = int(user_id_str)
+
     except Exception as e:
         print(f"Error handling createTabs: {e}")
         return
 
-    if not org:
-        return  # Exit if org_id is not found in the session
-        
-   
-    redis_key = f"messages:{org}:batch_temp"
-    total_key = f"messages_total:{org}:batch_temp"
+    redis_key = f"messages:{org_id}:batch_temp"
+    total_key = f"messages_total:{org_id}:batch_temp"
+
 
     # Debug Redis batch
     try:
         current_length = await redis.llen(redis_key)
         if current_length > 0:
             existing_messages = await redis.lrange(redis_key, 0, -1)
-            print(f"Redis batch not empty for org {org}: {current_length} messages")
+            print(f"Redis batch not empty for org {org_id}: {current_length} messages")
             for msg in existing_messages:
                 print(json.loads(msg))
         else:
-            print(f"Redis batch empty for org {org}")
+            print(f"Redis batch empty for org {org_id}")
     except Exception as e:
-        print(f"Error checking Redis at start for org {org}: {e}")
+        print(f"Error checking Redis at start for org {org_id}: {e}")
 
 
 
     if tabs:
         # Log the event with the complete tab data
-        asyncio.create_task(log_event(org, 'tabs_created', {'tabs': tabs}, timestamp))
+        asyncio.create_task(log_event(org_id, 'tabs_created', {'tabs': tabs}, timestamp))
    
         # Update Client.last_manualmode_triggered_by
         try:
             async with async_session_scope() as session:
-                result = await session.execute(select(Client).where(Client.id == org))
+                result = await session.execute(select(Client).where(Client.id == org_id))
                 client = result.scalars().first()
                 if client:
-                    client.last_manualmode_triggered_by = user_id
+                    client.last_manualmode_triggered_by = str(user_id)
         except Exception as e:
             print(f"Error updating client last_manualmode_triggered_by: {e}")
             return
@@ -7374,28 +7654,27 @@ async def handle_create_tabs(sid, data):
                     if isinstance(r, Exception):
                         print(f"Emit error to SID {sids[idx]}: {r}")
         except Exception as db_err:
-            print(f"Error fetching SIDs for org {org}: {db_err}")
+            print(f"Error fetching SIDs for org {org_id}: {db_err}")
 
 
         #if org_modes[org] == 'manual':
-        if get_client_mode(org) == "manual":
+        if await get_client_mode(org_id) == "manual":
 
             try:
-                key = f"user_mode_override:{org_id}"
-
-                # Set or update the user's mode in the hash
-                await redis.hset(key, user_id, "manual")
-
-                # Set TTL for the entire hash (e.g., 6 hours)
-                await redis.expire(key, 3600 * 6)  # 3600 sec × 6 = 6 hours
+                await redis.hset(
+                    f"client:{org_id}:state",
+                    mapping={
+                        "last_manualmode_triggered_by": user_id
+                    }
+                )
 
             except Exception as e:
                 print(f"Error updating user_mode_override with TTL for org {org_id}, user {user_id}: {e}")
 
 
             try:
-                recent_messages = await get_recent_messages(org, minutes=15)
-                
+                recent_messages = await get_recent_messages(org_id, minutes=15)
+               
                 def build_unique_messages_and_sorted(recent_messages):
                     unique_messages = {}
                     for event in recent_messages:
@@ -7414,9 +7693,9 @@ async def handle_create_tabs(sid, data):
                         messages.append(msg_with_ts)
                     return messages
 
-                messages = await run_cpu_task(build_unique_messages_and_sorted, recent_messages, cpu_pool=cpu_pool, cpu_sem=cpu_sem)
+                messages = await run_cpu_task(build_unique_messages_and_sorted, recent_messages, cpu_pool=thread_pool, cpu_sem=thread_sem)
 
-                org_connections_key = f"org:{org}:connections"
+                org_connections_key = f"org:{org_id}:connections"
 
                 # 1. Get all active socket IDs for this org
                 sids = await redis.smembers(org_connections_key)
@@ -7437,7 +7716,7 @@ async def handle_create_tabs(sid, data):
                         break  # found the matching user, stop here
 
                 if not admin_sid:
-                    print(f"No active Redis connection found for user_id={user_id} in org={org}")
+                    print(f"No active Redis connection found for user_id={user_id} in org={org_id}")
 
 
 
@@ -7446,17 +7725,16 @@ async def handle_create_tabs(sid, data):
                     try:
                         if await redis.llen(redis_key) > 0:
                             await redis.delete(redis_key, total_key)
-                            print(f"Cleared Redis batch keys for org {org}")
+                            print(f"Cleared Redis batch keys for org {org_id}")
                     except Exception as e:
-                        print(f"Error clearing Redis keys for org {org}: {e}")
+                        print(f"Error clearing Redis keys for org {org_id}: {e}")
 
-                 
                     await sio.emit("new_message_FirstUser", {"messages": messages}, to=admin_sid)
                 else:
-                    print(f"SID not found for admin user_id {user_id} in org {org}")
+                    print(f"SID not found for admin user_id {user_id} in org {org_id}")
 
             except Exception as e:
-                print(f"Error handling manual mode message batching for org {org}: {e}")
+                print(f"Error handling manual mode message batching for org {org_id}: {e}")
 
 
 @sio.on("admin_response_manual")

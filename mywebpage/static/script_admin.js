@@ -1,3 +1,17 @@
+//  FUNCTIONS
+// switchToManualModeforOneUser  
+//               Ez az alap funkció, ami az automata módban kiváltja a manuált egyes usereknél. !!! ha manual a state: True
+//               az adminResponseButton.onclick -on belül van és ezt a következő funkció modellezi programatically:
+//               1.) updateAdminIntervention_fornewlyjoined     (ügyintézőt kérek, historyvisszajátszás, és )       
+
+// updateAdminIntervention_response 
+
+//               ez akkor lép életbe amikor a automatic -manuálban közvetítjuk az admin választ a többi bejelentkezett usernek
+//               a history visszajátszáskor is ez működik
+
+// handleModeSwitch 
+//
+//              Az overall manula vs. automata statet szabályozza
 
 const toggleButton = document.getElementById('toggle-response-mode');
 const tabsInputContainer = document.getElementById('tabs-input-container');
@@ -604,10 +618,12 @@ function updateOverallModeUI(tabIndex, mode, agentButton, robotButton) {
     agentButton.style.color = '#8bd8aeff';  // green active
     robotButton.style.color = '#eeeeeeff';  // gray inactive
     console.log(`Tab ${tabIndex} → UI switched to MANUAL`);
+    overallTabModes[tabIndex] = 'manual'
   } else if (mode === 'automatic') {
     robotButton.style.color = '#8bd8aeff';  // green active
     agentButton.style.color = '#eeeeeeff';  // gray inactive
     console.log(`Tab ${tabIndex} → UI switched to AUTOMATIC`);
+    overallTabModes[tabIndex] = 'automatic'
   }
 }
 
@@ -615,9 +631,8 @@ function updateOverallModeUI(tabIndex, mode, agentButton, robotButton) {
 
 
 function setOverallMode(tabIndex, mode, agentButton, robotButton) {
-  const tabStates = automaticResponseStates_overallManual[tabIndex];
-  const userButtons = userButtons_manual[tabIndex];
-  if (!tabStates || !userButtons) return;
+  const tabStates = overallTabModes[tabIndex];
+  if (!tabStates) return;
 
   if (mode === 'manual') {
     overallTabModes[tabIndex] = 'manual';
@@ -650,6 +665,26 @@ function setOverallMode(tabIndex, mode, agentButton, robotButton) {
         if (button) button.click(); // triggers real mode switch
       }
     }
+
+    const tabContent = colleaguesChats[tabIndex];
+    console.log("tabContent:", tabContent);
+
+    
+
+    if (!tabContent) return;
+
+    const chatContainers = tabContent.querySelectorAll('.chat-container');
+    console.log("containers found:", chatContainers.length);
+
+    chatContainers.forEach(container => {
+      // 1. Remove / hide input controls
+      const controls = container.querySelector('.admin-response-controls');
+      if (controls) {
+        controls.remove();
+      }
+    });
+    
+
     console.log(`Tab ${tabIndex} → switched to AUTOMATIC`);
   }
   socket.emit('tab_mode_changed', {
@@ -702,7 +737,7 @@ function createTabs() {
   
   const tabsData = [];
   isTabCreated=true;
-  const language = localStorage.getItem('language') || 'hu';
+  
   // Clear previous tabs and contents
   tabsContainer.innerHTML = '';
   tabContentsContainer.innerHTML = '';
@@ -711,6 +746,7 @@ function createTabs() {
   Object.keys(colleaguesChats).forEach(key => delete colleaguesChats[key]);
   names.forEach((name, index) => {
     const uniqueId = `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    overallTabModes[uniqueId] = 'manual';
     
     // Add tab data to the array
     tabsData.push({ name, uniqueId });
@@ -730,6 +766,8 @@ function createTabs() {
     tabName.style.fontSize = 'clamp(7px, 0.8vw, 12px)';
     tab.appendChild(tabName);
 
+    const language = localStorage.getItem('language') || 'hu';
+
 
     // Robot button (manual mode)
     const robotButton = document.createElement('button');
@@ -742,12 +780,14 @@ function createTabs() {
     robotButton.style.background = 'transparent';
     robotButton.style.border = 'none';
     robotButton.style.color = '#eeeeeeff'; // inactive by default (we start in manual)
-    robotButton.title = 'Switch to automatic (robot) mode';
+    robotButton.setAttribute('data-lang-title', 'robotMode');
 
     robotButton.onclick = (e) => {
       e.stopPropagation();
       setOverallMode(uniqueId, 'automatic', agentButton, robotButton);
     };
+
+    robotButton.title = translations[language]['robotMode'];
 
     const agentButton = document.createElement('button');
     agentButton.type = 'button';
@@ -759,12 +799,14 @@ function createTabs() {
     agentButton.style.background = 'transparent';
     agentButton.style.border = 'none';
     agentButton.style.color = '#8bd8aeff'; // green = active (we start in manual)
-    agentButton.title = 'Switch to manual (agent) mode';
+    agentButton.setAttribute('data-lang-title', 'agentMode');
 
     agentButton.onclick = (e) => {
       e.stopPropagation();
       setOverallMode(uniqueId, 'manual', agentButton, robotButton);
     };
+
+    agentButton.title = translations[language]['agentMode'];
 
     const exclamationMark = document.createElement('span');
     exclamationMark.classList.add('exclamation-mark');
@@ -849,7 +891,6 @@ function createTabs() {
     const topRow = document.createElement('div');
     topRow.classList.add('top-row');
 
-    const language = localStorage.getItem('language') || 'hu';
     const topLeftSection = document.createElement('div');
     topLeftSection.classList.add('top-left-section');
     // topLeftSection.textContent = 'Customers';
@@ -936,6 +977,8 @@ function createTabs() {
 
 
 
+
+
 //---------------- Helpers for APPEND --------------------      ---------------- Helpers for APPEND --------------------
 //---------------- Helpers for APPEND --------------------      ---------------- Helpers for APPEND --------------------
 //---------------- Helpers for APPEND --------------------      ---------------- Helpers for APPEND --------------------
@@ -950,377 +993,393 @@ function createTabs() {
                                  // ---------------- Helpers for APPEND --------------------
                                  // ---------------- Helpers for APPEND --------------------
 
+function scrollToBottom(chatBox) {
+  setTimeout(() => {
+    chatBox.scrollTop = chatBox.scrollHeight;
 
+    // Handle images loading AFTER render
+    const images = chatBox.querySelectorAll("img");
 
-
-function createUserButtonContainer_manual(message, language, tabIndex) {
-  const translation_Sent_User = {
-    sentAT: language === 'hu' ? 'A Küldés ideje' : 'Sent at',
-    User: language === 'hu' ? 'Ügyfél' : 'User',
-  };
-    const buttonContainer = document.createElement('div');
-    buttonContainer.classList.add('button-container');
-    buttonContainer.style.display = 'flex';
-    buttonContainer.dataset.userId = message.user_id;
-    buttonContainer.dataset.tabIndex=tabIndex;
-    buttonContainer.style.justifyContent = 'space-between';
-    buttonContainer.style.alignItems = 'center';
-    buttonContainer.style.margin = '0 auto';
-    buttonContainer.style.width = '100%';
-    
-    console.log("-----------------2")
-    
-    
-    const chatsLabel = document.createElement('span');
-    //chatsLabel.textContent = 'Chats';
-    chatsLabel.setAttribute('data-lang', 'chats');
-    chatsLabel.textContent = translations[language]['chats'] || 'Üzenetek';
-    chatsLabel.style.fontWeight = 'bold';
-    chatsLabel.style.marginLeft = '20px';
-    
-    
-    
-    // Create the 'Admin Response' button
-    const adminResponseButton = document.createElement('button');
-    adminResponseButton.classList.add('admin-intervention');
-    adminResponseButton.textContent = translations[language]['automaticResponse'];
-    // adminResponseButton.textContent = 'Admin Intervention';
-    adminResponseButton.style.padding = '4px 10px';
-    adminResponseButton.style.background = '#007bff'; // Button color (blue)
-    adminResponseButton.style.color = 'white'; // Text color
-    adminResponseButton.style.border = 'none';
-    adminResponseButton.style.borderRadius = '30px';
-    adminResponseButton.style.cursor = 'pointer';
-    adminResponseButton.style.fontSize = '0.7em';
-    adminResponseButton.style.marginRight = '20px';
-    // Store user_id in the button for easy reference
-    adminResponseButton.setAttribute('data-user-id', message.user_id);
-    
-    console.log("-----------------3")
-
-    if (automaticResponseStates_overallManual[tabIndex][message.user_id] === undefined) {
-      automaticResponseStates_overallManual[tabIndex][message.user_id] = true;  //check what is written on the button
-  }
-    // Function to update button styles based on the current state
-    function updateButtonStyles(adminResponseButton, isAutomaticResponseNeeded) {
-      if (isAutomaticResponseNeeded) {
-          adminResponseButton.style.backgroundColor = '#007bff'; // Blue for Automatic Response
-          adminResponseButton.onmouseover = () => adminResponseButton.style.backgroundColor = '#0056b3'; // Darker blue on hover
-          adminResponseButton.onmouseout = () => adminResponseButton.style.backgroundColor = '#007bff'; // Original blue color
-      } else {
-          adminResponseButton.style.backgroundColor = '#28a745'; // Green for Admin Intervention
-          adminResponseButton.onmouseover = () => adminResponseButton.style.backgroundColor = '#218838'; // Darker green on hover
-          adminResponseButton.onmouseout = () => adminResponseButton.style.backgroundColor = '#28a745'; // Original green color
+    images.forEach(img => {
+      if (!img.complete) {
+        img.onload = () => {
+          chatBox.scrollTop = chatBox.scrollHeight;
+        };
       }
-  }
+    });
 
-    // Initial setup for hover effect
-    updateButtonStyles(adminResponseButton, automaticResponseStates_overallManual[tabIndex][message.user_id]);
+  }, 0);
+}
+
+
+// function createUserButtonContainer_manual(message, language, tabIndex) {
+//   const translation_Sent_User = {
+//     sentAT: language === 'hu' ? 'A Küldés ideje' : 'Sent at',
+//     User: language === 'hu' ? 'Ügyfél' : 'User',
+//   };
+//     const buttonContainer = document.createElement('div');
+//     buttonContainer.classList.add('button-container');
+//     buttonContainer.style.display = 'flex';
+//     buttonContainer.dataset.userId = message.user_id;
+//     buttonContainer.dataset.tabIndex=tabIndex;
+//     buttonContainer.style.justifyContent = 'space-between';
+//     buttonContainer.style.alignItems = 'center';
+//     buttonContainer.style.margin = '0 auto';
+//     buttonContainer.style.width = '100%';
     
-    console.log("-----------------4")
-    // Click event to toggle button text and color + handling the waiting message if we should append or not
-    adminResponseButton.onclick = () => {
-      console.log("ADmin REsponse button click MANU 1")
-      automaticResponseStates_overallManual[tabIndex][message.user_id] = !automaticResponseStates_overallManual[tabIndex][message.user_id];
-      //const language = localStorage.getItem('language') || 'hu';
-      userButtons_manual[tabIndex][message.user_id].textContent = automaticResponseStates_overallManual[tabIndex][message.user_id] ? translations[language]['manualIntervention'] : translations[language]['automaticResponse'];
-      // userButtons[message.user_id].textContent = automaticResponseStates[message.user_id] ? 'Automatic Response' : 'Admin Intervention';
-      updateButtonStyles(userButtons_manual[tabIndex][message.user_id], automaticResponseStates_overallManual[tabIndex][message.user_id]); // Update styles based on new state
+//     console.log("-----------------2 *")
+    
+    
+//     const chatsLabel = document.createElement('span');
+//     //chatsLabel.textContent = 'Chats';
+//     chatsLabel.setAttribute('data-lang', 'chats');
+//     chatsLabel.textContent = translations[language]['chats'] || 'Üzenetek';
+//     chatsLabel.style.fontWeight = 'bold';
+//     chatsLabel.style.marginLeft = '20px';
+    
+    
+    
+//     // Create the 'Admin Response' button
+//     const adminResponseButton = document.createElement('button');
+//     adminResponseButton.classList.add('admin-intervention');
+//     adminResponseButton.textContent = translations[language]['automaticResponse'];
+//     // adminResponseButton.textContent = 'Admin Intervention';
+//     adminResponseButton.style.padding = '4px 10px';
+//     adminResponseButton.style.background = '#007bff'; // Button color (blue)
+//     adminResponseButton.style.color = 'white'; // Text color
+//     adminResponseButton.style.border = 'none';
+//     adminResponseButton.style.borderRadius = '30px';
+//     adminResponseButton.style.cursor = 'pointer';
+//     adminResponseButton.style.fontSize = '0.7em';
+//     adminResponseButton.style.marginRight = '20px';
+//     // Store user_id in the button for easy reference
+//     adminResponseButton.setAttribute('data-user-id', message.user_id);
+    
+//     console.log("-----------------3")
 
-      const userRectangle = rectangle[tabIndex]?.querySelector(
-        `.user-rectangle[data-user-id="${message.user_id}"]`
-      );
-      const avatar = userRectangle.querySelector('.human-avatar');
+//     if (automaticResponseStates_overallManual[tabIndex][message.user_id] === undefined) {
+//       automaticResponseStates_overallManual[tabIndex][message.user_id] = true;  //check what is written on the button
+//   }
+//     // Function to update button styles based on the current state
+//     function updateButtonStyles(adminResponseButton, isAutomaticResponseNeeded) {
+//       if (isAutomaticResponseNeeded) {
+//           adminResponseButton.style.backgroundColor = '#007bff'; // Blue for Automatic Response
+//           adminResponseButton.onmouseover = () => adminResponseButton.style.backgroundColor = '#0056b3'; // Darker blue on hover
+//           adminResponseButton.onmouseout = () => adminResponseButton.style.backgroundColor = '#007bff'; // Original blue color
+//       } else {
+//           adminResponseButton.style.backgroundColor = '#28a745'; // Green for Admin Intervention
+//           adminResponseButton.onmouseover = () => adminResponseButton.style.backgroundColor = '#218838'; // Darker green on hover
+//           adminResponseButton.onmouseout = () => adminResponseButton.style.backgroundColor = '#28a745'; // Original green color
+//       }
+//   }
+
+//     // Initial setup for hover effect
+//     updateButtonStyles(adminResponseButton, automaticResponseStates_overallManual[tabIndex][message.user_id]);
+    
+//     console.log("-----------------4")
+//     // Click event to toggle button text and color + handling the waiting message if we should append or not
+//     adminResponseButton.onclick = () => {
+//       console.log("ADmin REsponse button click MANU 1")
+//       automaticResponseStates_overallManual[tabIndex][message.user_id] = !automaticResponseStates_overallManual[tabIndex][message.user_id];
+//       //const language = localStorage.getItem('language') || 'hu';
+//       userButtons_manual[tabIndex][message.user_id].textContent = automaticResponseStates_overallManual[tabIndex][message.user_id] ? translations[language]['manualIntervention'] : translations[language]['automaticResponse'];
+//       // userButtons[message.user_id].textContent = automaticResponseStates[message.user_id] ? 'Automatic Response' : 'Admin Intervention';
+//       updateButtonStyles(userButtons_manual[tabIndex][message.user_id], automaticResponseStates_overallManual[tabIndex][message.user_id]); // Update styles based on new state
+
+//       const userRectangle = rectangle[tabIndex]?.querySelector(
+//         `.user-rectangle[data-user-id="${message.user_id}"]`
+//       );
+//       const avatar = userRectangle.querySelector('.human-avatar');
       
 
 
-        // Immediate hover effect if hovering during click
-      userButtons_manual[tabIndex][message.user_id].style.backgroundColor = automaticResponseStates_overallManual[tabIndex][message.user_id] ? '#0056b3' : '#218838';
+//         // Immediate hover effect if hovering during click
+//       userButtons_manual[tabIndex][message.user_id].style.backgroundColor = automaticResponseStates_overallManual[tabIndex][message.user_id] ? '#0056b3' : '#218838';
     
-      userButtonStates[message.user_id] = automaticResponseStates_overallManual[tabIndex][message.user_id] ? 'automaticResponse' : 'adminIntervention';
-      const tabContent = colleaguesChats[tabIndex];
-      const chatContainer = tabContent.querySelector(`.chat-container[data-user-id="${message.user_id}"]`);
-      const chatBox = chatContainer ? chatContainer.querySelector('.chat-box') : null;
+//       userButtonStates[message.user_id] = automaticResponseStates_overallManual[tabIndex][message.user_id] ? 'automaticResponse' : 'adminIntervention';
+//       const tabContent = colleaguesChats[tabIndex];
+//       const chatContainer = tabContent.querySelector(`.chat-container[data-user-id="${message.user_id}"]`);
+//       const chatBox = chatContainer ? chatContainer.querySelector('.chat-box') : null;
 
       
     
 
-console.log("-----------------5")
+// console.log("-----------------5")
 
-      // Emit to server the rectangles' state if it is manual or automatic
+//       // Emit to server the rectangles' state if it is manual or automatic
       
-      const timestamp = new Date().toISOString();  // UTC timestamp
-      socket.emit('update_response_state_manual', {
-        user_id: message.user_id,
-        state: automaticResponseStates_overallManual[tabIndex][message.user_id],
-        tabindex: tabIndex,
-        frontend_time: timestamp
-      });
-      //socket.emit('update_response_state', { user_id: message.user_id, state: automaticResponseStates[message.user_id] });
-        // here we are on manual /user mode and here we want to display only the WAITING message:
-      if(automaticResponseStates_overallManual[tabIndex][message.user_id]){
-        // Manual mode → show avatar
-        avatar.style.display = "flex";
+//       const timestamp = new Date().toISOString();  // UTC timestamp
+//       socket.emit('update_response_state_manual', {
+//         user_id: message.user_id,
+//         state: automaticResponseStates_overallManual[tabIndex][message.user_id],
+//         tabindex: tabIndex,
+//         frontend_time: timestamp
+//       });
+//       //socket.emit('update_response_state', { user_id: message.user_id, state: automaticResponseStates[message.user_id] });
+//         // here we are on manual /user mode and here we want to display only the WAITING message:
+//       if(automaticResponseStates_overallManual[tabIndex][message.user_id]){
+//         // Manual mode → show avatar
+//         avatar.style.display = "flex";
 
-        switchToManualModeforOneUser_manual(message.user_id, language, tabIndex)  // THIS CREATES THE IMPUTBOX FOR ADMINS IN MANUAL MODE IF WE CHANGE BACK FROM AUTOMATIC MODE
+//         switchToManualModeforOneUser_manual(message.user_id, language, tabIndex)  // THIS CREATES THE IMPUTBOX FOR ADMINS IN MANUAL MODE IF WE CHANGE BACK FROM AUTOMATIC MODE
 
-        const messageElement = document.createElement('div');
-        messageElement.className = 'message';
+//         const messageElement = document.createElement('div');
+//         messageElement.className = 'message';
         
-        // <span class="user-id">User ID: ${message.user_id}</span>
-        const userMessageContent = `
-          <div class="user-message" style="display: none; background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
-            <span class="timestamp">${translation_Sent_User.sentAT}: ${message.timestamp}</span>
+//         // <span class="user-id">User ID: ${message.user_id}</span>
+//         const userMessageContent = `
+//           <div class="user-message" style="display: none; background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
+//             <span class="timestamp">${translation_Sent_User.sentAT}: ${message.timestamp}</span>
             
-            <span class="user-input">${translation_Sent_User.User}: ${message.user_message}</span>
-          </div>
-        `;
+//             <span class="user-input">${translation_Sent_User.User}: ${message.user_message}</span>
+//           </div>
+//         `;
 
-console.log("-----------------6")
+// console.log("-----------------6")
 
-        // Determine translated text
-        const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
+//         // Determine translated text
+//         const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
 
-        // Create admin message content and style it to align on the left
-        const adminMessageContent = `
-          <div class="admin-message">
-            <span class="admin-response">${awaitingText}</span>
-          </div>
-        `;
+//         // Create admin message content and style it to align on the left
+//         const adminMessageContent = `
+//           <div class="admin-message">
+//             <span class="admin-response">${awaitingText}</span>
+//           </div>
+//         `;
         
-        // Get all messages in chatBox
-        const messages = chatBox.querySelectorAll('.message');
+//         // Get all messages in chatBox
+//         const messages = chatBox.querySelectorAll('.message');
 
-        // Find the last .message element
-        const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+//         // Find the last .message element
+//         const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
 
-        let shouldAppend = true; // Default to appending
+//         let shouldAppend = true; // Default to appending
         
-        if (lastMessage) {
-            // Find .admin-message inside the last message
-            const lastAdminMessage = lastMessage.querySelector('.admin-message');
+//         if (lastMessage) {
+//             // Find .admin-message inside the last message
+//             const lastAdminMessage = lastMessage.querySelector('.admin-message');
             
-            if (lastAdminMessage) {
-                // Find .admin-response inside .admin-message
-                const lastAdminResponse = lastAdminMessage.querySelector('.bot-response');
+//             if (lastAdminMessage) {
+//                 // Find .admin-response inside .admin-message
+//                 const lastAdminResponse = lastAdminMessage.querySelector('.bot-response');
                 
-                if (lastAdminResponse) {
-                    const lastAdminText = lastAdminResponse.textContent.trim();
+//                 if (lastAdminResponse) {
+//                     const lastAdminText = lastAdminResponse.textContent.trim();
                     
-                    // If the last message is the awaiting response, don't append
-                    if (lastAdminText === 'Adminisztrátori válaszra várakozás...' || lastAdminText === 'Awaiting Admin Response...') {
-                        shouldAppend = false;
-                    }
-                }
-            }
-        }
+//                     // If the last message is the awaiting response, don't append
+//                     if (lastAdminText === 'Adminisztrátori válaszra várakozás...' || lastAdminText === 'Awaiting Admin Response...') {
+//                         shouldAppend = false;
+//                     }
+//                 }
+//             }
+//         }
 
-  console.log("-----------------6")
-        // Append only if the last message is NOT the awaiting response message
-        if (shouldAppend) {
-            messageElement.innerHTML = userMessageContent + adminMessageContent;
-            chatBox.appendChild(messageElement);
-        }
-        // Append user message first (right-aligned) and admin message after (left-aligned)
-        // messageElement.innerHTML = userMessageContent + adminMessageContent;
+//   console.log("-----------------6")
+//         // Append only if the last message is NOT the awaiting response message
+//         if (shouldAppend) {
+//             messageElement.innerHTML = userMessageContent + adminMessageContent;
+//             chatBox.appendChild(messageElement);
+//         }
+//         // Append user message first (right-aligned) and admin message after (left-aligned)
+//         // messageElement.innerHTML = userMessageContent + adminMessageContent;
       
-        // chatBox.appendChild(messageElement);
-        chatBox.classList.add('awaiting-response');
-        userRectangle.classList.add('awaiting-response'); // Add class to user rectangle
-        counterForManualModeAddMessage[tabIndex][message.user_id] = 0;
+//         // chatBox.appendChild(messageElement);
+//         chatBox.classList.add('awaiting-response');
+//         userRectangle.classList.add('awaiting-response'); // Add class to user rectangle
+//         counterForManualModeAddMessage[tabIndex][message.user_id] = 0;
 
-      }else{
-        // Automatic mode → hide avatar
-          avatar.style.display = "none";
-        removeAdminResponseControls_manual(message.user_id, tabIndex)
+//       }else{
+//         // Automatic mode → hide avatar
+//           avatar.style.display = "none";
+//         removeAdminResponseControls_manual(message.user_id, tabIndex)
 
-        const awaitingMessageElement = Array.from(chatBox.getElementsByClassName('message')).find(el => {
-        const botResponseElement = el.querySelector('.bot-response');
-        const adminResponseElement = el.querySelector('.admin-response');
+//         const awaitingMessageElement = Array.from(chatBox.getElementsByClassName('message')).find(el => {
+//         const botResponseElement = el.querySelector('.bot-response');
+//         const adminResponseElement = el.querySelector('.admin-response');
       
-        // Return the message element that contains 'Awaiting Admin Response...' in either bot-response or admin-response
-        return (botResponseElement && 
-          (botResponseElement.textContent.includes('Awaiting Admin Response...') || 
-            botResponseElement.textContent.includes('Adminisztrátori válaszra várakozás...'))) ||
-          (adminResponseElement && 
-          (adminResponseElement.textContent.includes('Awaiting Admin Response...') || 
-            adminResponseElement.textContent.includes('Adminisztrátori válaszra várakozás...')));
-      });
-      // We have awaiting message
-      if (awaitingMessageElement) {
-        awaitingMessageElement.remove();
-      }
-      chatBox.classList.remove('awaiting-response');
-      userRectangle.classList.remove('awaiting-response');
+//         // Return the message element that contains 'Awaiting Admin Response...' in either bot-response or admin-response
+//         return (botResponseElement && 
+//           (botResponseElement.textContent.includes('Awaiting Admin Response...') || 
+//             botResponseElement.textContent.includes('Adminisztrátori válaszra várakozás...'))) ||
+//           (adminResponseElement && 
+//           (adminResponseElement.textContent.includes('Awaiting Admin Response...') || 
+//             adminResponseElement.textContent.includes('Adminisztrátori válaszra várakozás...')));
+//       });
+//       // We have awaiting message
+//       if (awaitingMessageElement) {
+//         awaitingMessageElement.remove();
+//       }
+//       chatBox.classList.remove('awaiting-response');
+//       userRectangle.classList.remove('awaiting-response');
 
-      console.log("-----------------7")
+//       console.log("-----------------7")
         
 
         
-      }
+//       }
       
 
     
       
         
-      };
+//       };
   
-    buttonContainer.appendChild(chatsLabel);
-    buttonContainer.appendChild(adminResponseButton);
+//     buttonContainer.appendChild(chatsLabel);
+//     buttonContainer.appendChild(adminResponseButton);
 
-    return buttonContainer;
+//     return buttonContainer;
 
-  }
-
-
+//   }
 
 
-function conveying_admin_intervention_buttonpress_overallmanual(user_id, tabIndex) {
-  const language = localStorage.getItem('language') || 'hu';
-  const translation_Sent_User = {
-    sentAT: language === 'hu' ? 'A Küldés ideje' : 'Sent at',
-    User: language === 'hu' ? 'Ügyfél' : 'User',
-  };
+
+
+// function conveying_admin_intervention_buttonpress_overallmanual(user_id, tabIndex) {
+//   const language = localStorage.getItem('language') || 'hu';
+//   const translation_Sent_User = {
+//     sentAT: language === 'hu' ? 'A Küldés ideje' : 'Sent at',
+//     User: language === 'hu' ? 'Ügyfél' : 'User',
+//   };
    
-    if (automaticResponseStates_overallManual[tabIndex][user_id] === undefined) {
-      automaticResponseStates_overallManual[tabIndex][user_id] = true;  //check what is written on the button
-  }
-    // Function to update button styles based on the current state
-    function updateButtonStyles(adminResponseButton, isAutomaticResponseNeeded) {
-      if (isAutomaticResponseNeeded) {
-          adminResponseButton.style.backgroundColor = '#007bff'; // Blue for Automatic Response
-          adminResponseButton.onmouseover = () => adminResponseButton.style.backgroundColor = '#0056b3'; // Darker blue on hover
-          adminResponseButton.onmouseout = () => adminResponseButton.style.backgroundColor = '#007bff'; // Original blue color
-      } else {
-          adminResponseButton.style.backgroundColor = '#28a745'; // Green for Admin Intervention
-          adminResponseButton.onmouseover = () => adminResponseButton.style.backgroundColor = '#218838'; // Darker green on hover
-          adminResponseButton.onmouseout = () => adminResponseButton.style.backgroundColor = '#28a745'; // Original green color
-      }
-  }
+//     if (automaticResponseStates_overallManual[tabIndex][user_id] === undefined) {
+//       automaticResponseStates_overallManual[tabIndex][user_id] = true;  //check what is written on the button
+//   }
+//     // Function to update button styles based on the current state
+//     function updateButtonStyles(adminResponseButton, isAutomaticResponseNeeded) {
+//       if (isAutomaticResponseNeeded) {
+//           adminResponseButton.style.backgroundColor = '#007bff'; // Blue for Automatic Response
+//           adminResponseButton.onmouseover = () => adminResponseButton.style.backgroundColor = '#0056b3'; // Darker blue on hover
+//           adminResponseButton.onmouseout = () => adminResponseButton.style.backgroundColor = '#007bff'; // Original blue color
+//       } else {
+//           adminResponseButton.style.backgroundColor = '#28a745'; // Green for Admin Intervention
+//           adminResponseButton.onmouseover = () => adminResponseButton.style.backgroundColor = '#218838'; // Darker green on hover
+//           adminResponseButton.onmouseout = () => adminResponseButton.style.backgroundColor = '#28a745'; // Original green color
+//       }
+//   }
 
   
    
-    // Click event to toggle button text and color + handling the waiting message if we should append or not
+//     // Click event to toggle button text and color + handling the waiting message if we should append or not
     
-      automaticResponseStates_overallManual[tabIndex][user_id] = !automaticResponseStates_overallManual[tabIndex][user_id];
-      //const language = localStorage.getItem('language') || 'hu';
-      userButtons_manual[tabIndex][user_id].textContent = automaticResponseStates_overallManual[tabIndex][user_id] ? translations[language]['manualIntervention'] : translations[language]['automaticResponse'];
-      // userButtons[message.user_id].textContent = automaticResponseStates[message.user_id] ? 'Automatic Response' : 'Admin Intervention';
-      updateButtonStyles(userButtons_manual[tabIndex][user_id], automaticResponseStates_overallManual[tabIndex][user_id]); // Update styles based on new state
+//       automaticResponseStates_overallManual[tabIndex][user_id] = !automaticResponseStates_overallManual[tabIndex][user_id];
+//       //const language = localStorage.getItem('language') || 'hu';
+//       userButtons_manual[tabIndex][user_id].textContent = automaticResponseStates_overallManual[tabIndex][user_id] ? translations[language]['manualIntervention'] : translations[language]['automaticResponse'];
+//       // userButtons[message.user_id].textContent = automaticResponseStates[message.user_id] ? 'Automatic Response' : 'Admin Intervention';
+//       updateButtonStyles(userButtons_manual[tabIndex][user_id], automaticResponseStates_overallManual[tabIndex][user_id]); // Update styles based on new state
 
-      const userRectangle = rectangle[tabIndex]?.querySelector(
-        `.user-rectangle[data-user-id="${user_id}"]`
-      );
-      const avatar = userRectangle.querySelector('.human-avatar');
+//       const userRectangle = rectangle[tabIndex]?.querySelector(
+//         `.user-rectangle[data-user-id="${user_id}"]`
+//       );
+//       const avatar = userRectangle.querySelector('.human-avatar');
       
 
 
-        // Immediate hover effect if hovering during click
-      userButtons_manual[tabIndex][user_id].style.backgroundColor = automaticResponseStates_overallManual[tabIndex][user_id] ? '#0056b3' : '#218838';
+//         // Immediate hover effect if hovering during click
+//       userButtons_manual[tabIndex][user_id].style.backgroundColor = automaticResponseStates_overallManual[tabIndex][user_id] ? '#0056b3' : '#218838';
     
-      userButtonStates[user_id] = automaticResponseStates_overallManual[tabIndex][user_id] ? 'automaticResponse' : 'adminIntervention';
-      const tabContent = colleaguesChats[tabIndex];
-      const chatContainer = tabContent.querySelector(`.chat-container[data-user-id="${user_id}"]`);
-      const chatBox = chatContainer ? chatContainer.querySelector('.chat-box') : null;
+//       userButtonStates[user_id] = automaticResponseStates_overallManual[tabIndex][user_id] ? 'automaticResponse' : 'adminIntervention';
+//       const tabContent = colleaguesChats[tabIndex];
+//       const chatContainer = tabContent.querySelector(`.chat-container[data-user-id="${user_id}"]`);
+//       const chatBox = chatContainer ? chatContainer.querySelector('.chat-box') : null;
 
       
     
 
-console.log("-----------------5")
+// console.log("-----------------5")
 
-      // Emit to server the rectangles' state if it is manual or automatic
+//       // Emit to server the rectangles' state if it is manual or automatic
    
-        // here we are on manual /user mode and here we want to display only the WAITING message:
-      if(automaticResponseStates_overallManual[tabIndex][user_id]){
-        // Manual mode → show avatar
-        avatar.style.display = "flex";
+//         // here we are on manual /user mode and here we want to display only the WAITING message:
+//       if(automaticResponseStates_overallManual[tabIndex][user_id]){
+//         // Manual mode → show avatar
+//         avatar.style.display = "flex";
 
-        switchToManualModeforOneUser_manual(user_id, language, tabIndex)  // THIS CREATES THE IMPUTBOX FOR ADMINS IN MANUAL MODE IF WE CHANGE BACK FROM AUTOMATIC MODE
+//         switchToManualModeforOneUser_manual(user_id, language, tabIndex)  // THIS CREATES THE IMPUTBOX FOR ADMINS IN MANUAL MODE IF WE CHANGE BACK FROM AUTOMATIC MODE
 
-        const messageElement = document.createElement('div');
-        messageElement.className = 'message';
+//         const messageElement = document.createElement('div');
+//         messageElement.className = 'message';
         
 
-        // Determine translated text
-        const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
+//         // Determine translated text
+//         const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
 
-        // Create admin message content and style it to align on the left
-        const adminMessageContent = `
-          <div class="admin-message">
-            <span class="admin-response">${awaitingText}</span>
-          </div>
-        `;
+//         // Create admin message content and style it to align on the left
+//         const adminMessageContent = `
+//           <div class="admin-message">
+//             <span class="admin-response">${awaitingText}</span>
+//           </div>
+//         `;
         
-        // Get all messages in chatBox
-        const messages = chatBox.querySelectorAll('.message');
+//         // Get all messages in chatBox
+//         const messages = chatBox.querySelectorAll('.message');
 
-        // Find the last .message element
-        const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+//         // Find the last .message element
+//         const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
 
-        let shouldAppend = true; // Default to appending
+//         let shouldAppend = true; // Default to appending
         
-        if (lastMessage) {
-            // Find .admin-message inside the last message
-            const lastAdminMessage = lastMessage.querySelector('.admin-message');
+//         if (lastMessage) {
+//             // Find .admin-message inside the last message
+//             const lastAdminMessage = lastMessage.querySelector('.admin-message');
             
-            if (lastAdminMessage) {
-                // Find .admin-response inside .admin-message
-                const lastAdminResponse = lastAdminMessage.querySelector('.bot-response');
+//             if (lastAdminMessage) {
+//                 // Find .admin-response inside .admin-message
+//                 const lastAdminResponse = lastAdminMessage.querySelector('.bot-response');
                 
-                if (lastAdminResponse) {
-                    const lastAdminText = lastAdminResponse.textContent.trim();
+//                 if (lastAdminResponse) {
+//                     const lastAdminText = lastAdminResponse.textContent.trim();
                     
-                    // If the last message is the awaiting response, don't append
-                    if (lastAdminText === 'Adminisztrátori válaszra várakozás...' || lastAdminText === 'Awaiting Admin Response...') {
-                        shouldAppend = false;
-                    }
-                }
-            }
-        }
+//                     // If the last message is the awaiting response, don't append
+//                     if (lastAdminText === 'Adminisztrátori válaszra várakozás...' || lastAdminText === 'Awaiting Admin Response...') {
+//                         shouldAppend = false;
+//                     }
+//                 }
+//             }
+//         }
 
-  console.log("-----------------6")
-        // Append only if the last message is NOT the awaiting response message
-        if (shouldAppend) {
-            messageElement.innerHTML = userMessageContent + adminMessageContent;
-            chatBox.appendChild(messageElement);
-        }
-        // Append user message first (right-aligned) and admin message after (left-aligned)
-        // messageElement.innerHTML = userMessageContent + adminMessageContent;
+//   console.log("-----------------6")
+//         // Append only if the last message is NOT the awaiting response message
+//         if (shouldAppend) {
+//             messageElement.innerHTML = userMessageContent + adminMessageContent;
+//             chatBox.appendChild(messageElement);
+//         }
+//         // Append user message first (right-aligned) and admin message after (left-aligned)
+//         // messageElement.innerHTML = userMessageContent + adminMessageContent;
       
-        // chatBox.appendChild(messageElement);
-        chatBox.classList.add('awaiting-response');
-        userRectangle.classList.add('awaiting-response'); // Add class to user rectangle
-        counterForManualModeAddMessage[tabIndex][user_id] = 0;
+//         // chatBox.appendChild(messageElement);
+//         chatBox.classList.add('awaiting-response');
+//         userRectangle.classList.add('awaiting-response'); // Add class to user rectangle
+//         counterForManualModeAddMessage[tabIndex][user_id] = 0;
 
-      }else{
-        // Automatic mode → hide avatar
-          avatar.style.display = "none";
-        removeAdminResponseControls_manual(user_id, tabIndex)
+//       }else{
+//         // Automatic mode → hide avatar
+//           avatar.style.display = "none";
+//         removeAdminResponseControls_manual(user_id, tabIndex)
 
-        const awaitingMessageElement = Array.from(chatBox.getElementsByClassName('message')).find(el => {
-        const botResponseElement = el.querySelector('.bot-response');
-        const adminResponseElement = el.querySelector('.admin-response');
+//         const awaitingMessageElement = Array.from(chatBox.getElementsByClassName('message')).find(el => {
+//         const botResponseElement = el.querySelector('.bot-response');
+//         const adminResponseElement = el.querySelector('.admin-response');
       
-        // Return the message element that contains 'Awaiting Admin Response...' in either bot-response or admin-response
-        return (botResponseElement && 
-          (botResponseElement.textContent.includes('Awaiting Admin Response...') || 
-            botResponseElement.textContent.includes('Adminisztrátori válaszra várakozás...'))) ||
-          (adminResponseElement && 
-          (adminResponseElement.textContent.includes('Awaiting Admin Response...') || 
-            adminResponseElement.textContent.includes('Adminisztrátori válaszra várakozás...')));
-      });
-      // We have awaiting message
-      if (awaitingMessageElement) {
-        awaitingMessageElement.remove();
-      }
-      chatBox.classList.remove('awaiting-response');
-      userRectangle.classList.remove('awaiting-response');
+//         // Return the message element that contains 'Awaiting Admin Response...' in either bot-response or admin-response
+//         return (botResponseElement && 
+//           (botResponseElement.textContent.includes('Awaiting Admin Response...') || 
+//             botResponseElement.textContent.includes('Adminisztrátori válaszra várakozás...'))) ||
+//           (adminResponseElement && 
+//           (adminResponseElement.textContent.includes('Awaiting Admin Response...') || 
+//             adminResponseElement.textContent.includes('Adminisztrátori válaszra várakozás...')));
+//       });
+//       // We have awaiting message
+//       if (awaitingMessageElement) {
+//         awaitingMessageElement.remove();
+//       }
+//       chatBox.classList.remove('awaiting-response');
+//       userRectangle.classList.remove('awaiting-response');
 
-console.log("-----------------7")
+// console.log("-----------------7")
         
 
         
-      }
+//       }
       
 
     
@@ -1328,7 +1387,7 @@ console.log("-----------------7")
         
      
 
-  }
+//   }
 
 
 
@@ -1419,7 +1478,7 @@ function formatTimestampForClient(utcTimestamp) {
  */
 function renderTextWithLinks(parentElement, text) {
   // Split message into parts: URLs vs. normal text
-  const parts = text.split(/(\bhttps?:\/\/\S+\b)/g);
+  const parts = text.split(/(https?:\/\/\S+\b)/g);
 
   // Clear any old content
   parentElement.innerHTML = '';
@@ -1458,10 +1517,12 @@ function renderTextWithLinks(parentElement, text) {
         parentElement.appendChild(a);
       }
     } else {
-      // Normal text (can contain spaces/newlines)
-      const span = document.createElement('span');
-      span.textContent = part;
-      parentElement.appendChild(span);
+      // Normal text → allow HTML for bold etc.
+      const temp = document.createElement('div');
+      temp.innerHTML = part; // 
+      while (temp.firstChild) {
+        parentElement.appendChild(temp.firstChild);
+      }
     }
   });
 }
@@ -1469,7 +1530,14 @@ function renderTextWithLinks(parentElement, text) {
 
 
 
+function makeLinksClickable(text) {
+  if (!text) return text;
 
+  return text.replace(
+      /(https?:\/\/[^\s<]+)/g,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+  );
+}
 
 
 
@@ -1589,14 +1657,16 @@ async function appendMessage(message) {
     sentMessageCount++;
     isBatchMode = messageTotal > 1;
     console.log("*** BATCH MODE ***", isBatchMode)
+    console.log()
 
     const emitData = {
         message: message,
         tab_uniqueId: tabIndex,
         total_messages: messageTotal
     };
-
     if (isBatchMode) {
+        console.log("BATCH MODE TOTAL MESSAGES")
+        console.log(emitData)
         socket.emit('store_message_to_redis', { emitData: emitData, timestamp: new Date().toISOString() });
     } else {
         socket.emit('log_message_distribution', { 
@@ -1611,7 +1681,6 @@ async function appendMessage(message) {
       sentMessageCount = 0;
     }
 
-
     
     // Get the bottom-left section for the current tab index
     if (!rectangle[tabIndex]) {
@@ -1619,21 +1688,19 @@ async function appendMessage(message) {
     }
     const bottomLeftSection = rectangle[tabIndex];
 
-
     
     // BUTTONS CREATED FOR AUTOMATIC MODE/USER
 
   
-    if (!userElements[message.user_id] && message.user_id) {
-      const buttonContainer = createUserButtonContainer_manual(message, language, tabIndex);
-      topMiddleSection[tabIndex].appendChild(buttonContainer); // tab-scoped
-      userElements[message.user_id] = buttonContainer;
-      userButtons_manual[tabIndex][message.user_id] = buttonContainer.querySelector('.admin-intervention');
-    }
+    // if (!userElements[message.user_id] && message.user_id) {
+    //   const buttonContainer = createUserButtonContainer_manual(message, language, tabIndex);
+    //   topMiddleSection[tabIndex].appendChild(buttonContainer); // tab-scoped
+    //   userElements[message.user_id] = buttonContainer;
+    //   userButtons_manual[tabIndex][message.user_id] = buttonContainer.querySelector('.admin-intervention');
+    // }
 
 
 
-   
     
     // Check if a rectangle for the user already exists
     let userRectangle = document.querySelector(`.user-rectangle[data-user-id="${message.user_id}"]`);
@@ -1646,7 +1713,7 @@ async function appendMessage(message) {
       userRectangle.dataset.tabIndex = tabIndex;
       userRectangle.style.height = '50px';
       userRectangle.style.width = '100%'; // Assume it fills the width of the first column
-      if (message.flag) {
+      if (message.flag || message.flag_removes_colleagues) {
         userRectangle.dataset.flag = 'true';
         userRectangle.classList.add('default-green');
       } else {
@@ -1694,12 +1761,7 @@ async function appendMessage(message) {
           userIcon.classList.add('pulsing-avatar');
         }
 
-      
-      if (message.bot_message === 'Awaiting Admin Response...' ||
-        message.bot_message === 'Adminisztrátori válaszra várakozás...') {
-        userRectangle.classList.add('awaiting-response');
-      }
-
+ 
       // Add drag-and-drop events
       userRectangle.draggable = true; // Enable native dragging
       userRectangle.addEventListener('dragstart', (e) => {
@@ -1777,10 +1839,12 @@ async function appendMessage(message) {
       // Add click event to display the user's chatbox in the middle section
       userRectangle.addEventListener('click', (event) => {
         const userId = userRectangle.dataset.userId;
+        console.log("Click1***")
+        console.log(activeRectangles[tabIndex])
         if (event.ctrlKey) {
             // Ctrl + Click detected
          
-            
+           
 
             // Toggle red background on Ctrl + Click
             if (userRectangle.classList.contains('ctrl-click-selected')) {
@@ -1806,7 +1870,6 @@ async function appendMessage(message) {
                
                 showUserChatBox(message.user_id, tabIndex);
                 showLocationBox(message.user_id, tabIndex);
-                showButton_Automatic_in_Overall_Manual_Mode(message.user_id, tabIndex);
                 
             }
 
@@ -1815,7 +1878,6 @@ async function appendMessage(message) {
             return; // Prevent further logic
             }
 
-  
         // Regular click logic
         const currentActiveRectangle = activeRectangles[tabIndex];
         if (currentActiveRectangle) {
@@ -1824,6 +1886,7 @@ async function appendMessage(message) {
           // and manage the green and blue colors depending on if it is passed from another colleage or not
           
           if (currentActiveRectangle !== userRectangle){
+            console.log("A jelenlegi rectang nem azonos a klikkletel")
             if (currentActiveRectangle.getAttribute('data-flag')=== 'true'){   
               currentActiveRectangle.classList.remove('user-rectangle-hover-lightgreen');
               currentActiveRectangle.classList.add('default-green');
@@ -1835,20 +1898,21 @@ async function appendMessage(message) {
               userRectangle.classList.remove('default-green');
               userRectangle.classList.add('user-rectangle-hover-lightgreen');
             }else{
+              console.log("KRITIKUS BEMEGYE AKTIVE LESZ A BLUE")
               userRectangle.classList.remove('default-blue');
               userRectangle.classList.add('user-rectangle-hover-lightblue');
             }
             showUserChatBox(message.user_id, tabIndex);
             showLocationBox(message.user_id, tabIndex);
             activeRectangles[tabIndex] = userRectangle;
-            showButton_Automatic_in_Overall_Manual_Mode(message.user_id, tabIndex);
+            // showButton_Automatic_in_Overall_Manual_Mode(message.user_id, tabIndex);
             isUserRectangleClickedPerTab[tabIndex] = true;
             
           }
 
           //You click the same rectangle that’s already active
-
           if(currentActiveRectangle === userRectangle){
+            console.log("A jelenlegi rectang azonos a klikkletel")
             if (currentActiveRectangle.getAttribute('data-flag')=== 'true'){
               currentActiveRectangle.classList.remove('user-rectangle-hover-lightgreen');
               userRectangle.classList.add('default-green');
@@ -1875,20 +1939,25 @@ async function appendMessage(message) {
 
           showUserChatBox(message.user_id, tabIndex);
           showLocationBox(message.user_id, tabIndex);
-          showButton_Automatic_in_Overall_Manual_Mode(message.user_id, tabIndex);  
+          // showButton_Automatic_in_Overall_Manual_Mode(message.user_id, tabIndex);  
           isUserRectangleClickedPerTab[tabIndex] = true;
           
         }
+        console.log("ez11?")
+        console.log(activeRectangles[tabIndex])
       });
 
+   
 
       userRectangle.addEventListener('mouseover', () => {
         // Only apply hover if this rectangle is not the active one
-        if (!activeRectangles || activeRectangles[tabIndex] == null) {
-          if (message.flag) {
+        if (!activeRectangles || activeRectangles[tabIndex] == {}) {
+          if (userRectangle.dataset.flag === 'true') {
+            console.log("hover1green no active")
             userRectangle.classList.remove('default-green');
             userRectangle.classList.add('user-rectangle-hover-lightgreen');
         } else {
+          console.log("hover1blue no active")
           userRectangle.classList.remove('default-blue');
           userRectangle.classList.add('user-rectangle-hover-lightblue');
           }
@@ -1896,10 +1965,12 @@ async function appendMessage(message) {
   
       // Only apply hover if this rectangle is not the active one
       if (userRectangle !== activeRectangles?.[tabIndex]) {
-          if (message.flag) {
+          if (userRectangle.dataset.flag === 'true') {
+              console.log("hover1green")
               userRectangle.classList.remove('default-green');
               userRectangle.classList.add('user-rectangle-hover-lightgreen');
           } else {
+              console.log("hover1blue")
               userRectangle.classList.remove('default-blue');
               userRectangle.classList.add('user-rectangle-hover-lightblue');
           }
@@ -1909,7 +1980,7 @@ async function appendMessage(message) {
           // Only remove hover if this rectangle is not the active one
           if (userRectangle !== activeRectangles[tabIndex]) {
             if (!userRectangle.classList.contains('ctrl-click-selected')){
-              if (message.flag){
+              if (userRectangle.dataset.flag === 'true'){
                 userRectangle.classList.remove('user-rectangle-hover-lightgreen');
                 userRectangle.classList.add('default-green');
               }else{
@@ -1927,8 +1998,19 @@ async function appendMessage(message) {
           // if(isUserRectangleClickedPerTab[tabIndex]){
           //   bottomLeftSection.scrollTop = bottomLeftSection.scrollHeight;
           // } 
-      
-    }
+          console.log("BentIF", message.bot_message)
+          if (message.bot_message === 'Awaiting Admin Response...' ||
+            message.bot_message === 'Adminisztrátori válaszra várakozás...' ||
+            message.bot_message === 'Kapcsolom az egyik kollégát, kérem várjon!' ||
+            message.bot_message === 'Connecting you to one of our colleagues, please wait!' 
+            
+          ) {           
+            userRectangle.classList.add('awaiting-response');
+ 
+          }
+
+          
+        }
 
 
 
@@ -1978,6 +2060,7 @@ async function appendMessage(message) {
     chatBox = existingChatContainer.querySelector('.chat-box');
     // Update message logic remains the same
 
+    const adminDisplayName = message.admin_name || "Admin";
 
 
 
@@ -1990,7 +2073,7 @@ async function appendMessage(message) {
                                 //  MANUAL MODE in MANUAL MODE
 
 
-
+    
     let attachmentHtml = '';
 
     // Check if message.user_message is JSON with attachment
@@ -2012,8 +2095,8 @@ async function appendMessage(message) {
                     else if (mime.includes('word') || mime.includes('msword') || mime.includes('officedocument.wordprocessingml')) icon = '📝';
                     attachmentHtml = `
                       <a href="${data}" target="_blank" class="attachment-link">
-                        <span class="attachment-icon">${icon}</span>
                         <span data-lang="view_attachment"></span>
+                        <span class="attachment-icon">${icon}</span>
                       </a>
                     `;
                 }
@@ -2029,9 +2112,15 @@ async function appendMessage(message) {
             // fallback: leave message.user_message as is
         }
     }
+    console.log(message.user_id)
+    console.log(tabIndex)
+    console.log("---- -----")
+    console.log(overallTabModes[tabIndex]) 
+    //console.log("belépés:", (automaticResponseStates_overallManual[tabIndex][message.user_id] || (!message.bot_message && message.admin_response)))
+    if (overallTabModes[tabIndex] === 'manual'){    //} || (!message.bot_message && message.admin_response)){
+      console.log("MANUAL MODE OVERALL FOR TAB")
 
-    if (automaticResponseStates_overallManual[tabIndex][message.user_id] || (!message.bot_message && message.admin_response)){
-   
+      
     
 
       const awaitingMessageElement = Array.from(chatBox.getElementsByClassName('message')).find(el => {
@@ -2062,52 +2151,49 @@ async function appendMessage(message) {
      
 
 
+
+
+
     
     if (awaitingMessageElement) {
+
       const adminResponseElement = awaitingMessageElement.querySelector('.admin-response');
-  
+      console.log("WAITING MANUAL - MANUAL")
       if (adminResponseElement) {
           const awaitingText = language === 'hu' 
-              ? 'Adminisztrátori válaszra várakozás...' 
-              : 'Awaiting Admin Response...';
+            ? 'Adminisztrátori válaszra várakozás...' 
+            : 'Awaiting Admin Response...';
 
-          const adminText = message.admin_response
-            ? `Admin: ${message.admin_response}`
-            : awaitingText;
-  
-          // adminResponseElement.textContent = message.admin_response
-          //     ? `Admin: ${message.admin_response}`
-          //     : awaitingText;
+          // ---- TEXT PART ----
+         
+          const clickableText = makeLinksClickable(message.admin_response)
 
-          renderTextWithLinks(adminResponseElement, adminText);
-
-           if (message.image_url) {
-            // Prevent duplicate images on rerenders
-            let existingImgWrapper = awaitingMessageElement.querySelector('.admin-image-wrapper');
-            if (!existingImgWrapper) {
-              const imgWrapper = document.createElement('div');
-              imgWrapper.className = 'admin-image-wrapper';
-              imgWrapper.innerHTML = `
-                <img src="${message.image_url}" 
-                    alt="Admin uploaded image"
-                    class="chat-image admin"
-                    style="max-width: 100%; border-radius: 8px; margin-top: 6px;">
-              `;
-              awaitingMessageElement.appendChild(imgWrapper);
+          if (message.admin_response || attachmentHtml) {
+                adminResponseElement.innerHTML = `<strong>${adminDisplayName}:</strong> ${clickableText || ''}${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}`;
+            } else {
+                adminResponseElement.innerHTML = awaitingText;
             }
-          }
+
       }
 
       
       chatBox.classList.add('not-awaiting-response');
       chatBox.classList.remove('awaiting-response');
       userRectangle.classList.remove('awaiting-response'); // Remove class from user rectangle
-      counterForManualModeAddMessage[tabIndex][message.user_id]+=1;
+
+      updateDynamicText(language);
+
+      if (!counterForManualModeAddMessage[tabIndex][message.user_id]) {
+          counterForManualModeAddMessage[tabIndex][message.user_id] = 0;
+          }
+      counterForManualModeAddMessage[tabIndex][message.user_id] += 1;
+          
+  
      
 
       /// 1.) ---------------    WAITING  BLOCK BUT USER SEND A NEW QUESTION right after the prevous message and no admin intervention yet ----------------
       
-      if (!message.admin_response) {
+      if (message.bot_message) {
 
         console.log("Újabbat küldött???")
 
@@ -2127,17 +2213,27 @@ async function appendMessage(message) {
         const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
         // Create user message content and style it to align on the right
         //<span class="user-id">User ID: ${message.user_id}</span> taken out of timestamp
-        const userMessageContent = `
-            <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
-              <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
-              
-              <div class="user-input">
-                ${message.user_message ? `${translation_Sent_User.User}: ${message.user_message}` : ''}
-              </div>
+        
+        let userText = '';
+        if (message.user_message) {
+          const clickableUserText = message.user_message.replace(
+            /(https?:\/\/[^\s<]+)/g,
+            '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+          );
 
-              ${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}
+          userText = `${translation_Sent_User.User}: ${clickableUserText}`;
+        }
+        const userMessageContent = `
+          <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
+            <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
+            
+            <div class="user-input">
+              ${userText}
             </div>
-          `;
+
+            ${attachmentHtml ? `<div class="attachment-wrapper attachment-wrapper-user-message">${attachmentHtml}</div>` : ''}
+          </div>
+        `;
 
         // Create admin message content and style it to align on the left
         const adminMessageContent = `
@@ -2149,12 +2245,7 @@ async function appendMessage(message) {
         // Append user message first (right-aligned) and admin message after (left-aligned)
         messageElement.innerHTML = userMessageContent + adminMessageContent;
         
-        // Post-process the .user-input span to render images/links
-        const userInputSpan = messageElement.querySelector('.user-input');
-        if (userInputSpan) {
-            renderTextWithLinks(userInputSpan, userInputSpan.textContent);
-        }
-
+    
         
 
 /////     ------    INSERTING THE MESSAGE     -----------
@@ -2200,16 +2291,194 @@ async function appendMessage(message) {
       
       // THE FIRST MESSAGE or SECONDLINE ADMIN MESSAGE from THE USER HAS ARRIVED  
 
+      setTimeout(() => {
+        checkAwaitingResponse(tabIndex);
+      }, 0);
+
+
+
+      ////////////////////////////////////////////////////////////////////////////
       //                  NO AWAITING ELEMENT
+      ///////////////////////////////////////////////////////////////////////////
+
+
+  
+
 
     } else {
         
-        console.log("ITT???-e?")
-        if (message.user_message){   //2.) ..... brand new user message ............
+      //////////////////////////////////////////////////////////////////////////////////////
+      ////////////////           HANDLE MESSAGES FROM REMOVED COLLEAGUES     //////////////
+      ////////////////////////////////////////////////////////////////////////////////////
+
+      if (message.flag_removes_colleagues){
+          console.log("HANDLE MESSAGES FROM REMOVED COLLEAGUES")
+
+          const messageElement = document.createElement('div');
+          messageElement.className = 'message';
+           
+       
+          // Use message timestamp or fallback to current time
+          const timestamp = message.timestamp || '';
+          let headlineContent = "";
+          let headlineText = language === 'hu' 
+            ? "Átvett üzenet a következő kollégától:" 
+            : "Messages from ";
+          if (message.flag_removes_colleagues === "deleted" && message.message_number === 1) {
+            headlineContent = `
+                <div class="headline-message" style="background: linear-gradient(to right, rgba(144, 238, 144, 0.7), rgba(34, 139, 34, 0.7));">
+                    ${headlineText} ${message.name}
+                </div>
+            `;
+            }
+        
+          // USER MESSAGE
+
+          const hasUserText = message.user_message && message.user_message.trim() !== "";
+          const hasUserAttachment =
+            message.userAttachmentHtml && message.userAttachmentHtml.trim() !== "";
+          let userMessageContent='';
+          const shouldRenderUserMessage = hasUserText || hasUserAttachment;
+          if (shouldRenderUserMessage) {
+            let userText = '';
+            console.log("USERMESSAGE: ")
+            console.log(message.user_message)
+            console.log("USERMESSAGE TIME: ")
+            const formattedTime = formatTimestampForClient(message.timestamp);
+            console.log(formattedTime)
+            console.log(message.timestamp)
+            if (message.user_message) {
+              const clickableUserText = message.user_message.replace(
+                /(https?:\/\/[^\s<]+)/g,
+                '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+              );
+
+              userText = `${translation_Sent_User.User}: ${clickableUserText}`;
+            }
+            
+            userMessageContent = `
+              <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
+                <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
+                
+                <div class="user-input">
+                  ${userText}
+                </div>
+
+                ${message.userAttachmentHtml ? `<div class="attachment-wrapper attachment-wrapper-user-message">${message.userAttachmentHtml}</div>` : ''}
+              </div>
+            `;
+          }
+
+          // ADMIN MESSAGE
+          let adminText = '';
+          if (message.admin_response) {
+            const clickableAdminText = message.admin_response.replace(
+              /(https?:\/\/[^\s<]+)/g,
+              '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+            );
+
+            adminText = `${clickableAdminText}`;
+          }
+          
+          let adminInnerContent = '';
+          let textPart = '';
+          const hasResponse = !!adminText;
+          const hasAttachment = !!message.adminAttachmentHtml;
+
+          console.log("ADMIN TEXT: ", adminText)
+          if (hasResponse || hasAttachment) {
+
+            const normalizedResponse = (adminText || '').trim().toLowerCase();
+            const isAwaitingText =
+              normalizedResponse === 'awaiting admin response...' ||
+              normalizedResponse === 'adminisztrátori válaszra várakozás...';
+            
+            if (isAwaitingText) {
+              // show only the text, no admin name
+              textPart = `${adminText}`;
+            } else if (adminText) {
+              textPart = `<strong>${adminDisplayName}:</strong> ${adminText}`;
+            } else {
+              textPart = `<strong>${adminDisplayName}:</strong>`;
+            }
+
+            console.log("TEXT PART", textPart)
+            adminInnerContent += `
+              <span class="admin-response">
+                ${textPart}
+              </span>
+            `;
+
+            if (hasAttachment) {
+              adminInnerContent += `
+                <div class="attachment-wrapper">
+                  ${message.adminAttachmentHtml}
+                </div>
+              `;
+            }
+          }
+
+          if (message.admin_response === 'Awaiting Admin Response...' ||
+            message.admin_response === 'Adminisztrátori válaszra várakozás...' ||
+            message.admin_response === 'Kapcsolom az egyik kollégát, kérem várjon!' ||
+            message.admin_response === 'Connecting you to one of our colleagues, please wait!' 
+            
+          ) {           
+            userRectangle.classList.add('awaiting-response');
+ 
+          }
+
+
+          const adminMessageContentMain = adminInnerContent
+          ? `<div class="admin-message">${adminInnerContent}</div>`
+          : '';
+
+          messageElement.innerHTML =
+            (headlineContent ? headlineContent : '') +
+            userMessageContent +
+            adminMessageContentMain;
+
+      
+
+          // Append hidden timestamp AFTER .innerHTML is set
+          const hiddenTimestampSpan = document.createElement('span');
+          hiddenTimestampSpan.className = 'hidden-timestamp';
+          hiddenTimestampSpan.style.display = 'none';
+          hiddenTimestampSpan.textContent = timestamp;
+          messageElement.appendChild(hiddenTimestampSpan);
+
+
+            
+         // Insert based on timestamp ordering
+          const chatMessages = Array.from(chatBox.getElementsByClassName('message'));
+          const insertBeforeIndex = chatMessages.findIndex(el => {
+            const ts = el.querySelector('.hidden-timestamp');
+            return ts && new Date(ts.textContent) > new Date(timestamp);
+          });
+
+          if (insertBeforeIndex === -1) {
+            chatBox.appendChild(messageElement);
+          } else {
+            chatBox.insertBefore(messageElement, chatMessages[insertBeforeIndex]);
+          }
+
+          updateDynamicText(language);
+          
+          setTimeout(() => {
+          checkAllAwaitingResponses()
+          }, 0);
+
+          
+
+      }else{
+        console.log("ITT???-e?++++")
+        if (message.bot_message){   //2.) ..... brand new user message ............ if (typeof message.bot_message === "undefined")
+          console.log("MESSAGE: ", message)
           
       //  ----- Handle the placeholder when broadcasting the tabmode to redis
 
-             if (message.type === "pending_message_waiting_for_tabstate") {
+            if (message.type === "pending_message_waiting_for_tabstate") {
+              console.log("pending_message_waiting_for_tabstate")
               const messageElement = document.createElement('div');
               messageElement.className = 'message';
               messageElement.classList.add('placeholder');
@@ -2255,7 +2524,7 @@ async function appendMessage(message) {
           }else{
 
             //  AT THIS MOMENT WE HAVE ALREADY KNOWN WHERE TO APPEND THE MESSAGE
-
+            console.log("AT THIS MOMENT WE HAVE ALREADY KNOWN WHERE TO APPEND THE MESSAGE")
             const placeholders = Array.from(chatBox.querySelectorAll('.placeholder'))
               .filter(ph => 
                 ph.style.display !== 'none' &&
@@ -2269,7 +2538,7 @@ async function appendMessage(message) {
 
     
           const messageElement = document.createElement('div');
-           messageElement.className = 'message';
+          messageElement.className = 'message';
            
        
           // Use message timestamp or fallback to current time
@@ -2288,15 +2557,31 @@ async function appendMessage(message) {
         
           // Create user message content and style it to align on the right
           //<span class="user-id">User ID: ${message.user_id}</span> taken out after timestamp
+          let userText = '';
+          console.log("USERMESSAGE: ")
+          console.log(message.user_message)
+          console.log("USERMESSAGE TIME: ")
+          const formattedTime = formatTimestampForClient(message.timestamp);
+          console.log(formattedTime)
+          console.log(message.timestamp)
+          if (message.user_message) {
+            const clickableUserText = message.user_message.replace(
+              /(https?:\/\/[^\s<]+)/g,
+              '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+            );
+
+            userText = `${translation_Sent_User.User}: ${clickableUserText}`;
+          }
+          
           const userMessageContent = `
             <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
               <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
               
               <div class="user-input">
-                ${message.user_message ? `${translation_Sent_User.User}: ${message.user_message}` : ''}
+                ${userText}
               </div>
 
-              ${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}
+              ${attachmentHtml ? `<div class="attachment-wrapper attachment-wrapper-user-message">${attachmentHtml}</div>` : ''}
             </div>
           `;
           // Create admin message content and style it to align on the left
@@ -2305,35 +2590,50 @@ async function appendMessage(message) {
           //     ${message.admin_response ? `<span class="admin-response">Admin: ${message.admin_response}</span>` : '<span class="admin-response">Awaiting Admin Response...</span>'}
           //   </div>
           // `;
-          const awaitingAdminText = language === "hu" ? "Adminisztrátori válaszra várakozás..." : "Awaiting Admin Response...";
-          const adminMessageContent = `
+          const awaitingAdminText = language === "hu"
+            ? "Adminisztrátori válaszra várakozás..."
+            : "Awaiting Admin Response...";
+
+          const isConnectingMessage =
+            message.bot_message === "Kapcsolom az egyik kollégát, kérem várjon!" ||
+            message.bot_message === "Connecting you to one of our colleagues, please wait!";
+
+          const adminMessageContentMain = `
             <div class="admin-message">
               ${
                 message.bot_message
                   ? message.bot_message === "Awaiting Admin Response..."
-                  ? `<span class="admin-response">${language === "hu" ? "Adminisztrátori válaszra várakozás..." : "Awaiting Admin Response..."}</span>` // If bot_message is "Awaiting Admin Response...", no Bot: prefix
-                    : `<span class="admin-response">Bot: ${message.bot_message}</span>` // Otherwise, include Bot: prefix
+                    // CASE 1 → only awaiting
+                    ? `<span class="admin-response">${awaitingAdminText}</span>`
+
+                    // CASE 2 → connecting message + awaiting BELOW
+                    : isConnectingMessage
+                      ? `
+                        <span>Bot: ${message.bot_message}</span>
+                        <span class="admin-response">${awaitingAdminText}</span>
+                      `
+
+                      // CASE 3 → normal bot message
+                      : `<span class="admin-response">Bot: ${message.bot_message}</div>`
+
                   : message.admin_response
+                    // ADMIN RESPONSE
                     ? message.flag === "deleted"
-                      ? `<span class="admin-response">${message.admin_response}</span>` // If message is deleted, no Admin: prefix
-                      : `<span class="admin-response">Admin: ${message.admin_response}</span>` // Otherwise, include Admin: prefix
-                    : `<span class="admin-response">${awaitingAdminText}</span>` // If neither bot_message nor admin_response, SHOW!!! "Awaiting Admin Response..."
+                      ? `<span class="admin-response">${message.admin_response}</span>`
+                      : `<span class="admin-response">Admin: ${message.admin_response}</span>`
+
+                    // FALLBACK → awaiting
+                    : `<span class="admin-response awaiting-text">${awaitingAdminText}</span>`
               }
             </div>
           `;
 
-          // Append user message first (right-aligned) and admin message after (left-aligned)
           messageElement.innerHTML =
-          (headlineContent ? headlineContent : '') +
-          userMessageContent +
-          adminMessageContent;
+            (headlineContent ? headlineContent : '') +
+            userMessageContent +
+            adminMessageContentMain;
 
-          // Post-process the .user-input span to render images/links
-          const userInputSpan = messageElement.querySelector('.user-input');
-          if (userInputSpan) {
-              renderTextWithLinks(userInputSpan, userInputSpan.textContent);
-          }
-
+      
 
           // Append hidden timestamp AFTER .innerHTML is set
           const hiddenTimestampSpan = document.createElement('span');
@@ -2366,14 +2666,17 @@ async function appendMessage(message) {
           counterForManualModeAddMessage[tabIndex][message.user_id]=0;
         
           
-          
+          // ............................................
+
           // Check if bot_message exists and is not "Awaiting Admin Response..."  - Szerintem ez a rész felesleges mert ide sohasem megy be
 
 
           if (
             message.bot_message && 
             message.bot_message !== "Awaiting Admin Response..." && 
-            message.bot_message !== "Adminisztrátori válaszra várakozás..."
+            message.bot_message !== "Adminisztrátori válaszra várakozás..." &&
+            message.bot_message !== "Kapcsolom az egyik kollégát, kérem várjon!" &&
+            message.bot_message !== "Connecting you to one of our colleagues, please wait!"
           ) {
             // Valid bot response: Remove awaiting-response classes
             chatBox.classList.remove('awaiting-response');
@@ -2391,47 +2694,52 @@ async function appendMessage(message) {
         //   ............................................
 
         }else {   //ITT A MÁSODIK ADMIN MESSAGET ADJUK HOZZÁ AMIKOR MÁR NINCS KIÍRVA, HOGY ADMIN VÁLSZRA VÁRVA...
+          
+          // if (!message.admin_response && !message.image_url) {
+          //   return;
+          // }
+
           const messageElement = document.createElement('div');
           messageElement.className = 'message';
-        
-          // Create the hidden timestamp span
+
           const timestamp = message.timestamp || '';
-          console.log("second message")
-          console.log(timestamp)
 
-          const adminMessageContent = `
+          // clickable links
+          let adminResponseProcessed = '';
+          if (message.admin_response) {
+            adminResponseProcessed = message.admin_response.replace(
+              /(https?:\/\/\S+\b)/g,
+              '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+            );
+          }
+
+          const adminContent = `
             <div class="admin-message">
-              ${message.admin_response
-                ? message.flag === "deleted"
-                  ? `<span class="admin-response">${message.admin_response}</span>`  // If message is deleted, no Admin: prefix
-                  : `<span class="admin-response">Admin: ${message.admin_response}</span>`  // Otherwise, include Admin: prefix
-                : '<span class="admin-response"></span>'  // If no admin response, show "Awaiting Admin Response..."
-              }
-              ${message.image_url
-                ? `<div class="admin-image-wrapper">
-                    <img src="${message.image_url}" 
-                          alt="Admin uploaded image" 
-                          class="chat-image admin">
-                  </div>`
-                : ''
-              }
+              ${
+                message.admin_response || message.attachment?.data
+                  ? `
+                    <span class="admin-response">
+                      ${
+                        message.flag === "deleted"
+                          ? `${adminResponseProcessed || ''}`
+                          : `<strong>${adminDisplayName}:</strong>${adminResponseProcessed ? ` ${adminResponseProcessed}` : ''}`
+                      }
+                    </span>
 
-
+                    ${
+                      message.attachment?.data
+                        ? `<div class="attachment-wrapper">${attachmentHtml}</div>`
+                        : ''
+                    }
+                  `
+                  : `<span class="admin-response">${awaitingText}</span>`
+              }
             </div>
           `;
-          // Append user message first (right-aligned) and admin message after (left-aligned)
-          messageElement.innerHTML = adminMessageContent;
 
-          // After inserting, enhance the text (links + inline images)
-          const adminResponseElement = messageElement.querySelector('.admin-response');
-          if (adminResponseElement) {
-            const adminText = message.admin_response
-              ? (message.flag === "deleted"
-                  ? message.admin_response
-                  : `Admin: ${message.admin_response}`)
-              : '';
-            renderTextWithLinks(adminResponseElement, adminText);
-          }
+          messageElement.innerHTML = adminContent;
+
+          
           
           
           
@@ -2458,14 +2766,22 @@ async function appendMessage(message) {
             chatBox.insertBefore(messageElement, chatMessages[insertBeforeIndex]);
           }
 
-          if (message.awaiting === false) {
-            counterForManualModeAddMessage[tabIndex][message.user_id] = 1;
-          }
-          
+          updateDynamicText(language);
+
+          if (!counterForManualModeAddMessage[tabIndex][message.user_id]) {
+              counterForManualModeAddMessage[tabIndex][message.user_id] = 0;
+            }
+          counterForManualModeAddMessage[tabIndex][message.user_id] += 1;
+              
+        }
+          setTimeout(() => {
+          checkAwaitingResponse(tabIndex);
+        }, 0);
       }
     }
+    
+ 
   
-    checkAwaitingResponse(tabIndex)
 
 
 
@@ -2481,6 +2797,11 @@ async function appendMessage(message) {
                                  //  AUTOMATIC MODE in MANUAL MODE
                                  //  AUTOMATIC MODE in MANUAL MODE
                                 //   AUTOMATIC MODE in MANUAL MODE
+
+
+
+
+
 
 
     }else{
@@ -2540,12 +2861,89 @@ async function appendMessage(message) {
 
       console.log("9")
       const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
-      
        
       
       // Create or update the message element in the chat box
       // <span class="user-id">User ID: ${message.user_id}</span>  taken out before timestamp
       const messageElement = document.createElement('div');
+
+      const isAwaiting = message.bot_message === 'Awaiting Admin Response...';
+      
+      // IF LOGIC When HAVING AWAITING TEXT + OVERALL MANUAL + AUTOMATIC TAB:
+      if (isAwaiting) {
+        console.log("awaiting1")
+        switchToManualModeforOneUser(language, message.user_id, true);
+        chatBox.classList.add('awaiting-response');
+        chatBox.classList.remove('not-awaiting-response');
+        userRectangle.classList.add('awaiting-response');
+      }
+          
+        const awaitingMessageElement = Array.from(chatBox.getElementsByClassName('message')).find(el => {
+        const adminResponseElement = el.querySelector('.admin-response');
+        
+        // régi: return adminResponseElement && adminResponseElement.textContent.includes('Awaiting Admin Response...');
+        return adminResponseElement && 
+        (adminResponseElement.textContent.includes('Awaiting Admin Response...') || 
+        adminResponseElement.textContent.includes('Adminisztrátori válaszra várakozás...'));
+      
+        });
+
+      
+      if (awaitingMessageElement) {
+
+        const adminResponseElement = awaitingMessageElement.querySelector('.admin-response');
+        console.log("WAITING MANUAL - MANUAL")
+        if (adminResponseElement) {
+            const awaitingText = language === 'hu' 
+              ? 'Adminisztrátori válaszra várakozás...' 
+              : 'Awaiting Admin Response...';
+
+            // ---- TEXT PART ----
+          
+            const clickableText = makeLinksClickable(message.admin_response)
+
+            if (message.admin_response || attachmentHtml) {
+                  adminResponseElement.innerHTML = `<strong>${adminDisplayName}:</strong> ${clickableText || ''}${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}`;
+              } else {
+                  adminResponseElement.innerHTML = awaitingText;
+              }
+
+        }
+
+        
+        chatBox.classList.add('not-awaiting-response');
+        chatBox.classList.remove('awaiting-response');
+        userRectangle.classList.remove('awaiting-response'); // Remove class from user rectangle
+
+        updateDynamicText(language);
+
+        if (!counterForManualModeAddMessage[tabIndex][message.user_id]) {
+            counterForManualModeAddMessage[tabIndex][message.user_id] = 0;
+            }
+        counterForManualModeAddMessage[tabIndex][message.user_id] += 1;
+          
+      }
+
+
+        
+
+
+
+
+
+        
+
+
+
+
+
+
+
+
+
+
+      else{
+         console.log("BEJÖVÉS????")
       messageElement.className = 'message';
       messageElement.innerHTML = `
           <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
@@ -2561,6 +2959,17 @@ async function appendMessage(message) {
            </span></div>` : ''}
       `;
 console.log("-----------------27")
+
+      const isAwaiting = message.bot_message === 'Awaiting Admin Response...';
+        if (isAwaiting){
+            chatBox.classList.remove('not-awaiting-response');
+            chatBox.classList.add('awaiting-response');
+            userRectangle.classList.add('awaiting-response');
+
+        }
+          chatBox.classList.add('not-awaiting-response');
+        chatBox.classList.remove('awaiting-response');
+        userRectangle.classList.remove('awaiting-response');
       // Use message.timestamp if exists, otherwise current time
       const tsString = message.timestamp || '';
 
@@ -2598,7 +3007,7 @@ console.log("-----------------28")
 
       }
 
-
+    }
 
 
     }
@@ -2649,13 +3058,13 @@ console.log("-----------------28")
 
       ${message.is_recurrent && message.recent_history?.length ? `
         <div style="margin-bottom: 10px;">
-          <div class="user-status" style="margin-bottom: 5px; font-weight: bold; clamp(7px, 0.8vw, 12px);">
+          <div class="user-status" style="margin-bottom: 5px; font-weight: bold; font-size: clamp(7px, 0.8vw, 12px);">
             <i class="fa-solid fa-history" style="margin-right: 5px;"></i>
             <span class="user-history-status">
               ${message.is_recurrent ? translation_location.user_history_recurrent : translation_location.user_history_new}
             </span>
           </div>
-          <div class="last-4-messages" style="position: relative; display: inline-block; cursor: pointer; clamp(7px, 0.8vw, 12px);">
+          <div class="last-4-messages" style="position: relative; display: inline-block; cursor: pointer; font-size: clamp(7px, 0.8vw, 12px);">
             <span style="text-decoration: underline;">${translation_location.last_four_messages}</span>
 
             <div class="tooltip-messages" style="
@@ -2681,7 +3090,7 @@ console.log("-----------------28")
               `).join('')}
             </div>
           </div>
-          <div class="full-history" style="margin-top: 5px; cursor: pointer; text-decoration: underline; color: blue; clamp(7px, 0.8vw, 12px);">
+          <div class="full-history" style="margin-top: 5px; cursor: pointer; text-decoration: underline; color: blue; font-size: clamp(7px, 0.8vw, 12px);">
               ${translation_location.full_history}
           </div>
 
@@ -2898,7 +3307,7 @@ console.log("-----------------28")
       buttonContainer.style.margin = '0 auto';
       buttonContainer.style.width = '100%';
      
-      console.log("-----------------2")
+      console.log("-----------------2 **")
       
       
       const chatsLabel = document.createElement('span');
@@ -3374,6 +3783,12 @@ console.log("-----------------13")
           // fallback: leave message.user_message as is
       }
   }
+
+
+ 
+  console.log("  *** *  ")
+  console.log(automaticResponseStates[message.user_id])
+  console.log((!message.bot_message && message.admin_response))
   //bot_message: mindig aiapp-ból jön, admin_response: mindig az admin_app input mezőjéből, amit az adminisztrátor válaszol
   if (automaticResponseStates[message.user_id] || (!message.bot_message && message.admin_response)){  //automaticResponseStates tricky check what is written on the button if manual intervention needed it is automatic mode but the value is false as have manual intervention on the button
         console.log("%MESSSAGE CHECK%")
@@ -3401,14 +3816,24 @@ console.log("-----------------13")
           const adminResponseElement = awaitingMessageElement.querySelector('.admin-response');
           if (adminResponseElement) {
       
-            const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
+          const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
             
+          
+            // Make URLs clickable
+          const clickableText = makeLinksClickable(message.admin_response)
+         
+
      console.log("-------A sima ügy appendeljük a waiting helyére az admin választ----------15")
             if (message.admin_response || attachmentHtml) {
-                adminResponseElement.innerHTML = `<strong>${adminDisplayName}:</strong> ${message.admin_response || ''}${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}`;
+                adminResponseElement.innerHTML = `<strong>${adminDisplayName}:</strong> ${clickableText || ''}${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}`;
             } else {
                 adminResponseElement.innerHTML = awaitingText;
             }
+
+            chatBox.classList.add('not-awaiting-response');
+            chatBox.classList.remove('awaiting-response');
+            userRectangle.classList.remove('awaiting-response');
+
             updateDynamicText(language);
             if (!counterForAddAdminMessage[message.user_id]) {
               counterForAddAdminMessage[message.user_id] = 0;
@@ -3427,6 +3852,7 @@ console.log("-----------------13")
 
         
             const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
+            const clickableTextUserMessage = makeLinksClickable(message.user_message)
             
             const formattedTime = formatTimestampForClient(message.timestamp);
             // <span class="user-id">User ID: ${message.user_id}</span>  taken out of after timestamp
@@ -3436,17 +3862,18 @@ console.log("-----------------13")
                 <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
                 
                 <div class="user-input">
-                  ${message.user_message ? `${translation_Sent_User.User}: ${message.user_message}` : ''}
+                  ${message.user_message ? `${translation_Sent_User.User}: ${clickableTextUserMessage}` : ''}
                 </div>
 
-                ${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}
+                ${attachmentHtml ? `<div class="attachment-wrapper-user-message">${attachmentHtml}</div>` : ''}
               </div>
             `;
       console.log("-----------------16")
             // Create admin message content and style it to align on the left
+            const clickableTextAdminResponse = makeLinksClickable(message.admin_response)
             const adminMessageContent = `
               <div class="admin-message">
-                ${message.admin_response ? `<span class="admin-response"><strong>${adminDisplayName}:</strong> ${message.admin_response}</span>` : `<span class="admin-response">${awaitingText}</span>`}
+                ${message.admin_response ? `<span class="admin-response"><strong>${adminDisplayName}:</strong> ${clickableTextAdminResponse}</span>` : `<span class="admin-response">${awaitingText}</span>`}
               </div>
             `;
       
@@ -3496,29 +3923,25 @@ console.log("-----------------13")
             //chatBox.appendChild(messageElement);
             //counterForAddAdminMessage[message.user_id] += 1;   // I think is not needed here !!!!! as we will have new awaiting...
 
-          } else {
-          
-//       NORMAL FIRST MANUAL RESPONSE:
-
-            chatBox.classList.add('not-awaiting-response');
-            chatBox.classList.remove('awaiting-response');
-            userRectangle.classList.remove('awaiting-response'); // Remove class from user rectangle
-            if (!counterForAddAdminMessage[message.user_id]) {
-                counterForAddAdminMessage[message.user_id] = 0;
-              }
-            counterForAddAdminMessage[message.user_id] += 1;
           }
        
           const botResponseElement = awaitingMessageElement.querySelector('.bot-response');  ///??? maybe it is not necessary never we have it in manual mode
           if (botResponseElement) {
+            const clickableText = makeLinksClickable(message.admin_response)
             const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
 
             botResponseElement.innerHTML = message.admin_response
-              ? `<strong>${adminDisplayName}:</strong> ${message.admin_response}${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}`
+              ? `<strong>${adminDisplayName}:</strong> ${clickableText}${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}`
               : awaitingText;
           }
 
         } else {
+
+
+          //////////////////////////////////////////////////////////
+          ////     NO AWAITING ELEMENT                            //
+          //////////////////////////////////////////////////////////
+
 
           console.log("-----------------19")
   //  THIS IS ACTIVATED WHEN WE ADD A SECOND MESSAGE MANUALLY, NO WAITING ELEMENT:
@@ -3540,14 +3963,14 @@ console.log("-----------------13")
             const awaitingText = language === 'hu'
               ? 'Adminisztrátori válaszra várakozás...'
               : 'Awaiting Admin Response...';
-
+            const clickableTextAdminResponse = makeLinksClickable(message.admin_response)
             const adminMessageContent = `
               <div class="admin-message">
 
                 ${
                   message.admin_response || message.attachment?.data
                     ? `
-                      <span class="admin-response"><strong>${adminDisplayName}:</strong>${message.admin_response ? ` ${message.admin_response}` : ''}</span>
+                      <span class="admin-response"><strong>${adminDisplayName}:</strong>${message.admin_response ? ` ${clickableTextAdminResponse}` : ''}</span>
 
                       ${
                         message.attachment?.data
@@ -3561,13 +3984,13 @@ console.log("-----------------13")
               </div>
               `;
    console.log("-----------------20")   
-            // Append user message first (right-aligned) and admin message after (left-aligned)
+       
             messageElement.innerHTML = adminMessageContent;
       
             chatBox.appendChild(messageElement);
 
             console.log("----------XXX-------24")    
-              // Append user message first (right-aligned) and admin message after (left-aligned)
+
               
 
             // Use message.timestamp if exists, otherwise current time
@@ -3615,7 +4038,7 @@ console.log("---------XXX--------25")
       
           const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
 
-          
+          const clickableTextUserMessage = makeLinksClickable(message.user_message)
           // Create user message content and style it to align on the right
           // <span class="user-id">User ID: ${message.user_id}</span>  taken out before timestamp
           const userMessageContent = `
@@ -3623,20 +4046,21 @@ console.log("---------XXX--------25")
               <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
               
               <div class="user-input">
-                ${message.user_message ? `${translation_Sent_User.User}: ${message.user_message}` : ''}
+                ${message.user_message ? `${translation_Sent_User.User}: ${clickableTextUserMessage}` : ''}
               </div>
 
-              ${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}
+              ${attachmentHtml ? `<div class="attachment-wrapper-user-message">${attachmentHtml}</div>` : ''}
             </div>
           `;
 
          
    console.log("-----------------21") 
+          const clickableTextAdmin = makeLinksClickable(message.admin_response)
           // Create admin message content and style it to align on the left
           const adminMessageContent = `
           <div class="admin-message">
             ${message.admin_response ? 
-              `<span class="admin-response"><strong>${adminDisplayName}:</strong> ${message.admin_response}</span>` 
+              `<span class="admin-response"><strong>${adminDisplayName}:</strong> ${clickableTextAdmin}</span>` 
               : `<span class="admin-response">${awaitingText}</span>`}
           </div>
         `;
@@ -3703,7 +4127,7 @@ console.log("-----------------26")
        
       
       // Create or update the message element in the chat box
-      // <span class="user-id">User ID: ${message.user_id}</span>  taken out before timestamp
+      const clickableTextUserMessage = makeLinksClickable(message.bot_message)
       const messageElement = document.createElement('div');
       messageElement.className = 'message';
       messageElement.innerHTML = `
@@ -3716,7 +4140,7 @@ console.log("-----------------26")
             ${
           message.bot_message === awaitingText || message.bot_message === 'Awaiting Admin Response...' 
           ? awaitingText 
-          : `<strong>Bot:</strong> ${message.bot_message}`}
+          : `<strong>Bot:</strong> ${clickableTextUserMessage}`}
            </span></div>` : ''}
       `;
 console.log("-----------------27")
@@ -4009,7 +4433,7 @@ console.log("-----------------35")
     console.log("-----------------36")
   }
   await new Promise(requestAnimationFrame);
-  chatBox.scrollTop = chatBox.scrollHeight;
+  scrollToBottom(chatBox);
   
 }
  
@@ -4049,27 +4473,85 @@ console.log("-----------------35")
 
 
 
+function checkAllAwaitingResponses() {
+  console.log("--- checkAllAwaitingResponses START ---");
+
+  // Loop through all tabs (assuming colleaguesChats is indexed)
+  Object.keys(colleaguesChats).forEach((tabIndex) => {
+    console.log("Checking tab:", tabIndex);
+
+    const tabContent = colleaguesChats[tabIndex];
+
+    if (!tabContent) {
+      console.warn("No tab content found:", tabIndex);
+      return;
+    }
+
+    const chatBoxes = Array.from(
+      tabContent.querySelectorAll(".chat-box")
+    );
+
+    console.log(`Tab ${tabIndex} chatBoxes:`, chatBoxes.length);
+
+    const hasAwaitingResponse = chatBoxes.some(box =>
+      box.classList.contains("awaiting-response")
+    );
+
+    console.log(`Tab ${tabIndex} has awaiting?`, hasAwaitingResponse);
+
+    const exclamationMark = document.querySelector(
+      `[data-tab-id="${tabIndex}"] .exclamation-mark`
+    );
+
+    if (!exclamationMark) {
+      console.warn("No exclamation mark found for tab:", tabIndex);
+      return;
+    }
+
+    exclamationMark.style.display = hasAwaitingResponse ? "block" : "none";
+  });
+
+  console.log("--- checkAllAwaitingResponses END ---");
+}
+
 
 
 
 function checkAwaitingResponse(tabIndex) {
-  // Access the `userRectangle` elements for the given tab
-  const rectangles = Array.from(rectangle[tabIndex]?.children || []);
-  // Check if any rectangle has the `awaiting-response` status
-  const hasAwaitingResponse = rectangles.some(rectangle => {
-      return rectangle.classList.contains('awaiting-response');
-  });
-  // Find the red exclamation mark element (modify selector as needed)
-  const exclamationMark = document.querySelector(`[data-tab-id="${tabIndex}"] .exclamation-mark`);
-  if (exclamationMark) {
-      if (hasAwaitingResponse) {
-          // Ensure the exclamation mark is visible
-          exclamationMark.style.display = 'block';
-      } else {
-          // Remove the exclamation mark if no awaiting-response exists
-          exclamationMark.style.display = 'none';
-      }
+  console.log("--- checkAwaitingResponse START ---");
+  console.log("tabindex: ")
+  console.log(tabIndex)
+  const tabContent = colleaguesChats[tabIndex];
+
+  if (!tabContent) {
+    console.warn("No tab content found:", tabIndex);
+    return;
   }
+
+  const chatBoxes = Array.from(
+    tabContent.querySelectorAll(".chat-box")
+  );
+
+  console.log("ChatBoxes found:", chatBoxes.length);
+
+  const hasAwaitingResponse = chatBoxes.some(box =>
+    box.classList.contains("awaiting-response")
+  );
+
+  console.log("Has awaiting?", hasAwaitingResponse);
+
+  const exclamationMark = document.querySelector(
+    `[data-tab-id="${tabIndex}"] .exclamation-mark`
+  );
+
+  if (!exclamationMark) {
+    console.warn("No exclamation mark found for tab:", tabIndex);
+    return;
+  }
+
+  exclamationMark.style.display = hasAwaitingResponse ? "block" : "none";
+
+  console.log("--- checkAwaitingResponse END ---");
 }
 
 
@@ -4457,16 +4939,50 @@ function t(key, language) {
   
 function getCurrentLanguage() {
   return localStorage.getItem('language') || 'hu';
+  
 }
 
 
-function switchToManualModeforOneUser(language, userId) {    // For The original rectangle initiated the manual / automatic response
+function switchToManualModeforOneUser_overallAutomatic(language, userId) {
+  const chatContainer = document.querySelector(
+    `.chat-container[data-user-id="${userId}"]`
+  );
+
+  if (!chatContainer) return;
+
+  const chatBox = chatContainer.querySelector('.chat-box_automatic, .chat-box');
+
+  if (chatBox) {
+    chatBox.classList.remove('chat-box_automatic');
+    chatBox.classList.add('chat-box');
+    chatBox.style.height = 'calc(100% - 60px)';
+  }
+
+  // 👇 reuse your existing full logic (IMPORTANT)
+  switchToManualModeforOneUser(language, userId);
+}
+
+
+
+
+function switchToManualModeforOneUser(language, userId, isTempAuto = false) {    // For The original rectangle initiated the manual / automatic response
   console.log("1*1*~")
 
+  const chatContainer = document.querySelector(
+  `.chat-container[data-user-id="${userId}"]`
+  );
+
+  if (!chatContainer) return;
+
+
+
   
-  const chatContainer = document.querySelector(`.chat-container[data-user-id="${userId}"]`);
-    // Get the chatBox within the chatContainer
-  const chatBox = chatContainer ? chatContainer.querySelector('.chat-box_automatic') : null;
+
+  if (isTempAuto) {
+    chatContainer.dataset.tempAuto = "true";
+  }
+  
+  const chatBox = chatContainer ? chatContainer.querySelector('.chat-box_automatic, .chat-box') : null;
   if (chatBox) {
     // Adjust the height to account for the admin response controls
     chatBox.style.height = 'calc(100% - 60px)';
@@ -4745,6 +5261,20 @@ function switchToManualModeforOneUser(language, userId) {    // For The original
             clearInterval(typingPingInterval);
             typingPingInterval = null;
           }
+
+          // here we remove response imput box in case: overall manual - autotab when we answered manually to message having awaiting text
+  
+
+          if (chatContainer?.dataset.tempAuto === "true") {
+            const controls = chatContainer.querySelector('.admin-response-controls');
+
+            if (controls) {
+              controls.remove(); 
+            }
+
+            delete chatContainer.dataset.tempAuto;
+          }
+  
        } catch (error) {
           console.error("Error in handleAdminResponse:", error);
        }
@@ -4760,6 +5290,8 @@ function switchToManualModeforOneUser(language, userId) {    // For The original
     }
  }
 
+ 
+
   sendButton.addEventListener('click', sendResponse);
 
   // Add 'Enter' key event listener for input box
@@ -4769,6 +5301,7 @@ function switchToManualModeforOneUser(language, userId) {    // For The original
       sendResponse();
     }
   });
+    
 }
 
 
@@ -4785,7 +5318,7 @@ function switchToManualModeforOneUser(language, userId) {    // For The original
 
 
 
-  function createChatBox_automatic(userId, tabContent) {
+function createChatBox_automatic(userId, tabContent) {
     // Create the container for the chatbox and response controls
     const chatContainer = document.createElement('div');
     chatContainer.className = 'chat-container';
@@ -4821,7 +5354,7 @@ function switchToManualModeforOneUser(language, userId) {    // For The original
 
 
 
-  function createChatBox(userId, tabContent, tabIndex) {
+function createChatBox(userId, tabContent, tabIndex) {
 
     const language = localStorage.getItem("language") || "hu"; // Default to Hungarian
     const sendText = language === "hu" ? "Küldés" : "Send Response";
@@ -4842,164 +5375,296 @@ function switchToManualModeforOneUser(language, userId) {    // For The original
     // Create the admin response controls to be fixed at the bottom
     const adminResponseControls = document.createElement('div');
     adminResponseControls.className = 'admin-response-controls';
+    // Check selected language and set appropriate text
+
     adminResponseControls.innerHTML = `
-      <textarea class="manual-response" placeholder="${placeholderText}" ></textarea>
-      <div class="file-upload-wrapper">
-        <input type="file" accept="image/*" id="file-input-${userId}" hidden>
-        <button type="button" class="attach-file material-symbols-rounded" title="Attach file">attach_file</button>
-      </div>
-      <button class="send-response" >${sendText}</button>
+      <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" class="admin-file-input" hidden>
+      <textarea class="manual-response" placeholder="${placeholderText}"></textarea>
+      <button type="button" class="admin-attach-btn">
+        <span class="material-symbols-rounded">attach_file</span>
+        <div class="preview-wrapper">
+          <img src="#" class="admin-attach-preview">
+          <span class="preview-cancel material-symbols-rounded">close</span>
+        </div>
+      </button>
+      <button class="send-response">${sendText}</button>
     `;
+
+    // Handle file selection & preview
+
     adminResponseControls.style.display = 'flex';
     adminResponseControls.style.alignItems = 'flex-start';
+    if (!chatContainer.querySelector('.admin-response-controls')) {
     chatContainer.appendChild(adminResponseControls);
+  }
 
-      // Image preview container
-    const previewContainer = document.createElement('div');
-    previewContainer.className = 'image-preview-container';
-    previewContainer.style.display = 'flex';
-    previewContainer.style.flexWrap = 'wrap';
-    previewContainer.style.marginTop = '5px';
-    adminResponseControls.appendChild(previewContainer);
+
 
     
+
     // Add click event listener to send the response
     const responseInput = adminResponseControls.querySelector('.manual-response');
     const sendButton = adminResponseControls.querySelector('.send-response');
-    const fileInput = adminResponseControls.querySelector(`#file-input-${userId}`);
-    const attachButton = adminResponseControls.querySelector('.attach-file');
+
+
+
+    const fileInput = adminResponseControls.querySelector('.admin-file-input');
+    const attachBtn = adminResponseControls.querySelector('.admin-attach-btn');
+    const attachIcon = attachBtn.querySelector('span');
+    const previewWrapper = attachBtn.querySelector('.preview-wrapper');
+    const previewImg = adminResponseControls.querySelector('.admin-attach-preview');
+    const cancelBtn = attachBtn.querySelector('.preview-cancel');
+
+    // Store uploaded attachment info
+    let adminAttachment = { data: null, mime_type: null };
+    let isUploading = false;
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    const ALLOWED_TYPES = [
+      "image/jpeg","image/png","image/gif",
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ];
+
+    // Auto-expand textarea
+    responseInput.style.overflowY = 'hidden';
+    responseInput.style.resize = 'none';
+    responseInput.style.height = '30px';
+    responseInput.addEventListener('input', function() {
+      this.style.height = '30px';
+      if (this.scrollHeight > this.clientHeight) this.style.height = this.scrollHeight + 'px';
+    });
+
+    // Open file dialog
+    attachBtn.addEventListener('click', () => fileInput.click());
+
+    // Copy pasting
+    responseInput.addEventListener("paste", async (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+
+          // If this is an image (screenshot)
+          if (item.type.startsWith("image/")) {
+              e.preventDefault(); // don't paste as base64
+
+              const file = item.getAsFile();
+              if (file) {
+                  // Feed the file to the existing file input
+                  const dt = new DataTransfer();
+                  dt.items.add(file);
+                  fileInput.files = dt.files;
+
+                  // Trigger your existing 'change' listener
+                  fileInput.dispatchEvent(new Event('change'));
+              }
+              return; // stop further processing for this paste
+          }
+      }
+  });
+
+
+    // Handle file selection & preview
+    fileInput.addEventListener('change', async (e) => {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        showTempMessage(t("invalidFormat", getCurrentLanguage()), adminResponseControls);
+        return;
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        showTempMessage(t("fileTooLarge", getCurrentLanguage()), adminResponseControls);
+        return;
+      }
+
+      isUploading = true;
+
+      // Determine preview image and border radius
+      if (file.type.startsWith('image/')) {
+        previewImg.src = URL.createObjectURL(file);
+        previewImg.style.borderRadius = '50%'; // circle for images
+      } else if (file.type.includes('pdf')) {
+        previewImg.src = '/static/pdf.png';
+        previewImg.style.borderRadius = '0%'; // square for files
+        previewImg.style.width = '30px';
+        previewImg.style.height = '38px';
+    
+      } else if (file.type.includes('word')) {
+        previewImg.src = '/static/word.png';
+        previewImg.style.borderRadius = '0%';
+        previewImg.style.width = '35px';
+        previewImg.style.height = '38px';
+    
+      } else if (file.type.includes('excel') || file.type.includes('spreadsheetml')) {
+        previewImg.src = '/static/excel.png';
+        previewImg.style.borderRadius = '0%';
+        previewImg.style.width = '34px';
+        previewImg.style.height = '38px';
+
+      } else {
+        previewImg.src = '/static/file.png';
+        previewImg.style.borderRadius = '0%';
+        previewImg.style.width = '34px';
+        previewImg.style.height = '38px';
+  
+      }
+
+      previewWrapper.style.display = "block";
+      attachIcon.style.display = 'none'; // hide icon
+      
+
+      cancelBtn.addEventListener("click", (e) => {
+        e.stopPropagation(); // prevent file picker
+
+        adminAttachment = { data: null, mime_type: null };
+
+        previewImg.src = "#";
+        previewWrapper.style.display = "none";
+        attachIcon.style.display = "block";
+
+        fileInput.value = "";
+      });
+
+      let uploadingMsg = showTempMessage(t("uploadInProgress", getCurrentLanguage()), adminResponseControls);
+
+      try {
+        // Upload to backend → get permanent URL
+        const permanentUrl = await uploadFileorImage(file, userId);
+
+        // Replace image preview with permanent URL if image
+        if (file.type.startsWith('image/')) previewImg.src = permanentUrl;
+
+        // Store uploaded file info
+        adminAttachment = {
+          data: permanentUrl,
+          mime_type: file.type
+        };
+        if (uploadingMsg) uploadingMsg.remove();
+        showTempMessage(t("uploadSuccess", getCurrentLanguage()), adminResponseControls);
+      } catch (err) {
+        console.error("Upload failed:", err);
+        previewImg.alt = "Upload failed";
+        adminAttachment = { data: null, mime_type: null };
+        showTempMessage(t("uploadFailed", getCurrentLanguage()), adminResponseControls);
+      } finally {
+        isUploading = false;
+        URL.revokeObjectURL(file);
+      }
+    });
+
+
+
 
 
     // Set the initial height and style of the textarea
     responseInput.style.overflowY = 'hidden'; // Hide vertical scrollbar
     responseInput.style.resize = 'none'; // Prevent manual resizing
     responseInput.style.height = '30px'; // Set an initial height (min-height)
+    
 
+    // sendning FREEZE INFO when starting typing:
+
+    let typingStarted = false;
+    let typingPingInterval = null;
     // Auto-expand the textarea only when it exceeds the initial height
     responseInput.addEventListener('input', function () {
       this.style.height = '30px'; // Reset the height to the initial value
       if (this.scrollHeight > this.clientHeight) {
         this.style.height = (this.scrollHeight) + 'px'; // Expand if the content overflows
       }
-    });
+      
+      // -------- TYPING START --------
+      if (!typingStarted && this.value.trim() !== "") {
 
-    // Track uploaded image URLs
-  // Track uploaded image URLs
-  const uploadedImages = [];
+        typingStarted = true;
+        console.log("TYping?????")
+        socket.emit("admin_typing_start", {
+          user_id: userId,
+          admin_name: admin_name
+        });
+        console.log("TYping????? megvolt")
+        // keep lock alive
+        if (typingPingInterval) clearInterval(typingPingInterval);
 
-  // --- Helper: Process a single pasted image ---
-  async function processImage(blob) {
-    const localUrl = URL.createObjectURL(blob); // When you paste an image, the browser gives you a Blob — an in-memory binary representation of the image.
-                                                // creates a temporary local URL, e.g.:blob:http://localhost:3000/51b4d56e-1234-48c0-9b7e-1f3420f9ea91
-                                                // allows you to display the image instantly
+        typingPingInterval = setInterval(() => {
+          socket.emit("admin_typing_ping", {
+            user_id: userId,
+            admin_name: admin_name
+          });
+        }, 3000);
 
-    // Show preview
-    const preview = document.createElement('img');
-    preview.src = localUrl;
-    preview.className = 'chat-image-preview';
-    preview.style.maxWidth = '150px';
-    preview.style.maxHeight = '150px';
-    preview.style.marginRight = '5px';
-    preview.style.marginTop = '5px';
-    preview.style.borderRadius = '6px';
-    previewContainer.appendChild(preview);
-
-    sendButton.disabled = true;
-    try {
-      const imageUrl = await uploadImage(blob); //blob is sent to the backend, which saves it and returns a permanent URL not just temporary what URL.createObjectURL(blob) did
-      uploadedImages.push(imageUrl);
-    } catch (err) {
-      console.error(err);
-      preview.alt = 'Upload failed';
-    } finally {
-      sendButton.disabled = false;
-      URL.revokeObjectURL(localUrl);
-    }
-  }
-
-  // --- Attach button opens file dialog ---
-  attachButton.addEventListener('click', () => {
-    fileInput.click();
-  });
-
-  // --- Handle file selection ---
-  fileInput.addEventListener('change', async (event) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-    for (const file of files) {
-      if (file.type.startsWith('image/')) {
-        await processImage(file);
-      } else {
-        alert("Only image files are supported right now.");
       }
-    }
-    fileInput.value = ''; // Reset input
-  });
 
-  // --- Handle paste events (for screenshots) --- etects pasted images (like from screenshots or Ctrl+V from clipboard)
-  responseInput.addEventListener('paste', async (event) => {
-    const items = event.clipboardData?.items; // lists all items in the clipboard (text, files, images, etc). It loops through each one, checking item.type — for example "image/png" or "text/plain".
-    if (!items) return;
-
-    for (const item of items) {
-      if (item.type.startsWith('image/')) {  // If an image is found: It prevents the browser from inserting the image data as raw text (base64). It calls item.getAsFile() to convert it to a Blob. It passes it to processImage(blob), which shows a preview and uploads it.
-        event.preventDefault();
-        const blob = item.getAsFile();
-        await processImage(blob);
+      // -------- TYPING STOP IF CLEARED --------
+      if (typingStarted && this.value.trim() === "") {
+        socket.emit("admin_typing_stop", { user_id: userId, admin_name: admin_name });
+        typingStarted = false;
+        if (typingPingInterval) { clearInterval(typingPingInterval); typingPingInterval = null; }
       }
-    }
-  });
 
-  // --- drag & drop image support ---
-  responseInput.addEventListener('drop', async (event) => {
-    event.preventDefault();
-    for (const file of event.dataTransfer.files) {
-      if (file.type.startsWith('image/')) {
-        await processImage(file);
-      }
-    }
-  });
+      // Optional blur stop
+      responseInput.addEventListener("blur", () => {
+        if (!typingStarted) return;
+        socket.emit("admin_typing_stop", { user_id: userId, admin_name: admin_name });
+        typingStarted = false;
+        if (typingPingInterval) { clearInterval(typingPingInterval); typingPingInterval = null; }
+      });
+        });
 
   // --- Send text + uploaded images ---
   async function sendResponse() {
     const response = responseInput.value.trim();
-    if (!response && uploadedImages.length === 0) return;
+    if (isUploading) {
+      showTempMessage(t("uploadInProgress", getCurrentLanguage()), adminResponseControls);
+      return;
+    }
 
-    const timestamp = new Date().toISOString();
 
-    try {
-      sendButton.disabled = true;
+    if (response || (adminAttachment && adminAttachment.data)) {
+      const timestamp = new Date().toISOString();
+  
+      try {
+        sendButton.disabled = true;
+        const adminDisplayName = admin_name || "Admin";
 
-      // Emit via socket
-      socket.emit('admin_response_manual_for_logging', {
-        user_id: userId,
-        response,
-        image_urls: uploadedImages,
-        tabIndex,
-        timestamp
-      });
+        // Emit via socket
+        socket.emit('admin_response_manual_for_logging', {
+          user_id: userId,
+          response,
+          Attachment: adminAttachment,
+          tabIndex,
+          timestamp
+        });
 
-      // Display locally
-      await handleAdminResponse(
-        chatBox,
-        response,
-        counterForManualModeAddMessage[tabIndex][userId],
-        timestamp,
-        uploadedImages
-      );
+        // Display locally
+        await handleAdminResponse(chatBox, response, counterForManualModeAddMessage[tabIndex][userId], timestamp, adminAttachment, adminDisplayName);
+        socket.emit("admin_typing_stop", { user_id: userId, admin_name: admin_name });
+        if (typingPingInterval) {
+            clearInterval(typingPingInterval);
+            typingPingInterval = null;
+          }
 
-      // Reset input + previews
-      responseInput.value = '';
-      responseInput.style.height = '30px';
-      uploadedImages.length = 0;
-      previewContainer.innerHTML = '';
-    } catch (error) {
-      console.error("Error in handleAdminResponse:", error);
-    } finally {
-      sendButton.disabled = false;
+        // Reset input + previews
+        responseInput.value = '';
+        responseInput.style.height = '30px';
+        adminAttachment = { data: null, mime_type: null };
+        previewImg.src = '#';
+        previewWrapper.style.display = 'none';
+        attachIcon.style.display = 'block';
+        fileInput.value = '';
+      } catch (error) {
+        console.error("Error in handleAdminResponse:", error);
+      } finally {
+        sendButton.disabled = false;
+      }
     }
   }
-
   // --- Button + keyboard shortcuts ---
   sendButton.addEventListener('click', sendResponse);
   responseInput.addEventListener('keydown', (event) => {
@@ -5040,6 +5705,8 @@ async function uploadImage(blob) {
   return data.image_url; // Azure public URL
 }
   
+
+
 
 async function handleAdminResponse(chatBox, response, optionalParam = null, timestamp=null, attachment=null, adminDisplayName=null) {
 
@@ -5087,17 +5754,34 @@ async function handleAdminResponse(chatBox, response, optionalParam = null, time
       // }
       // }
         const sessionId = chatBox.dataset.sessionId;
+
+
+        let finalUserMessage;
+
+        if (attachment) {
+          console.log("USING ATTACHMENT BRANCH");
+          finalUserMessage = JSON.stringify({ text: userMessage, attachment });
+          console.log(finalUserMessage)
+        } else {
+          console.log("NO ATTACHMENT BRANCH");
+          finalUserMessage = userMessage;
+          console.log(finalUserMessage)
+        }
         
         const latestMessage = {
             timestamp: ts,
-            user_message: attachment ? JSON.stringify({ text: userMessage, attachment }) : userMessage,
+            user_message: finalUserMessage,
             admin_response: response,
             user_id: sessionId,
             attachment: attachment || null, // top-level attachment for convenience
             admin_name:adminDisplayName
         };
-                console.log("LAATESTMESSAGE")
+        
+        console.log("LAATESTMESSAGE")
         console.log(latestMessage)
+        console.log("LATEST USER MESSAGE")
+        console.log(latestMessage.user_message)
+        console.log("finalMessage:", finalUserMessage);
         console.log("timestamp")
         console.log(timestamp)
         console.log("awaitingMessageElement")
@@ -5106,8 +5790,9 @@ async function handleAdminResponse(chatBox, response, optionalParam = null, time
         let a=counterForAddAdminMessage[chatBox.dataset.sessionId]>0
         console.log(a)
        
-        appendMessage(latestMessage);
     
+        appendMessage(latestMessage);
+     
 
         // Send the response to the server via WebSocket
         const message = {
@@ -5287,6 +5972,8 @@ function addColleagueTab(tabData){
 }
 
 function addColleague() {
+  
+  
   const addColleagueInput = document.getElementById('add-colleague');
   const colleagueName = addColleagueInput.value.trim();
   const tabsData = [];
@@ -5295,7 +5982,7 @@ function addColleague() {
     // socket.emit('add_colleague', colleagueName);
     // Create a new tab
     const uniqueId = `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-   
+    overallTabModes[uniqueId] = 'manual';
     // Add tab data to the array
     tabsData.push({ colleagueName, uniqueId });
     // Create a tab
@@ -5317,6 +6004,48 @@ function addColleague() {
     tabName.style.fontSize = 'clamp(7px, 0.8vw, 12px)';
     tab.appendChild(tabName);
 
+    const language = localStorage.getItem('language') || 'hu';
+
+      // Robot button (manual mode)
+    const robotButton = document.createElement('button');
+    robotButton.type = 'button';
+    robotButton.className = 'material-symbols-rounded robot-button';
+    robotButton.textContent = 'smart_toy'; 
+    robotButton.style.cursor = 'pointer';
+    robotButton.style.fontSize = 'clamp(14px, 0.9vw, 18px)';
+    robotButton.style.marginLeft = '8px';
+    robotButton.style.background = 'transparent';
+    robotButton.style.border = 'none';
+    robotButton.style.color = '#eeeeeeff'; // inactive by default (we start in manual)
+    robotButton.setAttribute('data-lang-title', 'robotMode');
+
+    robotButton.onclick = (e) => {
+      e.stopPropagation();
+      setOverallMode(uniqueId, 'automatic', agentButton, robotButton);
+    };
+
+    robotButton.title = translations[language]['robotMode'];
+
+    const agentButton = document.createElement('button');
+    agentButton.type = 'button';
+    agentButton.className = 'material-symbols-rounded agent-button';
+    agentButton.textContent = 'support_agent';
+    agentButton.style.cursor = 'pointer';
+    agentButton.style.fontSize = 'clamp(14px, 0.9vw, 18px)';
+    agentButton.style.marginLeft = '4px';
+    agentButton.style.background = 'transparent';
+    agentButton.style.border = 'none';
+    agentButton.style.color = '#8bd8aeff'; // green = active (we start in manual)
+    agentButton.setAttribute('data-lang-title', 'agentMode');
+
+    agentButton.onclick = (e) => {
+      e.stopPropagation();
+      setOverallMode(uniqueId, 'manual', agentButton, robotButton);
+    };
+
+   
+    agentButton.title = translations[language]['agentMode'];
+
     const exclamationMark = document.createElement('span');
     exclamationMark.classList.add('exclamation-mark');
     exclamationMark.textContent = '!';
@@ -5326,6 +6055,8 @@ function addColleague() {
     exclamationMark.style.fontWeight = 'bold';
     exclamationMark.style.fontSize = 'clamp(7px, 0.8vw, 12px)';
 
+    tab.appendChild(robotButton);
+    tab.appendChild(agentButton);
     tab.appendChild(exclamationMark);
 
     tab.onclick = () => showTab(uniqueId);
@@ -5394,7 +6125,7 @@ function addColleague() {
     // Create Grid Layout for Tab Content with 2 rows and 3 columns
     const topRow = document.createElement('div');
     topRow.classList.add('top-row');
-    const language = localStorage.getItem('language') || 'hu';
+   
     const topLeftSection = document.createElement('div');
     topLeftSection.classList.add('top-left-section');
     // topLeftSection.textContent = 'Customers';
@@ -5498,166 +6229,11 @@ function extractLocationData(innerText, targetUserId) {
   return locations[targetUserId] || null;
 }
 
-const exampleText = `
-User-ID\n11\n Longitude\nNo ha\n Latitude\nNo rh\n Location\nNo rrr
+// const exampleText = `
+// User-ID\n11\n Longitude\nNo ha\n Latitude\nNo rh\n Location\nNo rrr
 
-`;
+// `;
 
-
-function removeColleague() {
-  const removeColleagueInput = document.getElementById('remove-colleague');
-  const colleagueName = removeColleagueInput.value.trim();
-  if (colleagueName) {
-    socket.emit('remove_colleague', { colleagueName: colleagueName, timestamp: new Date().toISOString() });
-    removeColleagueInput.value = '';
-    const tabs = document.querySelectorAll('.tab');
-    let tabIndex = -1;
-    let uniqueTabId=-1
-    // Find the index of the tab with the matching colleague name
-    tabs.forEach((tab, index) => {
-        if (tab.dataset.name === colleagueName) {
-            tabIndex = index;
-            uniqueTabId=tab.dataset.tabId;
-        }
-    });
-
-    if (uniqueTabId !== -1) {
-        
-      // Gather the chat content of the colleague being removed
-      const chatsToDistribute = colleaguesChats[uniqueTabId]?.innerHTML || '';
-      const locationsToDistribute = locations[uniqueTabId]?.innerHTML || '';
-      // Remove the tab and its content
-      const tab = document.querySelector(`.tab[data-tab-id="${uniqueTabId}"]`);
-      tabsContainer.removeChild(tab);
-      const contents = document.querySelectorAll('.tab-content');
-      const contentToRemove = document.querySelector(`.tab-content[data-tab-index="${uniqueTabId}"]`);
-      tabContentsContainer.removeChild(contentToRemove);
-      // Update the data structures
-      delete colleaguesChats[uniqueTabId];
-      delete rectangle[uniqueTabId];
-      delete locations[uniqueTabId];
-
-
-       // Handle tab switch if the active tab was removed
-      if (tab.classList.contains('active')) {
-        // If the removed tab was the active tab, select another tab
-        if (tabs.length > 1) {
-          const newTabIndex = (tabIndex === 0) ? 1 : tabIndex - 1; // Go to the previous tab if possible, else next
-          const newActiveTab = tabs[newTabIndex];
-          showTab(newActiveTab.dataset.tabId);
-        } else {
-          // If this was the last tab, clear the content display
-          tabContentsContainer.innerHTML = '';
-        }
-      }    
-      if (chatsToDistribute) {
-        try {
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(chatsToDistribute, 'text/html');
-          
-          // Select all chat containers
-          const chatContainers = doc.querySelectorAll('.chat-container');
-          
-          chatContainers.forEach((chatContainer) => {
-            const chatBoxes = chatContainer.querySelectorAll('.chat-box'); // Select all chat-boxes inside the chatContainer
-            let counter = 0
-            chatBoxes.forEach((chatBox) => {
-              const messages = chatBox.querySelectorAll('.message'); // Select all messages within the chatBox
-              let counter = 0
-              messages.forEach((message, index) => {
-                counter++; 
-                const messageData = {
-                  timestamp: null,
-                  user_id: null,
-                  user_message: null,
-                  admin_response: null,
-                  latitude: null,
-                  longitude: null,
-                  location: null,
-                  flag: "deleted",
-                  awaiting: null,
-                  name: colleagueName,
-                  message_number: counter
-                };
-    
-                // Extract data from the message element
-                const userId_ = chatContainer.getAttribute('data-user-id');
-                messageData.user_id = userId_;
-    
-                // Find the timestamp
-                const timestampElement = message.querySelector('.timestamp');
-                //const timestamp_ = timestampElement ? timestampElement.textContent.replace('Sent at: ', '').trim() : '';
-                const timestamp_ = timestampElement ? timestampElement.textContent.replace(/^(Sent at: |A küldés ideje: )/, '').trim() : '';
-
-                messageData.timestamp = timestamp_;
-    
-                // Find the user message
-                const userMessageElement = message.querySelector('.user-input');
-                //const userMessage_ = userMessageElement ? userMessageElement.textContent.replace('User: ', '').trim() : '';
-                const userMessage_ = userMessageElement ? userMessageElement.textContent.replace(/^(User: |Ügyfél: )/, '').trim() : '';
-
-                messageData.user_message = userMessage_;
-    
-                // Find the admin response
-                const adminResponseElement = message.querySelector('.admin-response');
-                let adminMessage_ = adminResponseElement ? adminResponseElement.textContent.trim() : '';
-                // Check if the admin message starts with 'Admin:'
-                // if (adminMessage_.startsWith('Admin:')) {
-                //   // Remove 'Admin:' from the start of the string
-                //   adminMessage_ = adminMessage_.substring(6).trim(); // Removes 'Admin:' and trims any leading space
-                // }
-                messageData.admin_response = adminMessage_;
-                const isLastMessage = index === messages.length - 1;
-                if (isLastMessage) {
-                  // If it's the last message, check if chatBox has the 'awaiting-response' attribute
-                  if (chatBox.classList.contains('awaiting-response')) {
-                    messageData.awaiting = true;
-                  } else {
-                    messageData.awaiting = false;
-                  }
-                } else {
-                  // For all other messages, set awaiting to false
-                  messageData.awaiting = false;
-                }
-
-
-
-                // Process location data
-                if (locationsToDistribute) {
-                  const parser = new DOMParser();
-                  const doc = parser.parseFromString(locationsToDistribute, 'text/html');
-                  const locationBoxes = doc.querySelectorAll('.location-box');
-  
-                  locationBoxes.forEach((box) => {
-                    const userId = box.getAttribute('data-user-id');
-                    if (userId === userId_) {
-                      const longitudeElement = box.querySelector('i.fa-arrows-left-right').parentElement.nextElementSibling;
-                      const latitudeElement = box.querySelector('i.fa-arrows-up-down').parentElement.nextElementSibling;
-                      const locationElement = box.querySelector('i.fa-location-dot').parentElement.nextElementSibling;
-
-                      messageData.longitude = longitudeElement ? longitudeElement.textContent.trim() : 'No Data';
-                      messageData.latitude = latitudeElement ? latitudeElement.textContent.trim() : 'No Data';
-                      messageData.location = locationElement ? locationElement.textContent.trim() : 'No Data';
-                      }
-                    });
-                  }
-                  // Append the message data
-                  appendMessage(messageData);
-                });
-            });
-        });
-          
-        } catch (error) {
-            console.error("Error while processing messages:", error);
-        }
-
-        
-
-      }
-   
-    }
-  }
-}
 
 function getTabName(tabId) {
   // Find the tab element by its data-tab-id
@@ -5677,101 +6253,6 @@ function getTabName(tabId) {
   }
 }
 
-function manageRectangleDragAndDrop(userId, fromTab, toTab) {
-  // Locate the rectangle in the source tab
-  const rectangleToMove = rectangle[fromTab]?.querySelector(`[data-user-id="${userId}"]`);
-  const chatToMove = colleaguesChats[fromTab]?.querySelector(`[data-user-id="${userId}"]`);
-  const locationToMove = locations[fromTab]?.querySelector(`[data-user-id="${userId}"]`);
-
-  const fromTabContent = document.querySelector(`.tab-content[data-tab-index="${fromTab}"]`);
-  const chatContainer = fromTabContent.querySelector(`.chat-container[data-user-id="${userId}"]`);
-  const locationBox = fromTabContent.querySelector(`.location-box[data-user-id="${userId}"]`);
-
-  if (!rectangleToMove || !chatToMove || !locationToMove) {
-      
-      console.error('Unable to find rectangle, chat, or location box for userId:', userId);
-      return;
-  }
-
-  // Remove the rectangle from the source tab
-  rectangle[fromTab]?.removeChild(rectangleToMove);
-
-  // Remove the chat container from the source tab
-  colleaguesChats[fromTab]?.removeChild(chatToMove);
-
-  // Remove the location box from the source tab
-  locations[fromTab]?.removeChild(locationToMove);
-
-  
-  if (chatContainer) {
-    const chatBoxes = chatContainer.querySelectorAll('.chat-box'); // Select chat-boxes in the container
-    
-    chatBoxes.forEach((chatBox) => {
-        const messages = chatBox.querySelectorAll('.message'); // Select all messages within the chatBox
-        let counter = 0  
-        messages.forEach((message, index) => {
-            counter++;
-            const messageData = {
-                timestamp: null,
-                user_id: userId,
-                user_message: null,
-                admin_response: null,
-                latitude: null,
-                longitude: null,
-                location: null,
-                flag: "deleted", // Set to "dragged" as part of the operation
-                awaiting: null,
-                name: getTabName(fromTab),
-                message_number: counter
-            };
-
-            // Extract the timestamp
-            const timestampElement = message.querySelector('.timestamp');
-            //messageData.timestamp = timestampElement ? timestampElement.textContent.replace('Sent at: ', '').trim() : '';
-            messageData.timestamp = timestampElement ? timestampElement.textContent.replace(/^(Sent at: |A küldés ideje: )/, '').trim() : '';
-
-
-            // Extract the user message
-            const userMessageElement = message.querySelector('.user-input');
-            //messageData.user_message = userMessageElement ? userMessageElement.textContent.replace('User: ', '').trim() : '';
-            messageData.user_message = userMessageElement ? userMessageElement.textContent.replace(/^(User: |Ügyfél: )/, '').trim() : '';
-
-
-            // Extract the admin response
-            const adminResponseElement = message.querySelector('.admin-response');
-            messageData.admin_response = adminResponseElement ? adminResponseElement.textContent.trim() : '';
-
-            // Determine if this is the last message and its awaiting status
-            const isLastMessage = index === messages.length - 1;
-            if (isLastMessage) {
-                messageData.awaiting = chatBox.classList.contains('awaiting-response');
-            } else {
-                messageData.awaiting = false;
-            }
-
-            // Extract location data if available
-            
-            if (locationBox) {
-                const longitudeElement = locationBox.querySelector('i.fa-arrows-left-right').parentElement.nextElementSibling;
-                const latitudeElement = locationBox.querySelector('i.fa-arrows-up-down').parentElement.nextElementSibling;
-                const locationElement = locationBox.querySelector('i.fa-location-dot').parentElement.nextElementSibling;
-
-                messageData.longitude = longitudeElement ? longitudeElement.textContent.trim() : 'No Data';
-                messageData.latitude = latitudeElement ? latitudeElement.textContent.trim() : 'No Data';
-                messageData.location = locationElement ? locationElement.textContent.trim() : 'No Data';
-            }
-            // Process or append the messageData as needed
-            //appendMessageSavedStates(messageData, toTab);
-            
-            appendMessageSavedStates(messageData, toTab, fromTab);
-        });
-    });
-
-    
-  }
-
- 
-}
 
 function cleanObjectsButKeepZero() {   // clear the conent expect the core 0 elements, in order that mode change you can display earlier conversations
   for (const key in Chats_automatic) {
@@ -5839,11 +6320,11 @@ function handleModeSwitch() {
       // Show the container and apply styles
       tabsInputContainer.classList.add('visible');
       tabsInputContainer.style.display = 'flex';
-      tabsInputContainer.style.padding = '0.9%';
+      tabsInputContainer.style.padding = '0.7%';
       tabsInputContainer.style.backgroundColor = 'rgba(30, 30, 30, 0.7)';
       tabsInputContainer.style.borderRadius = '10px';
       tabsInputContainer.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
-      tabsInputContainer.style.marginBottom = '10px';
+      tabsInputContainer.style.marginBottom = '7px';
       tabContainer.style.height = '70vh';
 
 
@@ -5910,8 +6391,8 @@ function handleModeSwitch() {
        const calculatedFontSize = viewportWidth * 0.02; // Example ratio: 4% of viewport width
      
        // Define minimum and maximum font size
-       const minFontSize = 10; // Minimum font size (in px)
-       const maxFontSize = 14; // Maximum font size (in px)
+       const minFontSize = 8; // Minimum font size (in px)
+       const maxFontSize = 9; // Maximum font size (in px)
      
        // Apply the responsive font size with the min and max limits
        const fontSize = Math.min(Math.max(calculatedFontSize, minFontSize), maxFontSize);
@@ -6057,8 +6538,8 @@ function handleModeSwitch() {
          const calculatedFontSize = viewportWidth * 0.02; // Example ratio: 4% of viewport width
        
          // Define minimum and maximum font size
-         const minFontSize = 10; // Minimum font size (in px)
-         const maxFontSize = 14; // Maximum font size (in px)
+         const minFontSize = 8; // Minimum font size (in px)
+         const maxFontSize = 9; // Maximum font size (in px)
        
          // Apply the responsive font size with the min and max limits
          const fontSize = Math.min(Math.max(calculatedFontSize, minFontSize), maxFontSize);
@@ -6726,8 +7207,8 @@ function editTabCreation(){
     const calculatedFontSize = viewportWidth * 0.02; // Example ratio: 4% of viewport width
 
     // Define minimum and maximum font size
-    const minFontSize = 10; // Minimum font size (in px)
-    const maxFontSize = 14; // Maximum font size (in px)
+    const minFontSize = 8; // Minimum font size (in px)
+    const maxFontSize = 9; // Maximum font size (in px)
 
     // Apply the responsive font size with the min and max limits
     const fontSize = Math.min(Math.max(calculatedFontSize, minFontSize), maxFontSize);
@@ -6759,6 +7240,7 @@ function editTabCreation(){
 
 
 function updateAdminIntervention_response_ManualMode(data){
+      console.log("ADMININTERVENTION UPDATE")
 
       let attachmentHtml = '';
 
@@ -6964,8 +7446,8 @@ function updateModeUI(mode) {
       const calculatedFontSize = viewportWidth * 0.02; // Example ratio: 4% of viewport width
     
       // Define minimum and maximum font size
-      const minFontSize = 10; // Minimum font size (in px)
-      const maxFontSize = 14; // Maximum font size (in px)
+      const minFontSize = 8; // Minimum font size (in px)
+      const maxFontSize = 9; // Maximum font size (in px)
     
       // Apply the responsive font size with the min and max limits
       const fontSize = Math.min(Math.max(calculatedFontSize, minFontSize), maxFontSize);
@@ -7100,8 +7582,8 @@ function updateModeUI(mode) {
           const calculatedFontSize = viewportWidth * 0.02; // Example ratio: 4% of viewport width
         
           // Define minimum and maximum font size
-          const minFontSize = 10; // Minimum font size (in px)
-          const maxFontSize = 14; // Maximum font size (in px)
+          const minFontSize = 8; // Minimum font size (in px)
+          const maxFontSize = 9; // Maximum font size (in px)
         
           // Apply the responsive font size with the min and max limits
           const fontSize = Math.min(Math.max(calculatedFontSize, minFontSize), maxFontSize);
@@ -7253,8 +7735,8 @@ async function updateModeUI_promise(mode) {
       const calculatedFontSize = viewportWidth * 0.02; // Example ratio: 4% of viewport width
     
       // Define minimum and maximum font size
-      const minFontSize = 10; // Minimum font size (in px)
-      const maxFontSize = 14; // Maximum font size (in px)
+      const minFontSize = 8; // Minimum font size (in px)
+      const maxFontSize = 9; // Maximum font size (in px)
     
       // Apply the responsive font size with the min and max limits
       const fontSize = Math.min(Math.max(calculatedFontSize, minFontSize), maxFontSize);
@@ -7389,8 +7871,8 @@ async function updateModeUI_promise(mode) {
           const calculatedFontSize = viewportWidth * 0.02; // Example ratio: 4% of viewport width
         
           // Define minimum and maximum font size
-          const minFontSize = 10; // Minimum font size (in px)
-          const maxFontSize = 14; // Maximum font size (in px)
+          const minFontSize = 8; // Minimum font size (in px)
+          const maxFontSize = 9; // Maximum font size (in px)
         
           // Apply the responsive font size with the min and max limits
           const fontSize = Math.min(Math.max(calculatedFontSize, minFontSize), maxFontSize);
@@ -7973,108 +8455,156 @@ function updateAdminIntervention_fornewlyjoined(userId, stateparameter){
     });
 
 
-      // Handle file selection & preview
-      fileInput.addEventListener('change', async (e) => {
-        const file = fileInput.files[0];
-        if (!file) return;
+    // Handle file selection & preview
+    fileInput.addEventListener('change', async (e) => {
+      const file = fileInput.files[0];
+      if (!file) return;
 
-        if (!ALLOWED_TYPES.includes(file.type)) {
-          showTempMessage(t("invalidFormat", getCurrentLanguage()), adminResponseControls);
-          return;
-        }
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        showTempMessage(t("invalidFormat", getCurrentLanguage()), adminResponseControls);
+        return;
+      }
 
-        if (file.size > MAX_FILE_SIZE) {
-          showTempMessage(t("fileTooLarge", getCurrentLanguage()), adminResponseControls);
-          return;
-        }
+      if (file.size > MAX_FILE_SIZE) {
+        showTempMessage(t("fileTooLarge", getCurrentLanguage()), adminResponseControls);
+        return;
+      }
 
-        isUploading = true;
+      isUploading = true;
 
-        // Determine preview image and border radius
-        if (file.type.startsWith('image/')) {
-          previewImg.src = URL.createObjectURL(file);
-          previewImg.style.borderRadius = '50%'; // circle for images
-        } else if (file.type.includes('pdf')) {
-          previewImg.src = '/static/pdf.png';
-          previewImg.style.borderRadius = '0%'; // square for files
-          previewImg.style.width = '30px';
-          previewImg.style.height = '38px';
-      
-        } else if (file.type.includes('word')) {
-          previewImg.src = '/static/word.png';
-          previewImg.style.borderRadius = '0%';
-          previewImg.style.width = '35px';
-          previewImg.style.height = '38px';
-      
-        } else if (file.type.includes('excel') || file.type.includes('spreadsheetml')) {
-          previewImg.src = '/static/excel.png';
-          previewImg.style.borderRadius = '0%';
-          previewImg.style.width = '34px';
-          previewImg.style.height = '38px';
-
-        } else {
-          previewImg.src = '/static/file.png';
-          previewImg.style.borderRadius = '0%';
-          previewImg.style.width = '34px';
-          previewImg.style.height = '38px';
+      // Determine preview image and border radius
+      if (file.type.startsWith('image/')) {
+        previewImg.src = URL.createObjectURL(file);
+        previewImg.style.borderRadius = '50%'; // circle for images
+      } else if (file.type.includes('pdf')) {
+        previewImg.src = '/static/pdf.png';
+        previewImg.style.borderRadius = '0%'; // square for files
+        previewImg.style.width = '30px';
+        previewImg.style.height = '38px';
     
-        }
+      } else if (file.type.includes('word')) {
+        previewImg.src = '/static/word.png';
+        previewImg.style.borderRadius = '0%';
+        previewImg.style.width = '35px';
+        previewImg.style.height = '38px';
+    
+      } else if (file.type.includes('excel') || file.type.includes('spreadsheetml')) {
+        previewImg.src = '/static/excel.png';
+        previewImg.style.borderRadius = '0%';
+        previewImg.style.width = '34px';
+        previewImg.style.height = '38px';
 
-        previewWrapper.style.display = "block";
-        attachIcon.style.display = 'none'; // hide icon
+      } else {
+        previewImg.src = '/static/file.png';
+        previewImg.style.borderRadius = '0%';
+        previewImg.style.width = '34px';
+        previewImg.style.height = '38px';
+  
+      }
+
+      previewWrapper.style.display = "block";
+      attachIcon.style.display = 'none'; // hide icon
+      
+
+      cancelBtn.addEventListener("click", (e) => {
+        e.stopPropagation(); // prevent file picker
+
+        adminAttachment = { data: null, mime_type: null };
+
+        previewImg.src = "#";
+        previewWrapper.style.display = "none";
+        attachIcon.style.display = "block";
+
+        fileInput.value = "";
+      });
+
+      let uploadingMsg = showTempMessage(t("uploadInProgress", getCurrentLanguage()), adminResponseControls);
+
+      try {
+        // Upload to backend → get permanent URL
+        const permanentUrl = await uploadFileorImage(file, userId);
+
+        // Replace image preview with permanent URL if image
+        if (file.type.startsWith('image/')) previewImg.src = permanentUrl;
+
+        // Store uploaded file info
+        adminAttachment = {
+          data: permanentUrl,
+          mime_type: file.type
+        };
+        if (uploadingMsg) uploadingMsg.remove();
+        showTempMessage(t("uploadSuccess", getCurrentLanguage()), adminResponseControls);
+      } catch (err) {
+        console.error("Upload failed:", err);
+        previewImg.alt = "Upload failed";
+        adminAttachment = { data: null, mime_type: null };
+        showTempMessage(t("uploadFailed", getCurrentLanguage()), adminResponseControls);
+      } finally {
+        isUploading = false;
+        URL.revokeObjectURL(file);
+      }
+    });
+
+    // Set the initial height and style of the textarea
+    responseInput.style.overflowY = 'hidden'; // Hide vertical scrollbar
+    responseInput.style.resize = 'none'; // Prevent manual resizing
+    responseInput.style.height = '30px'; // Set an initial height (min-height)
+
+    // Auto-expand the textarea only when it exceeds the initial height
+    responseInput.addEventListener('input', function () {
+      this.style.height = '30px'; // Reset the height to the initial value
+      if (this.scrollHeight > this.clientHeight) {
+        this.style.height = (this.scrollHeight) + 'px'; // Expand if the content overflows
+      }
+    });
+
         
+    let typingStarted = false;
+    let typingPingInterval = null;
+    // Auto-expand the textarea only when it exceeds the initial height
+    responseInput.addEventListener('input', function () {
+      this.style.height = '30px'; // Reset the height to the initial value
+      if (this.scrollHeight > this.clientHeight) {
+        this.style.height = (this.scrollHeight) + 'px'; // Expand if the content overflows
+      }
+      
+      // -------- TYPING START --------
+      if (!typingStarted && this.value.trim() !== "") {
 
-        cancelBtn.addEventListener("click", (e) => {
-          e.stopPropagation(); // prevent file picker
-
-          adminAttachment = { data: null, mime_type: null };
-
-          previewImg.src = "#";
-          previewWrapper.style.display = "none";
-          attachIcon.style.display = "block";
-
-          fileInput.value = "";
+        typingStarted = true;
+        console.log("TYping?????")
+        socket.emit("admin_typing_start", {
+          user_id: userId,
+          admin_name: admin_name
         });
+        console.log("TYping????? megvolt")
+        // keep lock alive
+        if (typingPingInterval) clearInterval(typingPingInterval);
 
-        let uploadingMsg = showTempMessage(t("uploadInProgress", getCurrentLanguage()), adminResponseControls);
+        typingPingInterval = setInterval(() => {
+          socket.emit("admin_typing_ping", {
+            user_id: userId,
+            admin_name: admin_name
+          });
+        }, 3000);
 
-        try {
-          // Upload to backend → get permanent URL
-          const permanentUrl = await uploadFileorImage(file, userId);
+      }
 
-          // Replace image preview with permanent URL if image
-          if (file.type.startsWith('image/')) previewImg.src = permanentUrl;
+      // -------- TYPING STOP IF CLEARED --------
+      if (typingStarted && this.value.trim() === "") {
+        socket.emit("admin_typing_stop", { user_id: userId, admin_name: admin_name });
+        typingStarted = false;
+        if (typingPingInterval) { clearInterval(typingPingInterval); typingPingInterval = null; }
+      }
 
-          // Store uploaded file info
-          adminAttachment = {
-            data: permanentUrl,
-            mime_type: file.type
-          };
-          if (uploadingMsg) uploadingMsg.remove();
-          showTempMessage(t("uploadSuccess", getCurrentLanguage()), adminResponseControls);
-        } catch (err) {
-          console.error("Upload failed:", err);
-          previewImg.alt = "Upload failed";
-          adminAttachment = { data: null, mime_type: null };
-          showTempMessage(t("uploadFailed", getCurrentLanguage()), adminResponseControls);
-        } finally {
-          isUploading = false;
-          URL.revokeObjectURL(file);
-        }
+      // Optional blur stop
+      responseInput.addEventListener("blur", () => {
+        if (!typingStarted) return;
+        socket.emit("admin_typing_stop", { user_id: userId, admin_name: admin_name });
+        typingStarted = false;
+        if (typingPingInterval) { clearInterval(typingPingInterval); typingPingInterval = null; }
       });
-
-      // Set the initial height and style of the textarea
-      responseInput.style.overflowY = 'hidden'; // Hide vertical scrollbar
-      responseInput.style.resize = 'none'; // Prevent manual resizing
-      responseInput.style.height = '30px'; // Set an initial height (min-height)
-
-      // Auto-expand the textarea only when it exceeds the initial height
-      responseInput.addEventListener('input', function () {
-        this.style.height = '30px'; // Reset the height to the initial value
-        if (this.scrollHeight > this.clientHeight) {
-          this.style.height = (this.scrollHeight) + 'px'; // Expand if the content overflows
-        }
-      });
+        });
 
       async function sendResponse() {
         const response = responseInput.value;
@@ -8094,6 +8624,13 @@ function updateAdminIntervention_fornewlyjoined(userId, stateparameter){
               console.log(chatBox, response, counterForAddAdminMessage[userId], timestamp, adminAttachment)
               await handleAdminResponse(chatBox, response, counterForAddAdminMessage[userId], timestamp, adminAttachment, adminDisplayName);
               console.log("%%%%%%%% check %%%%%%")
+
+              typingStarted = false;
+
+              if (typingPingInterval) {
+                clearInterval(typingPingInterval);
+                typingPingInterval = null;
+              }
             } catch (error) {
               console.error("Error in handleAdminResponse:", error);
           }
@@ -8250,9 +8787,10 @@ function updateAdminIntervention_response(data){
     console.log("1")
     const responseElement = awaitingMessageElement.querySelector('.admin-response, .bot-response');
     if (responseElement) {
+      const clickableText = makeLinksClickable(data.response)
       console.log("2")
       //responseElement.textContent = data.response ? `Admin: ${data.response}` : awaitingText;
-      responseElement.innerHTML = `<strong>${adminDisplayName}:</strong> ${data.response || ''}${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}`;
+      responseElement.innerHTML = `<strong>${adminDisplayName}:</strong> ${clickableText || ''}${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}`;
       } else {
         responseElement.innerHTML = awaitingText;
       }
@@ -8282,14 +8820,14 @@ function updateAdminIntervention_response(data){
               : 'Awaiting Admin Response...';
         messageElement.className = 'message';
         // Create admin message content and style it to align on the left
-        
+        const clickableTextAdmin = makeLinksClickable(data.response)
         const adminMessageContent = `
               <div class="admin-message">
 
                 ${
                   data.response || data.attachment?.data
                     ? `
-                      <span class="admin-response"><strong>${adminDisplayName}:</strong>${data.response ? ` ${data.response}` : ''}</span>
+                      <span class="admin-response"><strong>${adminDisplayName}:</strong>${data.response ? ` ${clickableTextAdmin}` : ''}</span>
 
                       ${
                         data.attachment?.data
@@ -8368,6 +8906,7 @@ async function createTabsForClient(tabs) {
 
     tabs.forEach((tabData, index) => {
       const { name, uniqueId } = tabData; // Extract name and uniqueId from the tabData
+      overallTabModes[uniqueId] = 'manual';
       tabsData.push({ name, uniqueId });
       const tab = document.createElement('div');
       tab.classList.add('tab', 'clickable');
@@ -8383,6 +8922,42 @@ async function createTabsForClient(tabs) {
       tabName.style.fontSize = 'clamp(7px, 0.8vw, 12px)';
       tab.appendChild(tabName);
 
+      // Robot button (manual mode)
+      const robotButton = document.createElement('button');
+      robotButton.type = 'button';
+      robotButton.className = 'material-symbols-rounded robot-button';
+      robotButton.textContent = 'smart_toy'; 
+      robotButton.style.cursor = 'pointer';
+      robotButton.style.fontSize = 'clamp(14px, 0.9vw, 18px)';
+      robotButton.style.marginLeft = '8px';
+      robotButton.style.background = 'transparent';
+      robotButton.style.border = 'none';
+      robotButton.style.color = '#eeeeeeff'; // inactive by default (we start in manual)
+      robotButton.title = 'Switch to automatic (robot) mode';
+
+      robotButton.onclick = (e) => {
+        e.stopPropagation();
+        setOverallMode(uniqueId, 'automatic', agentButton, robotButton);
+      };
+
+      const agentButton = document.createElement('button');
+      agentButton.type = 'button';
+      agentButton.className = 'material-symbols-rounded agent-button';
+      agentButton.textContent = 'support_agent';
+      agentButton.style.cursor = 'pointer';
+      agentButton.style.fontSize = 'clamp(14px, 0.9vw, 18px)';
+      agentButton.style.marginLeft = '4px';
+      agentButton.style.background = 'transparent';
+      agentButton.style.border = 'none';
+      agentButton.style.color = '#8bd8aeff'; // green = active (we start in manual)
+      agentButton.title = 'Switch to manual (agent) mode';
+
+      agentButton.onclick = (e) => {
+        e.stopPropagation();
+        setOverallMode(uniqueId, 'manual', agentButton, robotButton);
+      };
+
+
       const exclamationMark = document.createElement('span');
       exclamationMark.classList.add('exclamation-mark');
       exclamationMark.textContent = '!';
@@ -8391,7 +8966,9 @@ async function createTabsForClient(tabs) {
       exclamationMark.style.marginLeft = '8px'; // Adjust spacing
       exclamationMark.style.fontWeight = 'bold';
       exclamationMark.style.fontSize = 'clamp(7px, 0.8vw, 12px)';
-
+      
+      tab.appendChild(robotButton);
+      tab.appendChild(agentButton);
       tab.appendChild(exclamationMark);
 
       tab.onclick = () => showTab(uniqueId);
@@ -8541,6 +9118,752 @@ async function createTabsForClient(tabs) {
 
 
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+///////          REMOVE COLLEAGUE & RELATED TASKS                                          ///////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+///////          REMOVE COLLEAGUE & RELATED TASKS                                          ///////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+///////          REMOVE COLLEAGUE & RELATED TASKS                                          ///////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+// function removeColleague_() {
+//   const removeColleagueInput = document.getElementById('remove-colleague');
+//   const colleagueName = removeColleagueInput.value.trim();
+//   if (colleagueName) {
+//     socket.emit('remove_colleague', { colleagueName: colleagueName, timestamp: new Date().toISOString() });
+//     removeColleagueInput.value = '';
+//     const tabs = document.querySelectorAll('.tab');
+//     let tabIndex = -1;
+//     let uniqueTabId=-1
+//     // Find the index of the tab with the matching colleague name
+//     tabs.forEach((tab, index) => {
+//         if (tab.dataset.name === colleagueName) {
+//             tabIndex = index;
+//             uniqueTabId=tab.dataset.tabId;
+//         }
+//     });
+
+//     if (uniqueTabId !== -1) {
+        
+//       // Gather the chat content of the colleague being removed
+//       const chatsToDistribute = colleaguesChats[uniqueTabId]?.innerHTML || '';
+//       const locationsToDistribute = locations[uniqueTabId]?.innerHTML || '';
+//       // Remove the tab and its content
+//       const tab = document.querySelector(`.tab[data-tab-id="${uniqueTabId}"]`);
+//       tabsContainer.removeChild(tab);
+//       const contents = document.querySelectorAll('.tab-content');
+//       const contentToRemove = document.querySelector(`.tab-content[data-tab-index="${uniqueTabId}"]`);
+//       tabContentsContainer.removeChild(contentToRemove);
+//       // Update the data structures
+//       delete colleaguesChats[uniqueTabId];
+//       delete rectangle[uniqueTabId];
+//       delete locations[uniqueTabId];
+
+
+//        // Handle tab switch if the active tab was removed
+//       if (tab.classList.contains('active')) {
+//         // If the removed tab was the active tab, select another tab
+//         if (tabs.length > 1) {
+//           const newTabIndex = (tabIndex === 0) ? 1 : tabIndex - 1; // Go to the previous tab if possible, else next
+//           const newActiveTab = tabs[newTabIndex];
+//           showTab(newActiveTab.dataset.tabId);
+//         } else {
+//           // If this was the last tab, clear the content display
+//           tabContentsContainer.innerHTML = '';
+//         }
+//       }    
+//       if (chatsToDistribute) {
+//         try {
+//           const parser = new DOMParser();
+//           const doc = parser.parseFromString(chatsToDistribute, 'text/html');
+          
+//           // Select all chat containers
+//           const chatContainers = doc.querySelectorAll('.chat-container');
+          
+//           chatContainers.forEach((chatContainer) => {
+//             const chatBoxes = chatContainer.querySelectorAll('.chat-box'); // Select all chat-boxes inside the chatContainer
+//             chatBoxes.forEach((chatBox) => {
+//               const messages = chatBox.querySelectorAll('.message'); // Select all messages within the chatBox
+//               let counter = 0
+//               messages.forEach((message, index) => {
+//                 counter++; 
+//                 const messageData = {
+//                   timestamp: null,
+//                   user_id: null,
+//                   user_message: null,
+//                   admin_response: null,
+//                   latitude: null,
+//                   longitude: null,
+//                   location: null,
+//                   flag: "deleted",
+//                   awaiting: null,
+//                   name: colleagueName,
+//                   message_number: counter
+//                 };
+    
+//                 // Extract data from the message element
+//                 const userId_ = chatContainer.getAttribute('data-user-id');
+//                 messageData.user_id = userId_;
+    
+//                 // Find the timestamp
+//                 const timestampElement = message.querySelector('.timestamp');
+//                 //const timestamp_ = timestampElement ? timestampElement.textContent.replace('Sent at: ', '').trim() : '';
+//                 const timestamp_ = timestampElement ? timestampElement.textContent.replace(/^(Sent at: |A küldés ideje: )/, '').trim() : '';
+
+//                 messageData.timestamp = timestamp_;
+    
+//                 // Find the user message
+//                 const userMessageElement = message.querySelector('.user-input');
+//                 //const userMessage_ = userMessageElement ? userMessageElement.textContent.replace('User: ', '').trim() : '';
+//                 const userMessage_ = userMessageElement ? userMessageElement.textContent.replace(/^(User: |Ügyfél: )/, '').trim() : '';
+
+//                 messageData.user_message = userMessage_;
+    
+//                 // Find the admin response
+//                 const adminResponseElement = message.querySelector('.admin-response');
+//                 let adminMessage_ = adminResponseElement ? adminResponseElement.textContent.trim() : '';
+//                 // Check if the admin message starts with 'Admin:'
+//                 // if (adminMessage_.startsWith('Admin:')) {
+//                 //   // Remove 'Admin:' from the start of the string
+//                 //   adminMessage_ = adminMessage_.substring(6).trim(); // Removes 'Admin:' and trims any leading space
+//                 // }
+//                 messageData.admin_response = adminMessage_;
+//                 const isLastMessage = index === messages.length - 1;
+//                 if (isLastMessage) {
+//                   // If it's the last message, check if chatBox has the 'awaiting-response' attribute
+//                   if (chatBox.classList.contains('awaiting-response')) {
+//                     messageData.awaiting = true;
+//                   } else {
+//                     messageData.awaiting = false;
+//                   }
+//                 } else {
+//                   // For all other messages, set awaiting to false
+//                   messageData.awaiting = false;
+//                 }
+
+
+
+//                 // Process location data
+//                 if (locationsToDistribute) {
+//                   const parser = new DOMParser();
+//                   const doc = parser.parseFromString(locationsToDistribute, 'text/html');
+//                   const locationBoxes = doc.querySelectorAll('.location-box');
+  
+//                   locationBoxes.forEach((box) => {
+//                     const userId = box.getAttribute('data-user-id');
+//                     if (userId === userId_) {
+//                       const longitudeElement = box.querySelector('i.fa-arrows-left-right').parentElement.nextElementSibling;
+//                       const latitudeElement = box.querySelector('i.fa-arrows-up-down').parentElement.nextElementSibling;
+//                       const locationElement = box.querySelector('i.fa-location-dot').parentElement.nextElementSibling;
+
+//                       messageData.longitude = longitudeElement ? longitudeElement.textContent.trim() : 'No Data';
+//                       messageData.latitude = latitudeElement ? latitudeElement.textContent.trim() : 'No Data';
+//                       messageData.location = locationElement ? locationElement.textContent.trim() : 'No Data';
+//                       }
+//                     });
+//                   }
+//                   // Append the message data
+//                   appendMessage(messageData);
+//                 });
+//             });
+//         });
+          
+//         } catch (error) {
+//             console.error("Error while processing messages:", error);
+//         }
+
+        
+
+//       }
+   
+//     }
+//   }
+// }
+
+
+
+
+function buildAttachmentHtml(attachment) {
+  if (!attachment) return '';
+
+  const mime = attachment.mime_type;
+  const data = attachment.data;
+
+  if (mime?.startsWith('image/')) {
+    return `<img src="${data}" class="attachment" />`;
+  } else {
+    let icon = '📝';
+    if (mime.includes('pdf')) icon = '📄';
+    else if (
+      mime.includes('word') ||
+      mime.includes('msword') ||
+      mime.includes('officedocument.wordprocessingml')
+    ) icon = '📝';
+
+    return `
+      <a href="${data}" target="_blank" class="attachment-link">
+        <span data-lang="view_attachment"></span>
+        <span class="attachment-icon">${icon}</span>
+      </a>
+    `;
+  }
+}
+
+
+
+
+function removeColleague() {
+  console.log("--------------------BENT-----------")
+  const removeColleagueInput = document.getElementById('remove-colleague');
+  const colleagueName = removeColleagueInput.value.trim();
+ 
+  if (colleagueName) {
+    socket.emit('remove_colleague', { colleagueName: colleagueName, timestamp: new Date().toISOString() });
+    removeColleagueInput.value = '';
+    const tabs = document.querySelectorAll('.tab');
+    let tabIndex = -1;
+    let uniqueTabId=-1
+    // Find the index of the tab with the matching colleague name
+    tabs.forEach((tab, index) => {
+        if (tab.dataset.name === colleagueName) {
+            tabIndex = index;
+            uniqueTabId=tab.dataset.tabId;
+        }
+    });
+    console.log(uniqueTabId)
+    if (uniqueTabId !== -1) {
+      console.log(colleagueName)
+      // Gather the chat content of the colleague being removed
+      const chatsToDistribute = colleaguesChats[uniqueTabId]?.innerHTML || '';
+          console.log(colleagueName)
+      const locationsToDistribute = locations[uniqueTabId]?.innerHTML || '';
+      // Remove the tab and its content
+          console.log(colleagueName, "33R")
+      const tab = document.querySelector(`.tab[data-tab-id="${uniqueTabId}"]`);
+      tabsContainer.removeChild(tab);
+      const contents = document.querySelectorAll('.tab-content');
+      const contentToRemove = document.querySelector(`.tab-content[data-tab-index="${uniqueTabId}"]`);
+      tabContentsContainer.removeChild(contentToRemove);
+      // Update the data structures
+      delete colleaguesChats[uniqueTabId];
+      delete rectangle[uniqueTabId];
+      delete locations[uniqueTabId];
+      console.log("ŐARA")
+
+       // Handle tab switch if the active tab was removed
+      if (tab.classList.contains('active')) {
+        // If the removed tab was the active tab, select another tab
+        if (tabs.length > 1) {
+          const newTabIndex = (tabIndex === 0) ? 1 : tabIndex - 1; // Go to the previous tab if possible, else next
+          const newActiveTab = tabs[newTabIndex];
+          showTab(newActiveTab.dataset.tabId);
+        } else {
+          // If this was the last tab, clear the content display
+          tabContentsContainer.innerHTML = '';
+        }
+      }    
+      if (chatsToDistribute) {
+        try {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(chatsToDistribute, 'text/html');
+          
+          // Select all chat containers
+          const chatContainers = doc.querySelectorAll('.chat-container');
+          console.log("chatContainers length:", chatContainers.length);
+          chatContainers.forEach((chatContainer) => {
+            const chatBoxes = chatContainer.querySelectorAll('.chat-box'); // Select all chat-boxes inside the chatContainer
+            chatBoxes.forEach((chatBox) => {
+              const messages = chatBox.querySelectorAll('.message'); // Select all messages within the chatBox
+              const totalMessages = messages.length;
+              let counter = 0
+              messages.forEach((message, index) => {
+                counter++; 
+                const messageData = {
+                timestamp: null,
+                user_id: null,
+                user_message: null,
+                admin_response: null,
+                admin_name: null,
+                latitude: null,
+                longitude: null,
+                location: null,
+                flag_removes_colleagues: "deleted", // Set to "dragged" as part of the operation
+                awaiting: null,
+                name: colleagueName,
+                message_number: counter,
+                userAttachmentData : null,
+                adminAttachmentData : null,
+                userAttachmentHtml: '',
+                adminAttachmentHtml: '',
+                total_messages: totalMessages,
+                
+            };
+
+              const userId_ = chatContainer.getAttribute('data-user-id');
+              messageData.user_id = userId_;
+    
+                   // Extract the timestamp
+              const timestampElement = message.querySelector('.timestamp');
+
+              const hiddenTs = message.querySelector('.hidden-timestamp');
+
+              messageData.timestamp = hiddenTs
+                ? hiddenTs.textContent
+                : '';
+
+
+                  
+                  // ---- USER MESSAGE ----
+              const userMessageElement = message.querySelector('.user-input');
+              let userMessageText = userMessageElement
+                ? userMessageElement.textContent.replace(/^(User: |Ügyfél: |.*?: )/, '').trim()
+                : '';
+
+              // ---- USER ATTACHMENT ----
+              const userAttachmentElement = message.querySelector('.user-message .attachment-wrapper');
+
+              if (userAttachmentElement) {
+                const img = userAttachmentElement.querySelector('img');
+                const fileLink = userAttachmentElement.querySelector('a');
+
+                if (img) {
+                  messageData.userAttachmentData = {
+                    data: img.src,
+                    mime_type: img.src.endsWith('.webp') ? 'image/webp' : 'image/jpeg'
+                  };
+                } else if (fileLink) {
+                  const url = fileLink.href;
+                  let mime_type = 'application/octet-stream';
+
+                  if (url.endsWith('.pdf')) mime_type = 'application/pdf';
+                  else if (url.endsWith('.docx')) mime_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                  else if (url.endsWith('.xlsx')) mime_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                  else if (url.endsWith('.txt')) mime_type = 'text/plain';
+
+                  messageData.userAttachmentData = { data: url, mime_type };
+                }
+              }
+
+              if (messageData.userAttachmentData) {
+                messageData.userAttachmentHtml = buildAttachmentHtml(messageData.userAttachmentData);
+              }
+
+              // ---- STORE USER MESSAGE ----
+              messageData.user_message = userMessageText;
+
+              // ---- ADMIN RESPONSE ----
+              const adminResponseElement = message.querySelector('.admin-response');
+
+               if (adminResponseElement) {
+                  // Clone to safely modify
+                  const clonedAdmin = adminResponseElement.cloneNode(true);
+
+                  // Remove attachment content
+                  const attachment = clonedAdmin.querySelector('.attachment-wrapper');
+                  if (attachment) {
+                    attachment.remove();
+                  }
+
+                  // Extract ONLY real text
+                  let fullText = clonedAdmin.textContent.trim();
+
+                  if (fullText) {
+                    let adminName = '';
+                    let adminMessage = fullText;
+
+                    const colonIndex = fullText.indexOf(':');
+
+                    if (colonIndex !== -1) {
+                      const possibleName = fullText.slice(0, colonIndex).trim();
+                      const possibleMessage = fullText.slice(colonIndex + 1).trim();
+
+                      if (possibleName && possibleName.toLowerCase() !== 'admin') {
+                        adminName = possibleName;
+                        adminMessage = possibleMessage;
+                      } else {
+                        adminMessage = possibleMessage;
+                      }
+                    }
+
+                    messageData.admin_name = adminName;
+                    messageData.admin_response = adminMessage;
+
+                  } else {
+                    // ONLY attachment → empty response
+                    messageData.admin_name = '';
+                    messageData.admin_response = '';
+                  }
+
+
+              } else {
+                messageData.admin_name = '';
+                messageData.admin_response = '';
+              }
+
+              // ---- ADMIN ATTACHMENT ----
+              const adminAttachmentElement = message.querySelector('.admin-message .attachment-wrapper');
+
+              if (adminAttachmentElement) {
+                const img = adminAttachmentElement.querySelector('img');
+                const fileLink = adminAttachmentElement.querySelector('a');
+
+                if (img) {
+                  messageData.adminAttachmentData = {
+                    data: img.src,
+                    mime_type: img.src.endsWith('.webp') ? 'image/webp' : 'image/jpeg'
+                  };
+                } else if (fileLink) {
+                  const url = fileLink.href;
+                  let mime_type = 'application/octet-stream';
+
+                  if (url.endsWith('.pdf')) mime_type = 'application/pdf';
+                  else if (url.endsWith('.docx')) mime_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                  else if (url.endsWith('.xlsx')) mime_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                  else if (url.endsWith('.txt')) mime_type = 'text/plain';
+
+                  messageData.adminAttachmentData = { data: url, mime_type };
+                }
+              }
+
+              if (messageData.adminAttachmentData) {
+                  messageData.adminAttachmentHtml = buildAttachmentHtml(messageData.adminAttachmentData);
+                }
+
+
+
+              // Determine if this is the last message and its awaiting status
+              const isLastMessage = index === messages.length - 1;
+              if (isLastMessage) {
+                  messageData.awaiting = chatBox.classList.contains('awaiting-response');
+              } else {
+                  messageData.awaiting = false;
+              }
+
+
+                // Process location data
+                if (locationsToDistribute) {
+                  const parser = new DOMParser();
+                  const doc = parser.parseFromString(locationsToDistribute, 'text/html');
+                  const locationBoxes = doc.querySelectorAll('.location-box');
+  
+                  locationBoxes.forEach((box) => {
+                    const userId = box.getAttribute('data-user-id');
+                    if (userId === userId_) {
+                      const longitudeElement = box.querySelector('i.fa-arrows-left-right').parentElement.nextElementSibling;
+                      const latitudeElement = box.querySelector('i.fa-arrows-up-down').parentElement.nextElementSibling;
+                      const locationElement = box.querySelector('i.fa-location-dot').parentElement.nextElementSibling;
+
+                      messageData.longitude = longitudeElement ? longitudeElement.textContent.trim() : 'No Data';
+                      messageData.latitude = latitudeElement ? latitudeElement.textContent.trim() : 'No Data';
+                      messageData.location = locationElement ? locationElement.textContent.trim() : 'No Data';
+                      }
+                    });
+                  }
+                  // Append the message data
+                  console.log("MESSAGEDATA: *** ***")
+                  console.log(messageData)
+                  appendMessage(messageData);
+                });
+            });
+        });
+          
+        } catch (error) {
+            console.error("Error while processing messages:", error);
+        }
+
+        
+
+      }
+   
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+///////          COLLECTING / DELETING THE MESSAGES FOR MANUAL DRAG AND DROP               ///////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+///////          COLLECTING / DELETING THE MESSAGES FOR MANUAL DRAG AND DROP               ///////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+///////          COLLECTING / DELETING THE MESSAGES FOR MANUAL DRAG AND DROP               ///////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function manageRectangleDragAndDrop(userId, fromTab, toTab) {
+  // Locate the rectangle in the source tab
+  const rectangleToMove = rectangle[fromTab]?.querySelector(`[data-user-id="${userId}"]`);
+  const chatToMove = colleaguesChats[fromTab]?.querySelector(`[data-user-id="${userId}"]`);
+  const locationToMove = locations[fromTab]?.querySelector(`[data-user-id="${userId}"]`);
+
+  const fromTabContent = document.querySelector(`.tab-content[data-tab-index="${fromTab}"]`);
+  const chatContainer = fromTabContent.querySelector(`.chat-container[data-user-id="${userId}"]`);
+  const locationBox = fromTabContent.querySelector(`.location-box[data-user-id="${userId}"]`);
+
+  if (!rectangleToMove || !chatToMove || !locationToMove) {
+      
+      console.error('Unable to find rectangle, chat, or location box for userId:', userId);
+      return;
+  }
+
+  // Remove the rectangle from the source tab
+  rectangle[fromTab]?.removeChild(rectangleToMove);
+
+  // Remove the chat container from the source tab
+  colleaguesChats[fromTab]?.removeChild(chatToMove);
+
+  // Remove the location box from the source tab
+  locations[fromTab]?.removeChild(locationToMove);
+
+  
+  if (chatContainer) {
+    const chatBoxes = chatContainer.querySelectorAll('.chat-box'); // Select chat-boxes in the container
+    
+    chatBoxes.forEach((chatBox) => {
+        const messages = chatBox.querySelectorAll('.message'); // Select all messages within the chatBox
+        let counter = 0  
+        messages.forEach((message, index) => {
+            counter++;
+            const messageData = {
+                timestamp: null,
+                user_id: userId,
+                user_message: null,
+                admin_response: null,
+                admin_name: null,
+                latitude: null,
+                longitude: null,
+                location: null,
+                flag: "deleted", // Set to "dragged" as part of the operation
+                awaiting: null,
+                name: getTabName(fromTab),
+                message_number: counter,
+                userAttachmentData : null,
+                adminAttachmentData : null,
+                userAttachmentHtml: '',
+                adminAttachmentHtml: ''
+                
+            };
+
+        // Extract the timestamp
+        const timestampElement = message.querySelector('.timestamp');
+        //messageData.timestamp = timestampElement ? timestampElement.textContent.replace('Sent at: ', '').trim() : '';
+        //messageData.timestamp = timestampElement ? timestampElement.textContent.replace(/^(Sent at: |A küldés ideje: )/, '').trim() : '';
+        const hiddenTs = message.querySelector('.hidden-timestamp');
+
+        messageData.timestamp = hiddenTs
+          ? hiddenTs.textContent
+          : '';
+
+
+            
+             // ---- USER MESSAGE ----
+        const userMessageElement = message.querySelector('.user-input');
+        let userMessageText = userMessageElement
+          ? userMessageElement.textContent.replace(/^(User: |Ügyfél: |.*?: )/, '').trim()
+          : '';
+
+        // ---- USER ATTACHMENT ----
+        const userAttachmentElement = message.querySelector('.user-message .attachment-wrapper');
+
+        if (userAttachmentElement) {
+          const img = userAttachmentElement.querySelector('img');
+          const fileLink = userAttachmentElement.querySelector('a');
+
+          if (img) {
+            messageData.userAttachmentData = {
+              data: img.src,
+              mime_type: img.src.endsWith('.webp') ? 'image/webp' : 'image/jpeg'
+            };
+          } else if (fileLink) {
+            const url = fileLink.href;
+            let mime_type = 'application/octet-stream';
+
+            if (url.endsWith('.pdf')) mime_type = 'application/pdf';
+            else if (url.endsWith('.docx')) mime_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            else if (url.endsWith('.xlsx')) mime_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            else if (url.endsWith('.txt')) mime_type = 'text/plain';
+
+            messageData.userAttachmentData = { data: url, mime_type };
+          }
+        }
+
+        if (messageData.userAttachmentData) {
+          messageData.userAttachmentHtml = buildAttachmentHtml(messageData.userAttachmentData);
+        }
+
+        // ---- STORE USER MESSAGE ----
+        messageData.user_message = userMessageText;
+
+        // ---- ADMIN RESPONSE ----
+        const adminResponseElement = message.querySelector('.admin-response');
+
+        if (adminResponseElement) {
+          // Clone to safely modify
+          const clonedAdmin = adminResponseElement.cloneNode(true);
+
+          // Remove attachment content
+          const attachment = clonedAdmin.querySelector('.attachment-wrapper');
+          if (attachment) {
+            attachment.remove();
+          }
+
+          // Extract ONLY real text
+          let fullText = clonedAdmin.textContent.trim();
+
+          if (fullText) {
+            let adminName = '';
+            let adminMessage = fullText;
+
+            const colonIndex = fullText.indexOf(':');
+
+            if (colonIndex !== -1) {
+              const possibleName = fullText.slice(0, colonIndex).trim();
+              const possibleMessage = fullText.slice(colonIndex + 1).trim();
+
+              if (possibleName && possibleName.toLowerCase() !== 'admin') {
+                adminName = possibleName;
+                adminMessage = possibleMessage;
+              } else {
+                adminMessage = possibleMessage;
+              }
+            }
+
+            messageData.admin_name = adminName;
+            messageData.admin_response = adminMessage;
+
+          } else {
+            // ONLY attachment → empty response
+            messageData.admin_name = '';
+            messageData.admin_response = '';
+          }
+
+        } else {
+          messageData.admin_name = '';
+          messageData.admin_response = '';
+        }
+
+        // ---- ADMIN ATTACHMENT ----
+        const adminAttachmentElement = message.querySelector('.admin-message .attachment-wrapper');
+
+        if (adminAttachmentElement) {
+          const img = adminAttachmentElement.querySelector('img');
+          const fileLink = adminAttachmentElement.querySelector('a');
+
+          if (img) {
+            messageData.adminAttachmentData = {
+              data: img.src,
+              mime_type: img.src.endsWith('.webp') ? 'image/webp' : 'image/jpeg'
+            };
+          } else if (fileLink) {
+            const url = fileLink.href;
+            let mime_type = 'application/octet-stream';
+
+            if (url.endsWith('.pdf')) mime_type = 'application/pdf';
+            else if (url.endsWith('.docx')) mime_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            else if (url.endsWith('.xlsx')) mime_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            else if (url.endsWith('.txt')) mime_type = 'text/plain';
+
+            messageData.adminAttachmentData = { data: url, mime_type };
+          }
+        }
+
+        if (messageData.adminAttachmentData) {
+            messageData.adminAttachmentHtml = buildAttachmentHtml(messageData.adminAttachmentData);
+          }
+
+
+
+        // Determine if this is the last message and its awaiting status
+        const isLastMessage = index === messages.length - 1;
+        if (isLastMessage) {
+            messageData.awaiting = chatBox.classList.contains('awaiting-response');
+        } else {
+            messageData.awaiting = false;
+        }
+
+        // Extract location data if available
+        
+        if (locationBox) {
+            const longitudeElement = locationBox.querySelector('i.fa-arrows-left-right').parentElement.nextElementSibling;
+            const latitudeElement = locationBox.querySelector('i.fa-arrows-up-down').parentElement.nextElementSibling;
+            const locationElement = locationBox.querySelector('i.fa-location-dot').parentElement.nextElementSibling;
+
+            messageData.longitude = longitudeElement ? longitudeElement.textContent.trim() : 'No Data';
+            messageData.latitude = latitudeElement ? latitudeElement.textContent.trim() : 'No Data';
+            messageData.location = locationElement ? locationElement.textContent.trim() : 'No Data';
+        }
+        // Process or append the messageData as needed
+        //appendMessageSavedStates(messageData, toTab);
+        
+        appendMessageSavedStates(messageData, toTab, fromTab);
+      });
+    });
+
+    
+  }
+
+ 
+}
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////
+////    MANUAL MODE - HANDLE EMISSION FOR THOSE NOT INITIATED IT         ///
+////         + DRAG & DROP MANUALLY FOR THE ADMIN INITIATED IT           ///
+////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////
+////    MANUAL MODE - HANDLE EMISSION FOR THOSE NOT INITIATED IT         ///
+////         + DRAG & DROP MANUALLY FOR THE ADMIN INITIATED IT           ///
+////////////////////////////////////////////////////////////////////////////
+
+
+
+////////////////////////////////////////////////////////////////////////////
+////    MANUAL MODE - HANDLE EMISSION FOR THOSE NOT INITIATED IT         ///
+////         + DRAG & DROP MANUALLY FOR THE ADMIN INITIATED IT           ///
+////////////////////////////////////////////////////////////////////////////
 
 
 
@@ -8558,9 +9881,12 @@ async function createTabsForClient(tabs) {
 
 
 
-// EVERYBODY WHO THE MESSAGE WAS EMMITTED BUT NOT DRAGED AN DROP
-async function appendMessageSavedStates(message, tabUniqueID, specialArg = null){
+// EVERYBODY WHO THE MESSAGE WAS EMMITTED BUT NOT DRAGED AN DROP  
+async function appendMessageSavedStates(message, tabUniqueID, specialArg = null){  
   console.log("KEZDŐDIK --------------")
+   
+
+ 
   if (specialArg) {
       socket.emit('log_message_distribution', {
           message: message,
@@ -8611,12 +9937,12 @@ if (message.timestamp) {
   }
   const bottomLeftSection = rectangle[tabIndex];
 
-  if (!userElements[message.user_id] && message.user_id) {
-      const buttonContainer = createUserButtonContainer_manual(message, language, tabIndex);
-      topMiddleSection[tabIndex].appendChild(buttonContainer); 
-      userElements[message.user_id] = buttonContainer;
-      userButtons_manual[tabIndex][message.user_id] = buttonContainer.querySelector('.admin-intervention');
-    }
+  // if (!userElements[message.user_id] && message.user_id) {
+  //     const buttonContainer = createUserButtonContainer_manual(message, language, tabIndex);
+  //     topMiddleSection[tabIndex].appendChild(buttonContainer); 
+  //     userElements[message.user_id] = buttonContainer;
+  //     userButtons_manual[tabIndex][message.user_id] = buttonContainer.querySelector('.admin-intervention');
+  //   }
 
 
 
@@ -8630,7 +9956,7 @@ if (message.timestamp) {
     userRectangle.dataset.tabIndex = tabIndex;
     userRectangle.style.height = '50px';
     userRectangle.style.width = '100%'; // Assume it fills the width of the first column
-    if (message.flag) {
+    if (message.flag || message.flag_removes_colleagues) {
       userRectangle.dataset.flag = 'true';
       userRectangle.classList.add('default-green');
     } else {
@@ -8647,6 +9973,9 @@ if (message.timestamp) {
     userRectangle.style.padding = '0 10px';
     userRectangle.style.boxSizing = 'border-box';
     userRectangle.style.flexShrink = '0';
+    const arrivalTime = new Date().toISOString(); // Get the current time in ISO format
+    userRectangle.setAttribute('data-arrival-time', arrivalTime);
+
     
     const truncatedUserId = message.user_id.substring(0, 8);
     userRectangle.textContent = ` ${truncatedUserId}`;
@@ -8658,7 +9987,7 @@ if (message.timestamp) {
             style="margin-right: 10px;
                     font-size: clamp(8px, 1.2vw, 15px);
                     color: ${colorUser};"></i>
-          <span style="
+          <span class="truncated-user-id "style="
             font-size: clamp(10px, 1.2vw, 15px);
             overflow: hidden;
             text-overflow: ellipsis;
@@ -8666,7 +9995,13 @@ if (message.timestamp) {
           ">
             ${truncatedUserId}
           </span>
-        </div>`;
+        </div>
+        <div class="human-avatar" style="display: flex; margin-left: auto;">
+          <span class="material-symbols-outlined" style="font-size: 20px; color: white;">
+            support_agent
+          </span>
+        </div>
+        `;
       
       const userIcon = userRectangle.querySelector('.fa-user');
         if (message.recent_history && message.recent_history.length > 0) {
@@ -8745,8 +10080,9 @@ if (message.timestamp) {
 
             // Add click event to display the user's chatbox in the middle section
         userRectangle.addEventListener('click', (event) => {
-
+        console.log("Click2")
         const userId = userRectangle.dataset.userId;
+        console.log(activeRectangles[tabIndex])
         if (event.ctrlKey) {
             // Ctrl + Click detected
          
@@ -8776,7 +10112,7 @@ if (message.timestamp) {
                
                 showUserChatBox(message.user_id, tabIndex);
                 showLocationBox(message.user_id, tabIndex);
-                showButton_Automatic_in_Overall_Manual_Mode(message.user_id, tabIndex);
+
             
             }
 
@@ -8806,7 +10142,6 @@ if (message.timestamp) {
             }
             showUserChatBox(message.user_id, tabIndex);
             showLocationBox(message.user_id, tabIndex);
-            showButton_Automatic_in_Overall_Manual_Mode(message.user_id, tabIndex);
             activeRectangles[tabIndex] = userRectangle;
             isUserRectangleClickedPerTab[tabIndex] = true;
             
@@ -8835,19 +10170,23 @@ if (message.timestamp) {
 
           showUserChatBox(message.user_id, tabIndex);
           showLocationBox(message.user_id, tabIndex);
-          showButton_Automatic_in_Overall_Manual_Mode(message.user_id, tabIndex);
+          activeRectangles[tabIndex] = userRectangle;
           isUserRectangleClickedPerTab[tabIndex] = true;
           
         }
+        console.log("ez?")
+        console.log(activeRectangles[tabIndex])
       });
       
             userRectangle.addEventListener('mouseover', () => {
               // Only apply hover if this rectangle is not the active one
-              if (!activeRectangles || activeRectangles[tabIndex] == null) {
-                if (message.flag) {
+              if (!activeRectangles || activeRectangles[tabIndex] == {}) {
+                if (userRectangle.dataset.flag === 'true') {
+                  console.log("hover2green no active")
                   userRectangle.classList.remove('default-green');
                   userRectangle.classList.add('user-rectangle-hover-lightgreen');
               } else {
+                console.log("hover2blue no active")
                 userRectangle.classList.remove('default-blue');
                 userRectangle.classList.add('user-rectangle-hover-lightblue');
                 }
@@ -8855,10 +10194,12 @@ if (message.timestamp) {
         
             // Only apply hover if this rectangle is not the active one
             if (userRectangle !== activeRectangles?.[tabIndex]) {
-                if (message.flag) {
+                if (userRectangle.dataset.flag === 'true') {
+                    console.log("hover2green")
                     userRectangle.classList.remove('default-green');
                     userRectangle.classList.add('user-rectangle-hover-lightgreen');
                 } else {
+                    console.log("hover2blue")
                     userRectangle.classList.remove('default-blue');
                     userRectangle.classList.add('user-rectangle-hover-lightblue');
                 }
@@ -8868,7 +10209,7 @@ if (message.timestamp) {
                 // Only remove hover if this rectangle is not the active one
                 if (userRectangle !== activeRectangles[tabIndex]) {
                   if (!userRectangle.classList.contains('ctrl-click-selected')){
-                    if (message.flag){
+                    if (userRectangle.dataset.flag === 'true'){
                       userRectangle.classList.remove('user-rectangle-hover-lightgreen');
                       userRectangle.classList.add('default-green');
                     }else{
@@ -8923,13 +10264,97 @@ if (message.timestamp) {
   } 
   chatBox = existingChatContainer.querySelector('.chat-box');
 
-    console.log("---   NÉZZÜK  -------- @@@")
-    console.log(message)
+  console.log("---   NÉZZÜK  ---chatbox----- @@@")
+  console.log(chatBox)
+  console.log(overallTabModes[tabUniqueID])
 
 
-    console.log("---   NÉZZÜK1  -------- @@@")
+  console.log("---   NÉZZÜK1  -------- @@@")
 
-    if(automaticResponseStates_overallManual[tabIndex][message.user_id] || (!message.bot_message && message.admin_response)){
+  
+
+  const adminDisplayName = message.admin_name || "Admin";
+
+
+
+    //  MANUAL MODE in MANUAL MODE                              //  MANUAL MODE in MANUAL MODE
+    //  MANUAL MODE in MANUAL MODE                              //  MANUAL MODE in MANUAL MODE
+    //  MANUAL MODE in MANUAL MODE                              //  MANUAL MODE in MANUAL MODE
+              
+                                //  MANUAL MODE in MANUAL MODE
+                                //  MANUAL MODE in MANUAL MODE
+                              //  MANUAL MODE in MANUAL MODE
+
+  
+  
+  let attachmentHtml = '';
+
+  // Check if message.user_message is JSON with attachment
+  if (typeof message.user_message === 'string' && message.user_message.trim().startsWith('{')) {
+      try {
+          const msgObj = JSON.parse(message.user_message);
+
+          // If there is an attachment, extract it
+          if (msgObj.attachment) {
+              const mime = msgObj.attachment.mime_type;
+              const data = msgObj.attachment.data;
+
+              if (mime?.startsWith('image/')) {
+                  attachmentHtml = `<img src="${data}" class="attachment" />`;
+              } else {
+                  // PDF/DOCX or other → small icon + link
+                  let icon = '📝';
+                  if (mime.includes('pdf')) icon = '📄';
+                  else if (mime.includes('word') || mime.includes('msword') || mime.includes('officedocument.wordprocessingml')) icon = '📝';
+                  attachmentHtml = `
+                    <a href="${data}" target="_blank" class="attachment-link">
+                      <span data-lang="view_attachment"></span>
+                      <span class="attachment-icon">${icon}</span>
+                    </a>
+                  `;
+              }
+
+              // Now **replace message.user_message with only the text**
+              message.user_message = msgObj.text || '';
+          } else {
+              // No attachment → keep user_message as is
+              message.user_message = msgObj.text || '';
+          }
+      } catch (e) {
+          console.warn("Failed to parse user_message JSON:", e);
+          // fallback: leave message.user_message as is
+      }
+  }
+
+  let adminAttachmentHtml = '';
+
+  if (message.adminAttachmentData) {
+      const mime = message.adminAttachmentData.mime_type;
+      const data = message.adminAttachmentData.data;
+
+      if (mime?.startsWith('image/')) {
+          adminAttachmentHtml = `<img src="${data}" class="attachment" />`;
+      } else {
+          let icon = '📝';
+          if (mime.includes('pdf')) icon = '📄';
+          else if (
+              mime.includes('word') || 
+              mime.includes('msword') || 
+              mime.includes('officedocument.wordprocessingml')
+          ) icon = '📝';
+
+          adminAttachmentHtml = `
+            <a href="${data}" target="_blank" class="attachment-link">
+              <span data-lang="view_attachment"></span>
+              <span class="attachment-icon">${icon}</span>
+            </a>
+          `;
+      }
+  }
+
+    console.log("Belépés előtt...")
+  
+    if (overallTabModes[tabIndex] === 'manual'){
 
       const awaitingMessageElement = Array.from(chatBox.getElementsByClassName('message')).find(el => {
         const botResponseElement = el.querySelector('.bot-response');
@@ -8951,46 +10376,48 @@ if (message.timestamp) {
       // const language = localStorage.getItem('language') || 'hu';
       const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
       console.log("---   NÉZZÜK22  -------- @@@")
-      if (awaitingMessageElement) {
-        console.log("---   NÉZZÜK3  -------- @@@")
-        const responseElement = awaitingMessageElement.querySelector('.admin-response, .bot-response');
-        if (responseElement) {
-          const responseText = message.response || message.admin_response || '';
-          const displayText = responseText
-            ? `Admin: ${responseText}`
-            : awaitingText;
-
-            renderTextWithLinks(responseElement, displayText);
-                }
-          
-        if (message.image_url) {
-        // Prevent duplicate images on rerenders
-        let existingImgWrapper = awaitingMessageElement.querySelector('.admin-image-wrapper');
-        if (!existingImgWrapper) {
-          const imgWrapper = document.createElement('div');
-          imgWrapper.className = 'admin-image-wrapper';
-          imgWrapper.innerHTML = `
-            <img src="${message.image_url}" 
-                 alt="Admin uploaded image"
-                 class="chat-image admin"
-                 style="max-width: 100%; border-radius: 8px; margin-top: 6px;">
-          `;
-          awaitingMessageElement.appendChild(imgWrapper);
-        }
-      }
-
+     
+     
+      ///0.) Scenario------------   AWAITING FOR ADMIN REPLY BLOCK   --------           ------  AWAITING FOR ADMIN REPLY BLOCK --------------
 
       
-    
-    console.log("---   NÉZZÜK4  -------- @@@")
-    chatBox.classList.add('not-awaiting-response');
-    chatBox.classList.remove('awaiting-response');
-    userRectangle.classList.remove('awaiting-response'); // Remove class from user rectangle
-    counterForManualModeAddMessage[tabIndex][message.user_id]+=1;
-    
-    console.log("---   BENT AWAING  -------- @@@")
+      if (awaitingMessageElement) {
 
-    if (!message.admin_response) {
+      const adminResponseElement = awaitingMessageElement.querySelector('.admin-response');
+      console.log("WAITING MANUAL - MANUAL")
+      if (adminResponseElement) {
+  
+          const responseText = message.response || message.admin_response || '';
+          const awaitingText = language === 'hu' 
+            ? 'Adminisztrátori válaszra várakozás...' 
+            : 'Awaiting Admin Response...';
+
+          // ---- TEXT PART ----
+          const clickableText = makeLinksClickable(message.admin_response)
+       
+          if (message.admin_response || attachmentHtml) {
+                adminResponseElement.innerHTML = `<strong>${adminDisplayName}:</strong> ${clickableText || ''}${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}`;
+            } else {
+                adminResponseElement.innerHTML = awaitingText;
+            }
+
+      }
+
+      
+      chatBox.classList.add('not-awaiting-response');
+      chatBox.classList.remove('awaiting-response');
+      userRectangle.classList.remove('awaiting-response'); // Remove class from user rectangle
+
+      updateDynamicText(language);
+
+      if (!counterForManualModeAddMessage[tabIndex][message.user_id]) {
+          counterForManualModeAddMessage[tabIndex][message.user_id] = 0;
+          }
+      counterForManualModeAddMessage[tabIndex][message.user_id] += 1;
+          
+    console.log("---   BEFORE ADMIN MESSAGE A NEW USER MESSAGE HAS ARRIVED  -------- @@@")
+
+    if (message.bot_message) {
       console.log("---   Nincs admin  -------- @@@")
       const adminResponseElement = awaitingMessageElement.querySelector('.admin-response, .bot-response');
       if (adminResponseElement) {
@@ -9004,8 +10431,10 @@ if (message.timestamp) {
       messageElement.className = 'message';
 
       const timestamp = message.timestamp || '';
+      const formattedTime = formatTimestampForClient(message.timestamp);
 
       const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
+      
       let headlineContent = "";
       let headlineText = language === 'hu' 
             ? "Átvett üzenet a következő kollégától:" 
@@ -9023,11 +10452,24 @@ if (message.timestamp) {
     
         // <span class="user-id">User ID: ${message.user_id}</span>  taken out after timestamp
       // Create user message content and style it to align on the right
+      let userText = '';
+      if (message.user_message) {
+        const clickableUserText = message.user_message.replace(
+          /(https?:\/\/[^\s<]+)/g,
+          '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+        );
+
+        userText = `${translation_Sent_User.User}: ${clickableUserText}`;
+      }
       const userMessageContent = `
         <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
           <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
           
-          <span class="user-input">${translation_Sent_User.User}: ${message.user_message}</span>
+          <div class="user-input">
+            ${userText}
+          </div>
+
+          ${attachmentHtml ? `<div class="attachment-wrapper attachment-wrapper-user-message">${attachmentHtml}</div>` : ''}
         </div>
       `;
       // Create admin message content and style it to align on the left
@@ -9045,11 +10487,7 @@ if (message.timestamp) {
       userMessageContent +
       adminMessageContent;
 
-      // Post-process the .user-input span to render images/links
-      const userInputSpan = messageElement.querySelector('.user-input');
-      if (userInputSpan) {
-          renderTextWithLinks(userInputSpan, userInputSpan.textContent);
-      }
+  
 
 
       console.log("---   Itt 2  -------- @@@")
@@ -9083,17 +10521,241 @@ if (message.timestamp) {
         chatBox.appendChild(messageElement);
       }
 
+      updateDynamicText(language);
+
       chatBox.classList.add('awaiting-response');
       chatBox.classList.remove('not-awaiting-response');
       userRectangle.classList.add('awaiting-response'); // Add class to user rectangle
       counterForManualModeAddMessage[tabIndex][message.user_id]=0;
     } 
+
+    setTimeout(() => {
+      checkAwaitingResponse(tabIndex);
+    }, 0);
     
     // THE FIRST MESSAGE or SECONDLINE MESSAGE from THE USER HAS ARRIVED
-    console.log("---   Itt 3  -------- @@@")
+    console.log("---   Itt 3 NO AWAITING ELEMENT -------- @@@")
+
+      ////////////////////////////////////////////////////////////////////////////
+      //                  NO AWAITING ELEMENT
+      ///////////////////////////////////////////////////////////////////////////
+    
+
   } else {
-      console.log("TAlán itt????@@@@@")
-      if (message.user_message){   // brand new user message
+      
+  
+      ////////////////////////////////////////////////////////////////////////////////
+      ////////////////           HANDLE DRAGED AND DROPPED MESSAGES  ////////////////
+      ////////////////////////////////////////////////////////////////////////////////
+
+      if (message.flag || message.flag_removes_colleagues){
+          console.log("HANDLE DRAGED AND DROPPED MESSAGES")
+          
+
+          const messageElement = document.createElement('div');
+          messageElement.className = 'message';
+           
+       
+          // Use message timestamp or fallback to current time
+          const timestamp = message.timestamp || '';
+          let headlineContent = "";
+          let headlineText = language === 'hu' 
+            ? "Átvett üzenet a következő kollégától:" 
+            : "Messages from ";
+          if ((message.flag === "deleted" || message.flag_removes_colleagues==="deleted") && message.message_number === 1) {
+            headlineContent = `
+                <div class="headline-message" style="background: linear-gradient(to right, rgba(144, 238, 144, 0.7), rgba(34, 139, 34, 0.7));">
+                    ${headlineText} ${message.name}
+                </div>
+            `;
+            }
+        
+          // USER MESSAGE
+
+          const hasUserText = message.user_message && message.user_message.trim() !== "";
+          const hasUserAttachment =
+            message.userAttachmentHtml && message.userAttachmentHtml.trim() !== "";
+          let userMessageContent='';
+          const shouldRenderUserMessage = hasUserText || hasUserAttachment;
+          if (shouldRenderUserMessage) {
+            let userText = '';
+            console.log("USERMESSAGE: ")
+            console.log(message.user_message)
+            console.log("USERMESSAGE TIME: ")
+            const formattedTime = formatTimestampForClient(message.timestamp);
+            console.log(formattedTime)
+            console.log(message.timestamp)
+            if (message.user_message) {
+              const clickableUserText = message.user_message.replace(
+                /(https?:\/\/[^\s<]+)/g,
+                '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+              );
+
+              userText = `${translation_Sent_User.User}: ${clickableUserText}`;
+            }
+            
+            userMessageContent = `
+              <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
+                <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
+                
+                <div class="user-input">
+                  ${userText}
+                </div>
+
+                ${message.userAttachmentHtml ? `<div class="attachment-wrapper attachment-wrapper-user-message">${message.userAttachmentHtml}</div>` : ''}
+              </div>
+            `;
+          }
+
+          // ADMIN MESSAGE
+          let adminText = '';
+          if (message.admin_response) {
+            const clickableAdminText = message.admin_response.replace(
+              /(https?:\/\/[^\s<]+)/g,
+              '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+            );
+
+            adminText = `${clickableAdminText}`;
+          }
+          
+          let adminInnerContent = '';
+          let textPart = '';
+          const hasResponse = !!adminText;
+          const hasAttachment = !!message.adminAttachmentHtml;
+
+          console.log("ADMIN TEXT: ", adminText)
+          if (hasResponse || hasAttachment) {
+
+            const normalizedResponse = (adminText || '').trim().toLowerCase();
+            const isAwaitingText =
+              normalizedResponse === 'awaiting admin response...' ||
+              normalizedResponse === 'adminisztrátori válaszra várakozás...';
+            
+            if (isAwaitingText) {
+              // show only the text, no admin name
+              textPart = `${adminText}`;
+            } else if (adminText) {
+              textPart = `<strong>${adminDisplayName}:</strong> ${adminText}`;
+            } else {
+              textPart = `<strong>${adminDisplayName}:</strong>`;
+            }
+
+            console.log("TEXT PART", textPart)
+            adminInnerContent += `
+              <span class="admin-response">
+                ${textPart}
+              </span>
+            `;
+
+            if (hasAttachment) {
+              adminInnerContent += `
+                <div class="attachment-wrapper">
+                  ${message.adminAttachmentHtml}
+                </div>
+              `;
+            }
+          }
+
+          if (message.admin_response === 'Awaiting Admin Response...' ||
+            message.admin_response === 'Adminisztrátori válaszra várakozás...' ||
+            message.admin_response === 'Kapcsolom az egyik kollégát, kérem várjon!' ||
+            message.admin_response === 'Connecting you to one of our colleagues, please wait!' 
+            
+          ) {           
+            userRectangle.classList.add('awaiting-response');
+            chatBox.classList.remove('not-awaiting-response');
+            chatBox.classList.add('awaiting-response');
+ 
+          }else{
+            userRectangle.classList.remove('awaiting-response');
+            chatBox.classList.add('not-awaiting-response');
+            chatBox.classList.remove('awaiting-response');
+          }
+
+
+          const adminMessageContentMain = adminInnerContent
+          ? `<div class="admin-message">${adminInnerContent}</div>`
+          : '';
+
+          messageElement.innerHTML =
+            (headlineContent ? headlineContent : '') +
+            userMessageContent +
+            adminMessageContentMain;
+
+      
+
+          // Append hidden timestamp AFTER .innerHTML is set
+          const hiddenTimestampSpan = document.createElement('span');
+          hiddenTimestampSpan.className = 'hidden-timestamp';
+          hiddenTimestampSpan.style.display = 'none';
+          hiddenTimestampSpan.textContent = timestamp;
+          messageElement.appendChild(hiddenTimestampSpan);
+
+
+            
+         // Insert based on timestamp ordering
+          const chatMessages = Array.from(chatBox.getElementsByClassName('message'));
+          const insertBeforeIndex = chatMessages.findIndex(el => {
+            const ts = el.querySelector('.hidden-timestamp');
+            return ts && new Date(ts.textContent) > new Date(timestamp);
+          });
+
+          if (insertBeforeIndex === -1) {
+            chatBox.appendChild(messageElement);
+          } else {
+            chatBox.insertBefore(messageElement, chatMessages[insertBeforeIndex]);
+          }
+
+          updateDynamicText(language);
+
+          // const normalizedResponse = (message.admin_response || '').trim().toLowerCase();
+
+          // const isAwaitingText =
+          //   normalizedResponse === 'awaiting admin response...' ||
+          //   normalizedResponse === 'adminisztrátori válaszra várakozás...';
+
+          // const isRealResponse =
+          //   (message.admin_response && !isAwaitingText) ||
+          //   message.adminAttachmentHtml;
+
+          // // ✅ ONLY remove awaiting if it's a real response
+          // if (isRealResponse) {
+
+          //   chatBox.classList.add('not-awaiting-response');
+          //   chatBox.classList.remove('awaiting-response');
+          //   userRectangle.classList.remove('awaiting-response');
+
+          //   if (!counterForManualModeAddMessage[tabIndex][message.user_id]) {
+          //     counterForManualModeAddMessage[tabIndex][message.user_id] = 0;
+          //   }
+          //   counterForManualModeAddMessage[tabIndex][message.user_id] += 1;
+
+          // } else {
+          //   console.log("⏳ Still awaiting, skipping state change");
+          // }
+
+             setTimeout(() => {
+            checkAwaitingResponse(tabIndex);
+            checkAwaitingResponse(specialArg);
+          }, 0);
+          
+
+
+         
+         
+      }  else{
+        
+
+
+      ////////////////////////////////////////////////////////////////////////////////
+      ////////////////       HANDLE NOT DRAGED AND DROPPED MESSAGES  ////////////////
+      ///////////////////////////////////////////////////////////////////////////////
+
+
+
+
+      console.log("HANDLE NOT DRAGED AND DROPPED MESSAGES")
+      if (message.bot_message){   // brand new user message
         console.log("bejön a messagebe?")
       
         const messageElement = document.createElement('div');
@@ -9117,52 +10779,97 @@ if (message.timestamp) {
       
         // <span class="user-id">User ID: ${message.user_id}</span> taken out after timestamp
         // Create user message content and style it to align on the right
+        let userText = '';
+        console.log("USERMESSAGE: ")
+        console.log(message.user_message)
+        console.log("USERMESSAGE TIME: ")
+        const formattedTime = formatTimestampForClient(message.timestamp);
+        console.log(formattedTime)
+        console.log(message.timestamp)
+        if (message.user_message && message.bot_message) {
+          const clickableUserText = message.user_message.replace(
+            /(https?:\/\/[^\s<]+)/g,
+            '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+          );
+
+          userText = `${translation_Sent_User.User}: ${clickableUserText}`;
+        }
+        
         const userMessageContent = `
           <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
             <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
-      
-            <span class="user-input">${translation_Sent_User.User}: ${message.user_message}</span>
-          </div>
-        `;
-        // Create admin message content and style it to align on the left
-        // const adminMessageContent = `
-        //   <div class="admin-message">
-        //     ${message.admin_response ? `<span class="admin-response">Admin: ${message.admin_response}</span>` : '<span class="admin-response">Awaiting Admin Response...</span>'}
-        //   </div>
-        // `;
+            
+            <div class="user-input">
+              ${userText}
+            </div>
 
-        const adminMessageContent = `
-          <div class="admin-message">
-            ${
-              message.bot_message
-                ? message.bot_message === "Awaiting Admin Response..."
-                  ? `<span class="admin-response">${message.bot_message}</span>` // If bot_message is "Awaiting Admin Response...", no Bot: prefix
-                  : `<span class="admin-response">Bot: ${message.bot_message}</span>` // Otherwise, include Bot: prefix
-                : message.admin_response
-                  ? message.flag === "deleted"
-                    ? `<span class="admin-response">${message.admin_response}</span>` // If message is deleted, no Admin: prefix
-                    : `<span class="admin-response">Admin: ${message.admin_response}</span>` // Otherwise, include Admin: prefix
-                  : '<span class="admin-response">Awaiting Admin Response...</span>' // If neither bot_message nor admin_response, show "Awaiting Admin Response..."
-            }
+            ${attachmentHtml ? `<div class="attachment-wrapper attachment-wrapper-user-message">${attachmentHtml}</div>` : ''}
           </div>
         `;
 
-      
+
+          // Create admin message content and style it to align on the left
+          // const adminMessageContent = `
+          //   <div class="admin-message">
+          //     ${message.admin_response ? `<span class="admin-response">Admin: ${message.admin_response}</span>` : '<span class="admin-response">Awaiting Admin Response...</span>'}
+          //   </div>
+          // `;
+          const awaitingAdminText = language === "hu"
+            ? "Adminisztrátori válaszra várakozás..."
+            : "Awaiting Admin Response...";
+
+          const isConnectingMessage =
+            message.bot_message === "Kapcsolom az egyik kollégát, kérem várjon!" ||
+            message.bot_message === "Connecting you to one of our colleagues, please wait!";
+
+          const adminMessageContentMain = `
+            <div class="admin-message">
+              ${
+                message.bot_message
+                  ? message.bot_message === "Awaiting Admin Response..."
+                    // CASE 1 → only awaiting
+                    ? `<span class="admin-response">${awaitingAdminText}</span>`
+
+                    // CASE 2 → connecting message + awaiting BELOW
+                    : isConnectingMessage
+                      ? `
+                        <span>Bot: ${message.bot_message}</span>
+                        <span class="admin-response">${awaitingAdminText}</span>
+                      `
+
+                      // CASE 3 → normal bot message
+                      : `<span class="admin-response">Bot: ${message.bot_message}</div>`
+
+                  : message.admin_response
+                    // ADMIN RESPONSE
+                    ? message.flag === "deleted"
+                      ? `
+                        <span class="admin-response">
+                          ${message.admin_response}
+                          ${adminAttachmentHtml ? `<div class="attachment-wrapper">${adminAttachmentHtml}</div>` : ''}
+                        </span>
+                      `
+                      : `
+                        <span class="admin-response">
+                          Admin: ${message.admin_response}
+                          ${adminAttachmentHtml ? `<div class="attachment-wrapper">${adminAttachmentHtml}</div>` : ''}
+                        </span>
+                      `
+
+                    // FALLBACK → awaiting
+                    : `<span class="admin-response awaiting-text">${awaitingAdminText}</span>`
+              }
+            </div>
+          `;
 
         // Append user message first (right-aligned) and admin message after (left-aligned)
         // messageElement.innerHTML = userMessageContent + adminMessageContent;
         messageElement.innerHTML =
         (headlineContent ? headlineContent : '') +
         userMessageContent +
-        adminMessageContent;
+        adminMessageContentMain;
 
-        // Post-process the .user-input span to render images/links
-        const userInputSpan = messageElement.querySelector('.user-input');
-        if (userInputSpan) {
-            renderTextWithLinks(userInputSpan, userInputSpan.textContent);
-        }
-
-
+        
         // Append hidden timestamp AFTER .innerHTML is set
         const hiddenTimestampSpan = document.createElement('span');
         hiddenTimestampSpan.className = 'hidden-timestamp';
@@ -9185,14 +10892,21 @@ if (message.timestamp) {
           chatBox.insertBefore(messageElement, chatMessages[insertBeforeIndex]);
         }
 
-
+        updateDynamicText(language);
 
         chatBox.classList.add('awaiting-response');
         chatBox.classList.remove('not-awaiting-response');
         userRectangle.classList.add('awaiting-response'); // Add class to user rectangle
         counterForManualModeAddMessage[tabIndex][message.user_id]=0;
+        
         // Check if bot_message exists and is not "Awaiting Admin Response..."
-        if (message.bot_message && message.bot_message !== "Awaiting Admin Response...") {
+        if(
+            message.bot_message && 
+            message.bot_message !== "Awaiting Admin Response..." && 
+            message.bot_message !== "Adminisztrátori válaszra várakozás..." &&
+            message.bot_message !== "Kapcsolom az egyik kollégát, kérem várjon!" &&
+            message.bot_message !== "Connecting you to one of our colleagues, please wait!"
+          ) {
           // Valid bot response: Remove awaiting-response classes
           chatBox.classList.remove('awaiting-response');
           userRectangle.classList.remove('awaiting-response');
@@ -9217,26 +10931,39 @@ if (message.timestamp) {
       // userRectangle.classList.remove('awaiting-response'); // Remove class from user rectangle
       // if (counterForManualModeAddMessage[tabIndex][message.user_id]>0){
         // Create admin message content and style it to align on the left
-        const adminMessageContent = `
+        let adminResponseProcessed = '';
+        if (message.admin_response) {
+          adminResponseProcessed = message.admin_response.replace(
+            /(https?:\/\/\S+\b)/g,
+            '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+          );
+        }
+
+        const adminContent = `
           <div class="admin-message">
-            ${message.admin_response
-              ? message.flag === "deleted"
-                ? `<span class="admin-response">${message.admin_response}</span>`  // If message is deleted, no Admin: prefix
-                : `<span class="admin-response">Admin: ${message.admin_response}</span>`  // Otherwise, include Admin: prefix
-              : '<span class="admin-response"></span>'  // If no admin response, show "Awaiting Admin Response..."
-            }
-            ${message.image_url
-              ? `<div class="admin-image-wrapper">
-                  <img src="${message.image_url}" 
-                        alt="Admin uploaded image" 
-                        class="chat-image admin">
-                </div>`
-              : ''
+            ${
+              message.admin_response || message.attachment?.data
+                ? `
+                  <span class="admin-response">
+                    ${
+                      message.flag === "deleted"
+                        ? `${adminResponseProcessed || ''}`
+                        : `<strong>${adminDisplayName}:</strong>${adminResponseProcessed ? ` ${adminResponseProcessed}` : ''}`
+                    }
+                  </span>
+
+                  ${
+                    message.attachment?.data
+                      ? `<div class="attachment-wrapper">${attachmentHtml}</div>`
+                      : ''
+                  }
+                `
+                : `<span class="admin-response">${awaitingText}</span>`
             }
           </div>
         `;
-        // Append user message first (right-aligned) and admin message after (left-aligned)
-        messageElement.innerHTML = adminMessageContent;
+
+        messageElement.innerHTML = adminContent;
 
         // After inserting, enhance the text (links + inline images)
         const adminResponseElement = messageElement.querySelector('.admin-response');
@@ -9246,7 +10973,7 @@ if (message.timestamp) {
                 ? message.admin_response
                 : `Admin: ${message.admin_response}`)
             : '';
-          renderTextWithLinks(adminResponseElement, adminText);
+       
         }
 
         console.log("vagy itt landol?2")
@@ -9277,11 +11004,23 @@ if (message.timestamp) {
           counterForManualModeAddMessage[tabIndex][message.user_id]=1;
         }
         
+      }
+      checkAwaitingResponse(tabIndex)
+
     }
+ 
+    
   }
-  console.log("vagy itt landol?7")
-  checkAwaitingResponse(tabIndex)
+
+  console.log("vagy itt landol?7*")
+  console.log("vagy itt landol?8")
+
+
+
+
 }else{
+
+  // Majd ez lesz a OVERALL Manual Automatic
 
   console.log("9")
       const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
@@ -9367,7 +11106,7 @@ console.log("-----------------28")
       
   };
 
-
+    console.log("vagy itt landol?9")
 
     // Update the content of the location box with user data, including null values
     userLocationBox.innerHTML =  `
@@ -9458,7 +11197,7 @@ console.log("-----------------28")
     </div>
    
   `;
-
+    console.log("vagy itt landol?10")
     // Show tooltip on hover
     const last4Elements = document.querySelectorAll('.last-4-messages');
       last4Elements.forEach(el => {
@@ -9478,21 +11217,28 @@ console.log("-----------------28")
             
           });
       });
-
+  console.log("vagy itt landol?11")
   bottomRightSection.prepend(userLocationBox);
+
+  console.log("vagy itt landol?111")
   // Initialize the map immediately after appending the content
   const mapContainer = userLocationBox.querySelector("#location-map");
 
   if (message.latitude !== null && message.longitude !== null) {
-    const map = L.map(mapContainer).setView([message.latitude, message.longitude], 13);
+    const map = L.map(mapContainer).setView(
+          [message.latitude, message.longitude],
+          13
+      );
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
 
-    L.marker([message.latitude, message.longitude]).addTo(map)
-      .bindPopup("Location: " + message.location)
-      .openPopup();
+      L.marker([message.latitude, message.longitude]).addTo(map)
+        .bindPopup("Location: " + message.location)
+        .openPopup();
+
+  
 
     // Ensure Leaflet resizes properly
     setTimeout(() => {
@@ -9502,7 +11248,7 @@ console.log("-----------------28")
       requestAnimationFrame(() => {
           map.invalidateSize();
       });
-
+     
       // Observe element visibility and refresh map when shown
       const visibilityObserver = new IntersectionObserver(entries => {
         entries.forEach(entry => {
@@ -9516,7 +11262,7 @@ console.log("-----------------28")
 
     // Handle window resize events
     L.DomEvent.on(window, 'resize', () => map.invalidateSize());
-
+    console.log("vagy itt landol?12")
   } else {
       // Hide the map container if no valid coordinates exist
       userLocationBox.querySelector("#location-map").style.display = "none";
@@ -9537,11 +11283,59 @@ console.log("-----------------28")
   // showUserChatBox(message.user_id, tabIndex);
   console.log("vagy itt landol?8")
   await new Promise(requestAnimationFrame);
+  scrollToBottom(chatBox);
 }
 
-// EVERYBODY NOT INITIATED THE MESSAGE EMISSION AND MESSAGES ARE DRAGGED AND DROPPED
-async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID, specialArg = null){
-  console.log("drag&drop for not initiated")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////
+/////       DRAG & DROP PROGRAMATICALLY NOT MANUALLY DOING THAT   /////
+///////////////////////////////////////////////////////////////////////
+
+
+
+///////////////////////////////////////////////////////////////////////
+/////       DRAG & DROP PROGRAMATICALLY NOT MANUALLY DOING THAT   /////
+///////////////////////////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////////////////////////
+/////       DRAG & DROP PROGRAMATICALLY NOT MANUALLY DOING THAT   /////
+///////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
+
+
+// EVERYBODY NOT INITIATED THE MESSAGE EMISSION AND MESSAGES ARE DRAGGED AND DROPPED  és a frissítéseknél is ez dolgozik
+async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID, specialArg = null){  //tabUniqueIS: to tab, specialARg: from tab
+  console.log("drag&drop for not initiated message / refresh")
   const formattedTime = formatTimestampForClient(message.timestamp);
 
   if (message.timestamp) {
@@ -9592,12 +11386,12 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
   }
   const bottomLeftSection = rectangle[tabIndex];
 
-  if (!userElements[message.user_id] && message.user_id) {
-      const buttonContainer = createUserButtonContainer_manual(message, language, tabIndex);
-      topMiddleSection[tabIndex].appendChild(buttonContainer); // tab-scoped
-      userElements[message.user_id] = buttonContainer;
-      userButtons_manual[tabIndex][message.user_id] = buttonContainer.querySelector('.admin-intervention');
-    }
+  // if (!userElements[message.user_id] && message.user_id) {
+  //     const buttonContainer = createUserButtonContainer_manual(message, language, tabIndex);
+  //     topMiddleSection[tabIndex].appendChild(buttonContainer); // tab-scoped
+  //     userElements[message.user_id] = buttonContainer;
+  //     userButtons_manual[tabIndex][message.user_id] = buttonContainer.querySelector('.admin-intervention');
+  //   }
 
 
 
@@ -9611,7 +11405,7 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
     userRectangle.dataset.tabIndex = tabIndex;
     userRectangle.style.height = '50px';
     userRectangle.style.width = '100%'; // Assume it fills the width of the first column
-    if (message.flag) {
+    if (message.flag || message.flag_removes_colleagues) {
       userRectangle.dataset.flag = 'true';
       userRectangle.classList.add('default-green');
     } else {
@@ -9626,6 +11420,9 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
     userRectangle.style.padding = '0 10px';
     userRectangle.style.boxSizing = 'border-box';
     userRectangle.style.flexShrink = '0';
+    const arrivalTime = new Date().toISOString(); // Get the current time in ISO format
+    userRectangle.setAttribute('data-arrival-time', arrivalTime);
+      
     
     const truncatedUserId = message.user_id.substring(0, 8);
     userRectangle.textContent = ` ${truncatedUserId}`;
@@ -9645,7 +11442,13 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
           ">
             ${truncatedUserId}
           </span>
-        </div>`;
+        </div>
+        <div class="human-avatar" style="display: flex; margin-left: auto;">
+          <span class="material-symbols-outlined" style="font-size: 20px; color: white;">
+            support_agent
+          </span>
+        </div>
+         `;
     
     const userIcon = userRectangle.querySelector('.fa-user');
       if (message.recent_history && message.recent_history.length > 0) {
@@ -9755,7 +11558,7 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
              
               showUserChatBox(message.user_id, tabIndex);
               showLocationBox(message.user_id, tabIndex);
-              showButton_Automatic_in_Overall_Manual_Mode(message.user_id, tabIndex);
+            
           
           }
 
@@ -9785,7 +11588,6 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
           }
           showUserChatBox(message.user_id, tabIndex);
           showLocationBox(message.user_id, tabIndex);
-          showButton_Automatic_in_Overall_Manual_Mode(message.user_id, tabIndex);
           activeRectangles[tabIndex] = userRectangle;
           isUserRectangleClickedPerTab[tabIndex] = true;
           
@@ -9814,7 +11616,6 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
 
         showUserChatBox(message.user_id, tabIndex);
         showLocationBox(message.user_id, tabIndex);
-        showButton_Automatic_in_Overall_Manual_Mode(message.user_id, tabIndex);
         isUserRectangleClickedPerTab[tabIndex] = true;
         
       }
@@ -9823,8 +11624,8 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
 
     userRectangle.addEventListener('mouseover', () => {
       // Only apply hover if this rectangle is not the active one
-      if (!activeRectangles || activeRectangles[tabIndex] == null) {
-        if (message.flag) {
+      if (!activeRectangles || activeRectangles[tabIndex] ==  {}) {
+        if (userRectangle.dataset.flag === 'true') {
           userRectangle.classList.remove('default-green');
           userRectangle.classList.add('user-rectangle-hover-lightgreen');
       } else {
@@ -9835,7 +11636,7 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
 
     // Only apply hover if this rectangle is not the active one
     if (userRectangle !== activeRectangles?.[tabIndex]) {
-        if (message.flag) {
+        if (userRectangle.dataset.flag === 'true') {
             userRectangle.classList.remove('default-green');
             userRectangle.classList.add('user-rectangle-hover-lightgreen');
         } else {
@@ -9848,7 +11649,7 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
         // Only remove hover if this rectangle is not the active one
         if (userRectangle !== activeRectangles[tabIndex]) {
           if (!userRectangle.classList.contains('ctrl-click-selected')){
-            if (message.flag){
+            if (userRectangle.dataset.flag === 'true'){
               userRectangle.classList.remove('user-rectangle-hover-lightgreen');
               userRectangle.classList.add('default-green');
             }else{
@@ -9867,6 +11668,15 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
         // if(isUserRectangleClickedPerTab[tabIndex]){
         //   bottomLeftSection.scrollTop = bottomLeftSection.scrollHeight;
         // } 
+        // if (message.admin_response === 'Awaiting Admin Response...' ||
+        //     message.admin_response === 'Adminisztrátori válaszra várakozás...' ||
+        //     message.admin_response === 'Kapcsolom az egyik kollégát, kérem várjon!' ||
+        //     message.admin_response === 'Connecting you to one of our colleagues, please wait!' 
+            
+        //   ) {           
+        //     userRectangle.classList.add('awaiting-response');
+ 
+        //   }
     
   }
 
@@ -9909,8 +11719,59 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
   //   return adminResponseElement && adminResponseElement.textContent.includes('Awaiting Admin Response...');
   // });
 
+  const adminDisplayName = message.admin_name || "Admin";
 
-   if (automaticResponseStates_overallManual[tabIndex][message.user_id] || (!message.bot_message && message.admin_response)){
+   //  MANUAL MODE in MANUAL MODE                              //  MANUAL MODE in MANUAL MODE
+    //  MANUAL MODE in MANUAL MODE                              //  MANUAL MODE in MANUAL MODE
+    //  MANUAL MODE in MANUAL MODE                              //  MANUAL MODE in MANUAL MODE
+              
+                                //  MANUAL MODE in MANUAL MODE
+                                //  MANUAL MODE in MANUAL MODE
+                              //  MANUAL MODE in MANUAL MODE
+
+
+  
+  let attachmentHtml = '';
+
+  // Check if message.user_message is JSON with attachment
+  if (typeof message.user_message === 'string' && message.user_message.trim().startsWith('{')) {
+      try {
+          const msgObj = JSON.parse(message.user_message);
+
+          // If there is an attachment, extract it
+          if (msgObj.attachment) {
+              const mime = msgObj.attachment.mime_type;
+              const data = msgObj.attachment.data;
+
+              if (mime?.startsWith('image/')) {
+                  attachmentHtml = `<img src="${data}" class="attachment" />`;
+              } else {
+                  // PDF/DOCX or other → small icon + link
+                  let icon = '📝';
+                  if (mime.includes('pdf')) icon = '📄';
+                  else if (mime.includes('word') || mime.includes('msword') || mime.includes('officedocument.wordprocessingml')) icon = '📝';
+                  attachmentHtml = `
+                    <a href="${data}" target="_blank" class="attachment-link">
+                      <span data-lang="view_attachment"></span>
+                      <span class="attachment-icon">${icon}</span>
+                    </a>
+                  `;
+              }
+
+              // Now **replace message.user_message with only the text**
+              message.user_message = msgObj.text || '';
+          } else {
+              // No attachment → keep user_message as is
+              message.user_message = msgObj.text || '';
+          }
+      } catch (e) {
+          console.warn("Failed to parse user_message JSON:", e);
+          // fallback: leave message.user_message as is
+      }
+  }
+
+  
+  if (overallTabModes[tabIndex] === 'manual'){
 
 
   const awaitingMessageElement = Array.from(chatBox.getElementsByClassName('message')).find(el => {
@@ -9925,44 +11786,49 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
 
 
   const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
+  
+  ///------------               AWAITING FOR ADMIN REPLY 
+  
   if (awaitingMessageElement) {
-        const adminResponseElement = awaitingMessageElement.querySelector('.admin-response');
 
-        if (adminResponseElement) {
-          const adminText = message.admin_response
-            ? `Admin: ${message.admin_response}`
-            : awaitingText;
+      const adminResponseElement = awaitingMessageElement.querySelector('.admin-response');
+      console.log("WAITING MANUAL - MANUAL")
+      if (adminResponseElement) {
+          const awaitingText = language === 'hu' 
+            ? 'Adminisztrátori válaszra várakozás...' 
+            : 'Awaiting Admin Response...';
 
-          // Use renderTextWithLinks to handle URLs, images, etc.
-          renderTextWithLinks(adminResponseElement, adminText);
-        }
+          // ---- TEXT PART ----
+         
+          const clickableText = makeLinksClickable(message.admin_response)
 
-    // ---- Insert admin image if available ----
-      if (message.image_url) {
-        // Prevent duplicate images on rerenders
-        let existingImgWrapper = awaitingMessageElement.querySelector('.admin-image-wrapper');
-        if (!existingImgWrapper) {
-          const imgWrapper = document.createElement('div');
-          imgWrapper.className = 'admin-image-wrapper';
-          imgWrapper.innerHTML = `
-            <img src="${message.image_url}" 
-                 alt="Admin uploaded image"
-                 class="chat-image admin"
-                 style="max-width: 100%; border-radius: 8px; margin-top: 6px;">
-          `;
-          awaitingMessageElement.appendChild(imgWrapper);
-        }
+          if (message.admin_response || attachmentHtml) {
+                adminResponseElement.innerHTML = `<strong>${adminDisplayName}:</strong> ${clickableText || ''}${attachmentHtml ? `<div class="attachment-wrapper">${attachmentHtml}</div>` : ''}`;
+            } else {
+                adminResponseElement.innerHTML = awaitingText;
+            }
+
       }
+
 
 
    
     chatBox.classList.add('not-awaiting-response');
     chatBox.classList.remove('awaiting-response');
     userRectangle.classList.remove('awaiting-response'); // Remove class from user rectangle
-    counterForManualModeAddMessage[tabIndex][message.user_id]+=1;
+
+    updateDynamicText(language);
+
+    if (!counterForManualModeAddMessage[tabIndex][message.user_id]) {
+        counterForManualModeAddMessage[tabIndex][message.user_id] = 0;
+        }
+    counterForManualModeAddMessage[tabIndex][message.user_id] += 1;
+
+
+   /// 1.) ---------------    WAITING  BLOCK BUT USER SEND A NEW QUESTION right after the prevous message and no admin intervention yet ----------------
 
     
-    if (!message.admin_response) {
+    if (message.bot_message) {
       const adminResponseElement = awaitingMessageElement.querySelector('.admin-response');
         if (adminResponseElement) {
             const parentAdminMessage = adminResponseElement.closest('.admin-message');
@@ -9975,17 +11841,31 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
       messageElement.className = 'message';
 
       const timestamp = message.timestamp || '';
+      const formattedTime = formatTimestampForClient(message.timestamp);
       const awaitingText = language === 'hu' ? 'Adminisztrátori válaszra várakozás...' : 'Awaiting Admin Response...';
 
       // Create user message content and style it to align on the right
       //<span class="user-id">User ID: ${message.user_id}</span> taken out after timestamp
-      const userMessageContent = `
-        <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
-          <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
-        
-          <span class="user-input">${translation_Sent_User.User}: ${message.user_message}</span>
-        </div>
-      `;
+      let userText = '';
+        if (message.user_message) {
+          const clickableUserText = message.user_message.replace(
+            /(https?:\/\/[^\s<]+)/g,
+            '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+          );
+
+          userText = `${translation_Sent_User.User}: ${clickableUserText}`;
+        }
+        const userMessageContent = `
+          <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
+            <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
+            
+            <div class="user-input">
+              ${userText}
+            </div>
+
+            ${attachmentHtml ? `<div class="attachment-wrapper attachment-wrapper-user-message">${attachmentHtml}</div>` : ''}
+          </div>
+        `;
       // Create admin message content and style it to align on the left
       const adminMessageContent = `
         <div class="admin-message">
@@ -9997,9 +11877,7 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
       messageElement.innerHTML = userMessageContent + adminMessageContent;
       // Post-process the .user-input span to render images/links
       const userInputSpan = messageElement.querySelector('.user-input');
-      if (userInputSpan) {
-          renderTextWithLinks(userInputSpan, userInputSpan.textContent);
-      }
+    
 
 
 
@@ -10033,7 +11911,8 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
       }
 
 
-
+      updateDynamicText(language);
+     
 
 
       chatBox.classList.add('awaiting-response');
@@ -10041,11 +11920,202 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
       userRectangle.classList.add('awaiting-response'); // Add class to user rectangle
       counterForManualModeAddMessage[tabIndex][message.user_id]=0;
     } 
+
+    
+    setTimeout(() => {
+      checkAwaitingResponse(tabIndex);
+    }, 0);
     
     // THE FIRST MESSAGE or SECONDLINE MESSAGE from THE USER HAS ARRIVED
+    
+      ////////////////////////////////////////////////////////////////////////////
+      //                  NO AWAITING ELEMENT
+      ///////////////////////////////////////////////////////////////////////////
 
   } else {
-      if (message.user_message){   // brand new user message
+
+
+      ////////////////////////////////////////////////////////////////////////////////
+      ////////////////           HANDLE DRAGED AND DROPPED MESSAGES  ////////////////
+      ////////////////////////////////////////////////////////////////////////////////
+
+      if (message.flag || message.flag_removes_colleagues){
+          console.log("HANDLE DRAGED AND DROPPED MESSAGES 2")
+
+          const messageElement = document.createElement('div');
+          messageElement.className = 'message';
+           
+       
+          // Use message timestamp or fallback to current time
+          const timestamp = message.timestamp || '';
+          let headlineContent = "";
+          let headlineText = language === 'hu' 
+            ? "Átvett üzenet a következő kollégától:" 
+            : "Messages from ";
+          if ((message.flag === "deleted" || message.flag_removes_colleagues==="deleted") && message.message_number === 1) {
+            headlineContent = `
+                <div class="headline-message" style="background: linear-gradient(to right, rgba(144, 238, 144, 0.7), rgba(34, 139, 34, 0.7));">
+                    ${headlineText} ${message.name}
+                </div>
+            `;
+            }
+        
+          // USER MESSAGE
+
+          const hasUserText = message.user_message && message.user_message.trim() !== "";
+          const hasUserAttachment = message.userAttachmentHtml && message.userAttachmentHtml.trim() !== "";
+          const shouldRenderUserMessage = hasUserText || hasUserAttachment;
+          
+          let userMessageContent = '';
+          if (shouldRenderUserMessage) {
+          let userText = '';
+          console.log("USERMESSAGE: ")
+          console.log(message.user_message)
+          console.log("USERMESSAGE TIME: ")
+          const formattedTime = formatTimestampForClient(message.timestamp);
+          console.log(formattedTime)
+          console.log(message.timestamp)
+          if (message.user_message) {
+            const clickableUserText = message.user_message.replace(
+              /(https?:\/\/[^\s<]+)/g,
+              '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+            );
+
+            userText = `${translation_Sent_User.User}: ${clickableUserText}`;
+          }
+          
+          userMessageContent = `
+            <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
+              <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
+              
+              <div class="user-input">
+                ${userText}
+              </div>
+
+              ${message.userAttachmentHtml ? `<div class="attachment-wrapper attachment-wrapper-user-message">${message.userAttachmentHtml}</div>` : ''}
+            </div>
+          `;
+          }
+
+          // ADMIN MESSAGE
+          let adminText = '';
+          if (message.admin_response) {
+            const clickableAdminText = message.admin_response.replace(
+              /(https?:\/\/[^\s<]+)/g,
+              '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+            );
+
+            adminText = `${clickableAdminText}`;
+          }
+          
+          let adminInnerContent = '';
+          let textPart = '';
+          const hasResponse = !!adminText;
+          const hasAttachment = !!message.adminAttachmentHtml;
+
+          console.log("ADMIN TEXT: ", adminText)
+          if (hasResponse || hasAttachment) {
+            
+            const normalizedResponse = (adminText || '').trim().toLowerCase();
+            const isAwaitingText =
+              normalizedResponse === 'awaiting admin response...' ||
+              normalizedResponse === 'adminisztrátori válaszra várakozás...';
+            
+            if (isAwaitingText) {
+              // show only the text, no admin name
+              textPart = `${adminText}`;
+            } else if (adminText) {
+              textPart = `<strong>${adminDisplayName}:</strong> ${adminText}`;
+            } else {
+              textPart = `<strong>${adminDisplayName}:</strong>`;
+            }
+
+            console.log("TEXT PART", textPart)
+            adminInnerContent += `
+              <span class="admin-response">
+                ${textPart}
+              </span>
+            `;
+
+            if (hasAttachment) {
+              adminInnerContent += `
+                <div class="attachment-wrapper">
+                  ${message.adminAttachmentHtml}
+                </div>
+              `;
+            }
+          }
+
+          if (message.admin_response === 'Awaiting Admin Response...' ||
+            message.admin_response === 'Adminisztrátori válaszra várakozás...' ||
+            message.admin_response === 'Kapcsolom az egyik kollégát, kérem várjon!' ||
+            message.admin_response === 'Connecting you to one of our colleagues, please wait!' 
+            
+          ) {           
+            userRectangle.classList.add('awaiting-response');
+            chatBox.classList.add('awaiting-response');
+            chatBox.classList.remove('not-awaiting-response');
+ 
+          }else{
+            userRectangle.classList.remove('awaiting-response');
+            chatBox.classList.add('not-awaiting-response');
+            chatBox.classList.remove('awaiting-response');
+          }
+
+         
+          const adminMessageContentMain = adminInnerContent
+          ? `<div class="admin-message">${adminInnerContent}</div>`
+          : '';
+         
+
+
+          messageElement.innerHTML =
+            (headlineContent ? headlineContent : '') +
+            userMessageContent +
+            adminMessageContentMain;
+
+      
+          // Append hidden timestamp AFTER .innerHTML is set
+          const hiddenTimestampSpan = document.createElement('span');
+          hiddenTimestampSpan.className = 'hidden-timestamp';
+          hiddenTimestampSpan.style.display = 'none';
+          hiddenTimestampSpan.textContent = timestamp;
+          messageElement.appendChild(hiddenTimestampSpan);
+
+
+            
+         // Insert based on timestamp ordering
+          const chatMessages = Array.from(chatBox.getElementsByClassName('message'));
+          const insertBeforeIndex = chatMessages.findIndex(el => {
+            const ts = el.querySelector('.hidden-timestamp');
+            return ts && new Date(ts.textContent) > new Date(timestamp);
+          });
+
+          if (insertBeforeIndex === -1) {
+            chatBox.appendChild(messageElement);
+          } else {
+            chatBox.insertBefore(messageElement, chatMessages[insertBeforeIndex]);
+          }
+
+
+          updateDynamicText(language);
+
+          
+
+          setTimeout(() => {
+            checkAwaitingResponse(tabIndex);
+            checkAwaitingResponse(specialArg);
+          }, 0);
+
+
+         
+
+         
+      }  else{
+
+    
+
+      if (message.bot_message){   // brand new user message
         
       
         const messageElement = document.createElement('div');
@@ -10066,37 +12136,76 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
 
         }
        
-        //<span class="user-id">User ID: ${message.user_id}</span> taken out after timestamp
-        // Create user message content and style it to align on the right
-        const userMessageContent = `
-          <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
-            <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
-           
-            <span class="user-input">${translation_Sent_User.User}: ${message.user_message}</span>
-          </div>
-        `;
-        // Create admin message content and style it to align on the left
-        // const adminMessageContent = `
-        //   <div class="admin-message">
-        //     ${message.admin_response ? `<span class="admin-response">Admin: ${message.admin_response}</span>` : '<span class="admin-response">Awaiting Admin Response...</span>'}
-        //   </div>
-        // `;
+            let userText = '';
+          console.log("USERMESSAGE: ")
+          console.log(message.user_message)
+          console.log("USERMESSAGE TIME: ")
+          const formattedTime = formatTimestampForClient(message.timestamp);
+          console.log(formattedTime)
+          console.log(message.timestamp)
+          if (message.user_message) {
+            const clickableUserText = message.user_message.replace(
+              /(https?:\/\/[^\s<]+)/g,
+              '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+            );
 
-        const adminMessageContent = `
-          <div class="admin-message">
-            ${
-              message.bot_message
-                ? message.bot_message === "Awaiting Admin Response..."
-                  ? `<span class="admin-response">${message.bot_message}</span>` // If bot_message is "Awaiting Admin Response...", no Bot: prefix
-                  : `<span class="admin-response">Bot: ${message.bot_message}</span>` // Otherwise, include Bot: prefix
-                : message.admin_response
-                  ? message.flag === "deleted"
-                    ? `<span class="admin-response">${message.admin_response}</span>` // If message is deleted, no Admin: prefix
-                    : `<span class="admin-response">Admin: ${message.admin_response}</span>` // Otherwise, include Admin: prefix
-                  : '<span class="admin-response">Awaiting Admin Response...</span>' // If neither bot_message nor admin_response, show "Awaiting Admin Response..."
-            }
-          </div>
-        `;
+            userText = `${translation_Sent_User.User}: ${clickableUserText}`;
+          }
+          
+          const userMessageContent = `
+            <div class="user-message" style="background: linear-gradient(to right, rgb(151, 188, 252), rgb(183, 207, 250));">
+              <span class="timestamp">${translation_Sent_User.sentAT}: ${formattedTime}</span>
+              
+              <div class="user-input">
+                ${userText}
+              </div>
+
+              ${attachmentHtml ? `<div class="attachment-wrapper attachment-wrapper-user-message">${attachmentHtml}</div>` : ''}
+            </div>
+          `;
+          // Create admin message content and style it to align on the left
+          // const adminMessageContent = `
+          //   <div class="admin-message">
+          //     ${message.admin_response ? `<span class="admin-response">Admin: ${message.admin_response}</span>` : '<span class="admin-response">Awaiting Admin Response...</span>'}
+          //   </div>
+          // `;
+          const awaitingAdminText = language === "hu"
+            ? "Adminisztrátori válaszra várakozás..."
+            : "Awaiting Admin Response...";
+
+          const isConnectingMessage =
+            message.bot_message === "Kapcsolom az egyik kollégát, kérem várjon!" ||
+            message.bot_message === "Connecting you to one of our colleagues, please wait!";
+
+          const adminMessageContentMain = `
+            <div class="admin-message">
+              ${
+                message.bot_message
+                  ? message.bot_message === "Awaiting Admin Response..."
+                    // CASE 1 → only awaiting
+                    ? `<span class="admin-response">${awaitingAdminText}</span>`
+
+                    // CASE 2 → connecting message + awaiting BELOW
+                    : isConnectingMessage
+                      ? `
+                        <span>Bot: ${message.bot_message}</span>
+                        <span class="admin-response">${awaitingAdminText}</span>
+                      `
+
+                      // CASE 3 → normal bot message
+                      : `<span class="admin-response">Bot: ${message.bot_message}</div>`
+
+                  : message.admin_response
+                    // ADMIN RESPONSE
+                    ? message.flag === "deleted"
+                      ? `<span class="admin-response">${message.admin_response}</span>`
+                      : `<span class="admin-response">Admin: ${message.admin_response}</span>`
+
+                    // FALLBACK → awaiting
+                    : `<span class="admin-response awaiting-text">${awaitingAdminText}</span>`
+              }
+            </div>
+          `;
 
       
 
@@ -10105,13 +12214,11 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
         messageElement.innerHTML =
         (headlineContent ? headlineContent : '') +
         userMessageContent +
-        adminMessageContent;
+        adminMessageContentMain;
 
         // Post-process the .user-input span to render images/links
         const userInputSpan = messageElement.querySelector('.user-input');
-        if (userInputSpan) {
-            renderTextWithLinks(userInputSpan, userInputSpan.textContent);
-        }
+   
 
 
         // Append hidden timestamp AFTER .innerHTML is set
@@ -10136,19 +12243,25 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
           chatBox.insertBefore(messageElement, chatMessages[insertBeforeIndex]);
         }
 
-
+        updateDynamicText(language);
 
         chatBox.classList.add('awaiting-response');
         chatBox.classList.remove('not-awaiting-response');
         userRectangle.classList.add('awaiting-response'); // Add class to user rectangle
         counterForManualModeAddMessage[tabIndex][message.user_id]=0;
         // Check if bot_message exists and is not "Awaiting Admin Response..."
-        if (message.bot_message && message.bot_message !== "Awaiting Admin Response...") {
-          // Valid bot response: Remove awaiting-response classes
-          chatBox.classList.remove('awaiting-response');
-          userRectangle.classList.remove('awaiting-response');
-          counterForManualModeAddMessage[tabIndex][message.user_id]=1;
-        }
+        if (
+            message.bot_message && 
+            message.bot_message !== "Awaiting Admin Response..." && 
+            message.bot_message !== "Adminisztrátori válaszra várakozás..." &&
+            message.bot_message !== "Kapcsolom az egyik kollégát, kérem várjon!" &&
+            message.bot_message !== "Connecting you to one of our colleagues, please wait!"
+          ) {
+            // Valid bot response: Remove awaiting-response classes
+            chatBox.classList.remove('awaiting-response');
+            userRectangle.classList.remove('awaiting-response');
+            counterForManualModeAddMessage[tabIndex][message.user_id]=1;
+          }
       
         if (message.awaiting === false) {
           chatBox.classList.remove('awaiting-response');
@@ -10163,42 +12276,43 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
 
         const timestamp = message.timestamp || '';
 
-      // chatBox.classList.add('not-awaiting-response');
-      // chatBox.classList.remove('awaiting-response');
-      // userRectangle.classList.remove('awaiting-response'); // Remove class from user rectangle
-      // if (counterForManualModeAddMessage[tabIndex][message.user_id]>0){
-        // Create admin message content and style it to align on the left
-        const adminMessageContent = `
+        // clickable links
+        let adminResponseProcessed = '';
+        if (message.admin_response) {
+          adminResponseProcessed = message.admin_response.replace(
+            /(https?:\/\/\S+\b)/g,
+            '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+          );
+        }
+
+        const adminContent = `
           <div class="admin-message">
-            ${message.admin_response
-              ? message.flag === "deleted"
-                ? `<span class="admin-response">${message.admin_response}</span>`  // If message is deleted, no Admin: prefix
-                : `<span class="admin-response">Admin: ${message.admin_response}</span>`  // Otherwise, include Admin: prefix
-              : '<span class="admin-response"></span>'  // If no admin response, show "Awaiting Admin Response..."
+            ${
+              message.admin_response || message.attachment?.data
+                ? `
+                  <span class="admin-response">
+                    ${
+                      message.flag === "deleted"
+                        ? `${adminResponseProcessed || ''}`
+                        : `<strong>${adminDisplayName}:</strong>${adminResponseProcessed ? ` ${adminResponseProcessed}` : ''}`
+                    }
+                  </span>
+
+                  ${
+                    message.attachment?.data
+                      ? `<div class="attachment-wrapper">${attachmentHtml}</div>`
+                      : ''
+                  }
+                `
+                : `<span class="admin-response">${awaitingText}</span>`
             }
-            ${message.image_url
-            ? `<div class="admin-image-wrapper">
-                <img src="${message.image_url}" 
-                      alt="Admin uploaded image" 
-                      class="chat-image admin">
-              </div>`
-            : ''
-          }
           </div>
         `;
-        // Append user message first (right-aligned) and admin message after (left-aligned)
-        messageElement.innerHTML = adminMessageContent;
 
-        // After inserting, enhance the text (links + inline images)
-        const adminResponseElement = messageElement.querySelector('.admin-response');
-        if (adminResponseElement) {
-          const adminText = message.admin_response
-            ? (message.flag === "deleted"
-                ? message.admin_response
-                : `Admin: ${message.admin_response}`)
-            : '';
-          renderTextWithLinks(adminResponseElement, adminText);
-        }
+        messageElement.innerHTML = adminContent;
+
+
+       
 
 
         // Append real hidden timestamp element
@@ -10212,7 +12326,11 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
         const chatMessages = Array.from(chatBox.getElementsByClassName('message'));
         const insertBeforeIndex = chatMessages.findIndex(el => {
           const tsEl = el.querySelector('.hidden-timestamp');
-          return tsEl && new Date(tsEl.textContent) > new Date(timestamp);
+          if (!tsEl) return false;
+            const existingTs = new Date(tsEl.textContent.trim()).getTime();
+            const newTs = new Date(timestamp.trim()).getTime();
+            return existingTs > newTs
+
         });
 
         if (insertBeforeIndex === -1) {
@@ -10220,17 +12338,20 @@ async function appendMessageSavedStatesForDragAndDropSocket(message, tabUniqueID
         } else {
           chatBox.insertBefore(messageElement, chatMessages[insertBeforeIndex]);
         }
+        updateDynamicText(language)
+
+        if (!counterForManualModeAddMessage[tabIndex][message.user_id]) {
+          counterForManualModeAddMessage[tabIndex][message.user_id] = 0;
+            }
+        counterForManualModeAddMessage[tabIndex][message.user_id] += 1;
 
 
 
-      // }
-        if (message.awaiting === false) {
-          counterForManualModeAddMessage[tabIndex][message.user_id]=1;
-        }
-        
+      }
+      checkAwaitingResponse(tabIndex)
     }
   }
-  checkAwaitingResponse(tabIndex)
+  
 
   }else{
 
@@ -10285,7 +12406,7 @@ console.log("-----------------28")
 
     
 
-
+    checkAwaitingResponse(tabIndex)
 
 
 
@@ -10491,6 +12612,7 @@ console.log("-----------------28")
   // showUserChatBox(message.user_id, tabIndex);
 
   await new Promise(requestAnimationFrame);
+  scrollToBottom(chatBox);
 
 
 }
@@ -10534,7 +12656,8 @@ console.log("-----------------28")
 
 
         // Client is connecting:
-        const socket = io("https://redrain1230.loophole.site", {
+        //const socket = io("https://redrain1230.loophole.site", {
+            const socket=io("http://localhost:8001", { 
             //transports: ["websocket"],
             query: {
                 user_id: user_id,
@@ -10609,12 +12732,19 @@ console.log("-----------------28")
       window.location = "/logout";
     });
 
-    socket.on("force_logout_index", () => {
-    document.cookie = "session_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-    window.location.href = "/";
-});
+    
    
-      
+    socket.on("force_logout_index", (data, callback) => {
+    document.cookie = "session_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+
+    if (callback) callback();  
+
+    const url = data.flash_id
+        ? `/?flash_id=${data.flash_id}`
+        : "/";
+
+    window.location.href = url;
+});
 
 
 
@@ -10671,6 +12801,7 @@ socket.on('new_message_FirstUser', async function(payload) {
       console.log(" * * *  Sorted messages  * * *");
       console.log(message);
       await appendMessage(message);
+      console.log("parappa")
 
       // Normalize text for comparison
       const text = (message.user_message || "")
@@ -10695,26 +12826,7 @@ socket.on('new_message_FirstUser', async function(payload) {
             console.log("Triggered manual mode for user (AUTO mode):", message.user_id);
           }
 
-        } else {
-          const tabIndex = Object.keys(rectangle).find(index => {
-            const rect = rectangle[index];
-            return rect && rect.querySelector(`.user-rectangle[data-user-id="${message.user_id}"]`);
-          });
-
-          if (tabIndex) {
-            const button = topMiddleSection[tabIndex]?.querySelector(
-              `.button-container[data-user-id="${message.user_id}"] button.admin-intervention`
-            );
-            if (button && !automaticResponseStates_overallManual[tabIndex][message.user_id]) {
-              button.click();
-              console.log("Triggered manual mode for user:", message.user_id, "in tab:", tabIndex);
-            } else {
-              console.warn("Button not found or already in manual for user:", message.user_id);
-            }
-          } else {
-            console.warn("No tab found for user:", message.user_id);
-          }
-        }
+        } 
       }
     }
 
@@ -11444,8 +13556,11 @@ async function handleSingleEvent(event) {
     const { message, tab_uniqueId, specialArg } = event.data;
     if (message && tab_uniqueId && manualMode) {
       if (specialArg) {
+        console.log("Spec ARG:")
+        console.log(message)
         await appendMessageSavedStatesForDragAndDropSocket(message, tab_uniqueId, specialArg);
       } else {
+        console.log("Simple SavedSTATES")
         await appendMessageSavedStates(message, tab_uniqueId);
       }
     } else {
@@ -11464,10 +13579,10 @@ async function handleSingleEvent(event) {
     counterForAddAdminMessage[event.data.user_id] = 0;
     updateAdminIntervention_fornewlyjoined(event.data.user_id, event.data.state);
 
-  } else if (event.event_type === 'response_state_changed_overallmanual') {
-    automaticResponseStates[event.data.user_id] = event.data.state;
-    counterForManualModeAddMessage[event.data.tabIndex][event.data.user_id] = 0;;
-    conveying_admin_intervention_buttonpress_overallmanual(event.data.user_id, event.data.tabIndex)
+  // } else if (event.event_type === 'response_state_changed_overallmanual') {
+  //   automaticResponseStates[event.data.user_id] = event.data.state;
+  //   counterForManualModeAddMessage[event.data.tabIndex][event.data.user_id] = 0;;
+  //   conveying_admin_intervention_buttonpress_overallmanual(event.data.user_id, event.data.tabIndex)
 
   } else if (event.event_type === 'admin_response') {
     updateAdminIntervention_response(event.data);
@@ -11553,15 +13668,15 @@ socket.on('response_update', function(data) {
 
 // GENERALLY MANUAL MODE: WHEN RECEVING THE STATE IF "INTERVENTION" OR "AUTOMATIC" BY CUSTOMERS VIA SOCKET AND USERS ARE LOGGED IN
 // Listen for the server broadcast of updated states
-socket.on('response_state_update_overallmanual', (data) => {
-  // Update the automaticResponseStates with the data received from the server
-  automaticResponseStates[data.user_id] = data.state;
-  counterForManualModeAddMessage[data.tabIndex][data.user_id] = 0;
+// socket.on('response_state_update_overallmanual', (data) => {
+//   // Update the automaticResponseStates with the data received from the server
+//   automaticResponseStates[data.user_id] = data.state;
+//   counterForManualModeAddMessage[data.tabIndex][data.user_id] = 0;
   
-  // Update UI elements to reflect the new state
-  conveying_admin_intervention_buttonpress_overallmanual(data.user_id, data.tabIndex)
+//   // Update UI elements to reflect the new state
+//   conveying_admin_intervention_buttonpress_overallmanual(data.user_id, data.tabIndex)
  
-});
+// });
 
 
 // TABS CREATION INPUT VALUE
@@ -11792,6 +13907,13 @@ function setLanguage(language) {
     }
   });
 
+  document.querySelectorAll('[data-lang-title]').forEach(el => {
+    const key = el.getAttribute('data-lang-title');
+    if (translations[language][key]) {
+      el.title = translations[language][key];
+    }
+  });
+
   // Update dynamically changing elements above setLanguage works on elements that already exist static having data-lang
   updateDynamicText(language);
 }
@@ -11835,6 +13957,8 @@ const translations = {
     uploadInProgress: "Uploading file...",
     uploadSuccess: "File uploaded successfully!",
     uploadFailed: "Upload failed",
+    robotMode: "Switch to automatic (robot) mode",
+    agentMode: "Switch to manual (agent) mode",
     
     
     
@@ -11875,7 +13999,9 @@ const translations = {
     fileTooLarge: "A fájl mérete meghaladja az 5 MB-ot.",
     uploadInProgress: "Feltöltés folyamatban...",
     uploadSuccess: "A fájl sikeresen feltöltve!",
-    uploadFailed: "Feltöltés sikertelen"
+    uploadFailed: "Feltöltés sikertelen",
+    robotMode: "Váltás automatikus (robot) módra",
+    agentMode: "Váltás manuális (élő ügyintéző) módra",
 
   }
 };
@@ -11993,18 +14119,28 @@ function updateDynamicText(language) {
   });
 
   //MANUAL MODE SENT AT , USER
-  document.querySelectorAll('.user-message').forEach(userMessage => {
+    document.querySelectorAll('.user-message').forEach(userMessage => {
     const timestampElement = userMessage.querySelector('.timestamp');
     const userInputElement = userMessage.querySelector('.user-input');
 
     if (timestampElement) {
-      const timestampText = timestampElement.textContent.split(': ')[1] || ''; // Preserve timestamp value
+      // Preserve the timestamp after the original label
+      const timestampText = timestampElement.textContent.split(': ')[1] || '';
       timestampElement.innerHTML = `<strong>${translations2_loc.sentAT}:</strong> ${timestampText}`;
     }
 
     if (userInputElement) {
-      const userMessageText = userInputElement.textContent.split(': ')[1] || ''; // Preserve user message
-      userInputElement.innerHTML = `<strong>${translations2_loc.User}:</strong> ${userMessageText}`;
+      // Preserve the message after the original "User:" label
+      const userMessageText = userInputElement.textContent.split(': ')[1] || '';
+
+      // Replace URLs with clickable links
+      const clickableText = userMessageText.replace(
+        /(https?:\/\/[^\s<]+)/g,
+        '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1565c0; text-decoration: underline;">$1</a>'
+      );
+
+      // Prepend the translated "User:" label
+      userInputElement.innerHTML = `<strong>${translations2_loc.User}:</strong> ${clickableText}`;
     }
   });
 
@@ -12181,8 +14317,11 @@ function stopDotAnimation2() {
 
 
 setInterval(() => {
-  socket.emit("heartbeat");
+  socket.emit("heartbeat");   //this every 60 seconds we send socket.emit("heartbeat") to update several things
 }, 60 * 1000);
+
+
+
 
 
 

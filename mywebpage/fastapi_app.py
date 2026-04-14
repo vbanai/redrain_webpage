@@ -9,11 +9,11 @@ import os
 import asyncio
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from redis.asyncio import from_url as redis_from_url
 from starlette.middleware.sessions import SessionMiddleware
 from mywebpage.redis_client import redis_url
-from mywebpage.background import redis_listener, send_admin_heartbeat, cleanup_idle_sessions
+from mywebpage.background import redis_listener, send_admin_heartbeat, cleanup_idle_sessions, sync_subscriptions_task
 from mywebpage.models_loader import load_models_bg
 from mywebpage.socketio_app import sio
 from socketio import ASGIApp
@@ -26,8 +26,6 @@ from pathlib import Path
 from fastapi import Request
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi import Request, HTTPException
-
-
 
 
 # --------------------- Lifespan ---------------------
@@ -55,9 +53,12 @@ async def lifespan(app: FastAPI):
 
     # Process pool + semaphore
     try:
+        app.state.thread_pool = ThreadPoolExecutor(max_workers=8)
+        app.state.thread_sem = asyncio.Semaphore(8)
+
         app.state.cpu_pool = ProcessPoolExecutor(max_workers=2)
         app.state.cpu_sem = asyncio.Semaphore(2)
-        print("Process pool + semaphore created")
+        print("Thread pool + Process pool + semaphore created")
     except Exception as e:
         print(f"Failed to create CPU pool/semaphore: {e}")
 
@@ -109,6 +110,7 @@ async def lifespan(app: FastAPI):
                 asyncio.create_task(supervisor(redis_listener, "redis_listener", app)),
                 asyncio.create_task(supervisor(send_admin_heartbeat, "admin_heartbeat", app)),
                 asyncio.create_task(supervisor(cleanup_idle_sessions, "idle_logout", app)),
+                asyncio.create_task(supervisor(sync_subscriptions_task, "subscription_sync", app))
             ]
             print("Background tasks started")
         except Exception as e:
@@ -138,8 +140,19 @@ async def lifespan(app: FastAPI):
                 await asyncio.gather(*tasks, return_exceptions=True)
             except Exception as e:
                 print(f"Error while awaiting background tasks: {e}")
-
-        # Shutdown pool
+        
+         # ---- THREAD POOL ----
+        thread_pool = getattr(app.state, "thread_pool", None)
+        if thread_pool:
+            try:
+                thread_pool.shutdown(wait=True)
+                print("Thread pool shut down")
+            except Exception as e:
+                print(f"Error shutting down thread pool: {e}")
+            finally:
+                delattr(app.state, "thread_pool")
+                
+        # Shutdown process pool
         pool = getattr(app.state, "cpu_pool", None)
         if pool:
             try:

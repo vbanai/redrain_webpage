@@ -160,8 +160,12 @@
         <!-- <button class="button" id="form-open">Login</button> -->
         {% else %}
         
-          <a href="#" class="buttonlogin" data-lang="login" id="form-open" onclick="window.location.href='/login/external'; return false;"></a>
-
+          <!-- EREDETI AZUROS<a href="#" class="buttonlogin" data-lang="login" id="form-open" onclick="window.location.href='/login/external'; return false;"></a> -->
+          <select id="dev-login" onchange="if(this.value) window.location.href=this.value">
+            <option value="">Select user to login</option>
+            <option value="/login/external?email=banaiviktor@gmail.com">Banaiviktor</option>
+            <option value="/login/external?email=vaersgo1@gmail.com">Vaersgo1</option>
+          </select>
           <!-- Hidden form to handle the POST request -->
           <!-- <form id="loginForm" action="/login/external" method="POST" style="display: none;">
             

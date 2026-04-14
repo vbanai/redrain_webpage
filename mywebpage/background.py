@@ -16,6 +16,9 @@ import time
 from fastapi import HTTPException
 from dotenv import load_dotenv
 load_dotenv()
+import stripe
+
+stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
 
 INACTIVITY_TIMEOUT_SECONDS = 30
 BLOB_CONN_STR = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
@@ -608,8 +611,36 @@ async def redis_listener(fastapi_app):
                     
 
                     event = await log_event(org_id, "new_message", msg)
-                    mode = await get_client_mode(org_id)
 
+                    redis_key = f"client:{org_id}:state"
+
+                    state = await redis_client.hgetall(redis_key)
+
+                    if not state:
+                        # Fallback to DB (ONE query)
+                        async with async_session_scope() as db:
+                            result = await db.execute(
+                                select(Client.mode, Client.last_manualmode_triggered_by)
+                                .where(Client.id == org_id)
+                            )
+                            row = result.first()
+
+                        if row:
+                            mode, last_manual = row
+                        else:
+                            mode, last_manual = "automatic", None
+
+                        # Populate Redis
+                        state = {
+                            "mode": mode,
+                            "last_manualmode_triggered_by": last_manual or ""
+                        }
+
+                        await redis_client.hset(redis_key, mapping=state)
+
+                    else:
+                        mode = state.get("mode")
+                        last_manual = state.get("last_manualmode_triggered_by")
                     print("event!!!", event)
 
                     
@@ -676,14 +707,16 @@ async def redis_listener(fastapi_app):
 
                                     # Get all active sids for this org
                                     org_connections_key = f"org:{org_id}:connections"
-                                    sids_bytes = await redis_client.smembers(org_connections_key)
-                                    sids = [s.decode() for s in sids_bytes]
+                                   
+                                    sids = await redis_client.smembers(org_connections_key)
+                                    
 
                                     # Find a connection that belongs to the admin_user_id
                                     admin_sid = None
                                     for sid in sids:
                                         conn_data = await redis_client.hgetall(f"connection:{sid}")
-                                        if conn_data.get(b"user_id") and int(conn_data[b"user_id"]) == int(admin_user_id):
+                                        user_id_val = conn_data.get("user_id")
+                                        if user_id_val and int(user_id_val) == int(admin_user_id):
                                             admin_sid = sid
                                             break
 
@@ -759,29 +792,56 @@ async def logout_user(app, *, session_id: str, reason: str = "manual"):
     user_id = user_data.get("user_id")
     org_id = user_data.get("user_org")
 
-    if not org_id:
-        await redis.delete(session_key)
-        return False
-
-    # Find sockets belonging to this session
-    org_sids = await redis.smembers(f"org:{org_id}:connections")
-    session_sids = []
-
-    for sid in org_sids:
-        conn = await redis.hgetall(f"connection:{sid}")
-        if conn and conn.get("session_id") == session_id:
-            session_sids.append(sid)
-
-    # Delete the session
     await redis.delete(session_key)
+        
+    if org_id:
+        # Find sockets belonging to this session
+        org_sids = await redis.smembers(f"org:{org_id}:connections")
+        session_sids = []
 
-    # Disconnect sockets → triggers disconnect handler
-    for sid in session_sids:
-        await sio.emit("force_logout_index", {"reason": reason}, to=sid)
-        await sio.disconnect(sid)
+        for sid in org_sids:
+            conn = await redis.hgetall(f"connection:{sid}")
+            if conn and conn.get("session_id") == session_id:
+                session_sids.append(sid)
 
-    print(f"[Logout] session {session_id} logged out ({len(session_sids)} sockets)")
 
+        # Disconnect sockets → triggers disconnect handler
+        for sid in session_sids:
+            try:
+                await sio.call(
+                    "force_logout_index",
+                    {"reason": reason},
+                    to=sid,
+                    timeout=2
+                )
+            except Exception:
+                print("[Logout] client did not ACK, forcing disconnect anyway")
+
+            await sio.disconnect(sid)
+
+        try:
+            sids = await redis.smembers(f"org:{org_id}:connections")
+
+            await asyncio.gather(
+                *[
+                    sio.emit(
+                        'user_online_status_changed',
+                        {'user_id': user_id, 'is_online': False},
+                        to=sid
+                    )
+                    for sid in sids
+                ],
+                return_exceptions=True
+            )
+
+        except Exception as e:
+            print("Socket error:", e)
+
+    
+        print(f"[Logout] session {session_id} logged out ({len(session_sids)} sockets)")
+    else:
+        print(f"[Logout] session {session_id} deleted (no org)")
+    
     return True
 
 
@@ -816,3 +876,65 @@ async def cleanup_idle_sessions(app):
 
         # Wait before next check
         await asyncio.sleep(60)
+
+
+async def sync_subscriptions_task(app=None, interval_seconds: int = 900):
+    print("Subscription sync task started")
+    while True:
+        try:
+            async with async_session_scope() as session:
+                clients_result = await session.execute(
+                    select(Client).where(Client.stripe_subscription_id.isnot(None))
+                )
+                clients = clients_result.scalars().all()
+                print(f"[SYNC] Found {len(clients)} clients with Stripe subscriptions")
+
+                for client in clients:
+                    try:
+                        print(f"[SYNC] Checking client {client.id} (Stripe ID: {client.stripe_subscription_id})")
+                        stripe_sub = stripe.Subscription.retrieve(client.stripe_subscription_id)
+                       
+
+                        start_ts = stripe_sub.get('current_period_start')
+                        end_ts = stripe_sub.get('current_period_end')
+                        if start_ts is None or end_ts is None:
+                            item = stripe_sub.get('items', {}).get('data', [{}])[0]
+                            start_ts = start_ts or item.get('current_period_start')
+                            end_ts = end_ts or item.get('current_period_end')
+
+                        status = stripe_sub.get('status')
+
+                        updated = False
+                        if start_ts:
+                            start_dt = datetime.fromtimestamp(start_ts)
+                            if client.subscription_start_date != start_dt:
+                                client.subscription_start_date = start_dt
+                                updated = True
+                        if end_ts:
+                            end_dt = datetime.fromtimestamp(end_ts)
+                            if client.subscription_end_date != end_dt:
+                                client.subscription_end_date = end_dt
+                                updated = True
+                        else:
+                            print(f"[SYNC WARN] client {client.id} still has no end date")
+                        if status and client.subscription_status != status:
+                            client.subscription_status = status
+                            updated = True
+                        if updated:
+                            print(f"[SYNC] Updated client {client.id}: status={status}, start={start_ts}, end={end_ts}")
+
+                    except stripe.error.InvalidRequestError as e:
+                        print(f"[SYNC ERROR] Stripe subscription not found for client {client.id}: {e}")
+                    except Exception as e:
+                        print(f"[SYNC ERROR] Unexpected error for client {client.id}: {e}")
+
+                await session.flush()
+                print(f"[SYNC] Flush completed for {len(clients)} clients")
+
+        except asyncio.CancelledError:
+            print("Subscription sync task cancelled")
+            break
+        except Exception as e:
+            print(f"[SYNC] Error during subscription sync: {e}")
+
+        await asyncio.sleep(interval_seconds)

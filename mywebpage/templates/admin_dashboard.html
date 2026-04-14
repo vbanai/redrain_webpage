@@ -24,7 +24,7 @@
   }
           .header0{
   width: 100%;
-  height: 65px;
+  height: 48px;
   display: flex;
   flex-direction: row;
   justify-content: space-between;
@@ -313,7 +313,7 @@
             cursor: pointer;
             display: flex;
             align-items: center;
-            font-size: 14px;
+            font-size: clamp(7px, 0.8vw, 12px);
             transition: background-color 0.2s;
            
           }
@@ -576,6 +576,7 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
         <script src="\static\script_admin.js"></script>
         <script src="\static\script_admin2.js"></script>
+      
         <script>
             document.addEventListener('DOMContentLoaded', function() {
             var circleDropdownContent = document.getElementById('circleDropdownContent');
@@ -637,6 +638,6 @@
 
         });
         </script>
-        
+        <script src="/static/session-manager.js"></script>
     </body>
 </html>
